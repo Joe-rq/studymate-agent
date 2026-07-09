@@ -4,7 +4,7 @@ import type { Chunk } from './chunker.js';
 import type { LLMClient } from '../core/llm.js';
 import type { Event } from '../core/types.js';
 import { createEventId, appendEvent } from '../core/event_log.js';
-import { Paths } from '../core/paths.js';
+import { Paths, PROMPTS_SOURCE } from '../core/paths.js';
 
 export interface Concept {
   id: string;
@@ -25,7 +25,7 @@ export async function mapConcepts(
   llm: LLMClient,
   eventLogFile: string
 ): Promise<ConceptMap> {
-  const promptPath = path.join(Paths.prompts, 'concept_mapper.txt');
+  const promptPath = path.join(PROMPTS_SOURCE, 'concept_mapper.txt');
   let system: string;
   try {
     system = await fs.readFile(promptPath, 'utf-8');

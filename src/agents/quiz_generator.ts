@@ -4,7 +4,7 @@ import type { LLMClient } from '../core/llm.js';
 import type { Concept } from './concept_mapper.js';
 import type { Event } from '../core/types.js';
 import { createEventId, appendEvent } from '../core/event_log.js';
-import { Paths } from '../core/paths.js';
+import { Paths, PROMPTS_SOURCE } from '../core/paths.js';
 
 export interface Question {
   id: string;
@@ -28,7 +28,7 @@ export async function generateQuiz(
   date: string,
   eventLogFile: string
 ): Promise<Quiz> {
-  const promptPath = path.join(Paths.prompts, 'quiz_generator.txt');
+  const promptPath = path.join(PROMPTS_SOURCE, 'quiz_generator.txt');
   let system: string;
   try {
     system = await fs.readFile(promptPath, 'utf-8');

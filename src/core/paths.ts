@@ -2,6 +2,8 @@ import path from 'path';
 
 export const WORKSPACE_ROOT = path.join(process.cwd(), 'workspace');
 
+export const PROMPTS_SOURCE = path.join(process.cwd(), 'src', 'prompts');
+
 export const Paths = {
   workspace: WORKSPACE_ROOT,
   materials: path.join(WORKSPACE_ROOT, 'materials'),

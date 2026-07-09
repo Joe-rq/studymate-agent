@@ -13,6 +13,15 @@ import { generateQuiz } from './agents/quiz_generator.js';
 import { gradeQuiz, saveResult } from './agents/grader.js';
 import { analyzeMistakes, saveMistakes } from './agents/mistake_analyzer.js';
 import { createLLMClient } from './core/llm.js';
+import { createMockLLMClient } from './core/mock_llm.js';
+
+function createLLM() {
+  if (process.env.OPENAI_API_KEY) {
+    return createLLMClient();
+  }
+  console.warn('Warning: OPENAI_API_KEY not set, using mock LLM for demo');
+  return createMockLLMClient();
+}
 
 program
   .name('studymate')
@@ -52,7 +61,7 @@ program
   .requiredOption('--exam <date>', 'Exam date YYYY-MM-DD')
   .requiredOption('--daily <minutes>', 'Daily minutes')
   .action(async (options: { exam: string; daily: string }) => {
-    const llm = createLLMClient();
+    const llm = createLLM();
     const chunkFiles = await fs.readdir(Paths.chunks).catch(() => []);
     if (chunkFiles.length === 0) {
       console.error('No chunks found. Run: studymate ingest <pdf|md>');
@@ -103,7 +112,7 @@ program
   .command('quiz')
   .description('Generate quiz for today')
   .action(async () => {
-    const llm = createLLMClient();
+    const llm = createLLM();
     const today = new Date().toISOString().split('T')[0];
     const conceptsPath = path.join(Paths.graph, 'concepts.json');
     const concepts = JSON.parse(await fs.readFile(conceptsPath, 'utf-8')).concepts;
