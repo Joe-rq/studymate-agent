@@ -11,6 +11,12 @@ build/
 
 # User data (workspace contains personal study materials)
 workspace/
+workspace_test*/
+workspace_*/
+
+# Test artifacts
+tests/**/*.md
+!tests/**/*.test.md
 
 # Environment and secrets
 .env
