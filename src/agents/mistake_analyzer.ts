@@ -47,6 +47,24 @@ export async function saveMistakes(
   const profile = { date, weakNodes, mistakeCount: mistakes.length };
   await fs.writeFile(path.join(Paths.mistakes, 'weakness_profile.json'), JSON.stringify(profile, null, 2), 'utf-8');
 
+  if (mistakes.length > 0) {
+    const lines: string[] = [
+      '---',
+      `date: ${date}`,
+      'tags: #studymate #mistake #weakness',
+      '---',
+      '',
+      `# ${date} 错题本`,
+      '',
+      `**薄弱知识点**：${weakNodes.join(', ')}`,
+      '',
+    ];
+    for (const m of mistakes) {
+      lines.push(`- [[${m.nodeId}]] — 错误类型：${m.errorType} — 下次复习：${m.nextReview}`);
+    }
+    await fs.writeFile(path.join(Paths.mistakes, `${date}_wrong.md`), lines.join('\n'), 'utf-8');
+  }
+
   const event: Event = {
     id: createEventId(),
     timestamp: new Date().toISOString(),

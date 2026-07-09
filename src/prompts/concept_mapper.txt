@@ -14,7 +14,17 @@ Return JSON in this exact format:
 
 Rules:
 - Extract 3-10 core concepts total
-- Use ids like node_1, node_2
+- Use ids like node_1, node_2, node_3
 - A concept should have 0-2 prerequisites
 - Keep definitions under 50 words
-- Respond with JSON only
+- Every id in prerequisiteIds MUST match an id from the returned concepts list
+- Do not invent prerequisites that are not in the concepts list
+- Respond with JSON only, no markdown fences, no extra text
+
+Example:
+{
+  "concepts": [
+    { "id": "node_1", "name": "需求曲线", "definition": "表示商品价格与需求量之间关系的曲线", "prerequisiteIds": [] },
+    { "id": "node_2", "name": "价格弹性", "definition": "需求量对价格变动的敏感程度", "prerequisiteIds": ["node_1"] }
+  ]
+}

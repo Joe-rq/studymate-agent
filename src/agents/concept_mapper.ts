@@ -37,7 +37,24 @@ export async function mapConcepts(
 
   const raw = await llm.completeJSON<{
     concepts: Array<{ id: string; name: string; definition: string; prerequisiteIds: string[] }>;
-  }>(system, user, { temperature: 0.3 });
+  }>(system, user, { temperature: 0.3, retries: 3 });
+
+  if (!Array.isArray(raw.concepts) || raw.concepts.length === 0) {
+    throw new Error('Concept mapper returned no concepts');
+  }
+
+  const conceptIds = new Set(raw.concepts.map((c) => c.id));
+  for (const c of raw.concepts) {
+    if (!c.id || typeof c.id !== 'string') throw new Error(`Invalid concept id: ${JSON.stringify(c.id)}`);
+    if (!c.name || typeof c.name !== 'string') throw new Error(`Concept ${c.id} missing name`);
+    if (typeof c.definition !== 'string') throw new Error(`Concept ${c.id} missing definition`);
+    if (!Array.isArray(c.prerequisiteIds)) throw new Error(`Concept ${c.id} prerequisiteIds must be array`);
+    for (const pre of c.prerequisiteIds) {
+      if (!conceptIds.has(pre)) {
+        throw new Error(`Concept ${c.id} references unknown prerequisite ${pre}`);
+      }
+    }
+  }
 
   const concepts: Concept[] = raw.concepts.map((c) => ({
     ...c,

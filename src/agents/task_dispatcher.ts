@@ -20,7 +20,12 @@ export async function dispatchToday(plan: DailyPlan, eventLogFile: string): Prom
     status: 'pending',
   }));
 
+  const tags = ['#studymate', '#daily-task'];
+  const taskTags = tasks.map((t) => (t.type === 'learn' ? '#learn' : '#review'));
+  const allTags = [...new Set([...tags, ...taskTags])].join(' ');
+
   const markdown =
+    `---\ndate: ${plan.date}\ntags: ${allTags}\n---\n\n` +
     `# ${plan.date} 学习任务\n\n` +
     tasks
       .map((t) => `- [ ] **${t.type === 'learn' ? '学习' : '复习'}** ${t.nodeId}（${t.duration} 分钟）`)

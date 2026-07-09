@@ -17,7 +17,23 @@ Return JSON in this exact format:
 
 Rules:
 - Generate 3-5 questions
-- Each question tests one concept
-- Answer is 0-based index
-- Provide clear explanations
-- Respond with JSON only
+- Each question tests exactly one concept from the provided list
+- Answer is a 0-based index into the options array (0 = first option)
+- nodeId MUST match one of the concept ids provided by the user
+- Provide clear explanations tied to the concept definition
+- Respond with JSON only, no markdown fences, no extra text
+
+Example:
+{
+  "questions": [
+    {
+      "id": "q_1",
+      "type": "single_choice",
+      "stem": "当需求价格弹性大于1时，价格上升会导致总收入如何变化？",
+      "options": ["增加", "减少", "不变", "无法确定"],
+      "answer": 1,
+      "explanation": "弹性大于1表示需求量变动百分比大于价格变动百分比，因此价格上升会使总收入减少。",
+      "nodeId": "node_2"
+    }
+  ]
+}

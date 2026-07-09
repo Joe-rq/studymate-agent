@@ -37,7 +37,27 @@ export async function generateQuiz(
   }
 
   const user = concepts.map((c) => `## ${c.name}\n${c.definition}`).join('\n\n');
-  const raw = await llm.completeJSON<{ questions: Question[] }>(system, user, { temperature: 0.7 });
+  const raw = await llm.completeJSON<{ questions: Question[] }>(system, user, { temperature: 0.7, retries: 3 });
+
+  if (!Array.isArray(raw.questions) || raw.questions.length === 0) {
+    throw new Error('Quiz generator returned no questions');
+  }
+
+  const validNodeIds = new Set(concepts.map((c) => c.id));
+  for (const q of raw.questions) {
+    if (!q.stem || typeof q.stem !== 'string') throw new Error('Question missing stem');
+    if (!Array.isArray(q.options) || q.options.length < 2) {
+      throw new Error('Question must have at least 2 options');
+    }
+    if (typeof q.answer !== 'number' || q.answer < 0 || q.answer >= q.options.length) {
+      throw new Error(`Question answer index out of range: ${q.answer}`);
+    }
+    if (!q.explanation || typeof q.explanation !== 'string') throw new Error('Question missing explanation');
+    if (!q.nodeId || !validNodeIds.has(q.nodeId)) {
+      throw new Error(`Question references unknown concept: ${q.nodeId}`);
+    }
+    if (q.type !== 'single_choice') throw new Error(`Unsupported question type: ${q.type}`);
+  }
 
   const quiz: Quiz = {
     id: `quiz_${date}`,
@@ -51,7 +71,7 @@ export async function generateQuiz(
   await fs.mkdir(Paths.quizzes, { recursive: true });
   await fs.writeFile(path.join(Paths.quizzes, `${date}_quiz.json`), JSON.stringify(quiz, null, 2), 'utf-8');
 
-  const lines: string[] = [];
+  const lines: string[] = ['---', `date: ${date}`, 'tags: #studymate #quiz #daily-quiz', '---', '', `# ${date} 每日测验\n`];
   for (let i = 0; i < quiz.questions.length; i++) {
     const q = quiz.questions[i];
     lines.push(`${i + 1}. ${q.stem}`);
@@ -59,7 +79,7 @@ export async function generateQuiz(
       lines.push(`   ${String.fromCharCode(65 + j)}. ${q.options[j]}`);
     }
   }
-  const markdown = `# ${date} 每日测验\n\n${lines.join('\n')}`;
+  const markdown = lines.join('\n');
   await fs.writeFile(path.join(Paths.quizzes, `${date}_quiz.md`), markdown, 'utf-8');
 
   const event: Event = {
