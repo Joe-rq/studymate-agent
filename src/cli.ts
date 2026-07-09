@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { program } from 'commander';
+import { initWorkspace } from './core/workspace.js';
 
 program
   .name('studymate')
@@ -9,8 +10,9 @@ program
 program
   .command('init')
   .description('Initialize workspace')
-  .action(() => {
-    console.log('init: TODO');
+  .action(async () => {
+    await initWorkspace();
+    console.log('Workspace initialized at ./workspace');
   });
 
 program.parse();
