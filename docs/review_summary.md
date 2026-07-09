@@ -18,7 +18,9 @@
 
 ---
 
-## 2. 本地资料库（`/Users/qrq/AI/AI-resource`）参考价值
+## 2. 外部参考：本地资料库 + pi.dev
+
+### 2.1 本地资料库（`/Users/qrq/AI/AI-resource`）
 
 该仓库本身就是一个「Obsidian + AI/Agent」的研究知识库，与备考 Agent 高度相关的内容：
 
@@ -34,6 +36,22 @@
 | `references/tooling-tips.md` | Obsidian 插件配置、MCP、语义搜索配置参考 |
 
 **空白点**：没有专门的 Anki/SRS/间隔重复文档，也没有 K12/考证/考研类 Agent 案例。业务层面的备考细节需要自己补。
+
+### 2.2 pi.dev（https://pi.dev/）
+
+pi.dev 是一个 minimal agent harness，强调「adapt the harness, not your workflow」。对 studymate-agent 的借鉴：
+
+| pi.dev 特性 | 对我们的启发 | 落地建议 |
+|---|---|---|
+| **AGENTS.md / SYSTEM.md 作为运行时指令** | 项目级指令不只是文档，可被 harness 加载 | 把 `AGENTS.md` 升级为 Agent 可读取的配置约定 |
+| **Prompt Templates（`/name` 展开）** | Prompt 作为可复用、可共享的 Markdown 文件 | 将 `src/prompts/` 下模板进一步参数化、版本化 |
+| **Skills 能力包** | 把能力拆成可插拔的技能单元 | 把出题、批改、计划调整封装为独立 skill，便于扩展 |
+| **Extensions 扩展系统** | 不把所有功能做进核心，支持第三方扩展 | 设计插件接口，未来支持 Anki/FSRS/Obsidian MCP 插件 |
+| **15+ LLM Providers** | 多模型路由是基础设施 | 当前仅支持 OpenAI-compatible + Mock，增加 Ollama 本地模型 |
+| **Tree-structured history** | 会话历史以树状保存，支持分支/回溯 | 学习历史也可以用 tree 结构保存，支持「回退到某天的计划」 |
+| **Print/JSON / RPC / SDK 四种模式** | 同一套能力输出多种接口 | CLI 之外可提供 JSON 输出模式，方便被 Obsidian 插件或工作流调用 |
+
+**关键借鉴**：不要把所有智能都塞进 CLI，而是把每个 Agent 能力做成可被调用的「技能/扩展」，让 Obsidian、脚本、其他工具都能接入。
 
 ---
 
@@ -108,14 +126,27 @@
 
 ---
 
-## 6. 下一步建议
+## 6. 下一步建议（基于当前状态）
 
-1. **确认 MVP PRD**：检查范围是否仍然过大，是否需要进一步收缩。
-2. **定义文件 Schema**：`workspace/` 下各目录的 JSON Schema 先定稿。
-3. **搭建事件日志基础设施**：先做 `event_log.ts` + `foldState`，这是整个系统的底座。
-4. **逐个 Agent 实现**：MaterialCollector → Chunker → ConceptMapper → Planner → TaskDispatcher → QuizGenerator → Grader → MistakeAnalyzer → PlanAdjuster。
-5. **Obsidian vault 模板**：提供开箱即用的目录结构和 Daily note 模板。
-6. **跑通第一个用户故事**：上传 1 份 PDF → 生成计划 → 完成答题 → 看到错题回流。
+当前项目已完成 MVP 闭环：6 个 CLI 命令、9 个微 Agent、事件日志、Mock LLM、测试和路演材料均已就绪。接下来按优先级推进：
+
+### 6.1 赛前必做（黑客松前）
+
+1. **真实 LLM 验证**：用 `OPENAI_API_KEY` 跑一次完整闭环，检查 `concept_mapper` 和 `quiz_generator` 输出质量，修复 prompt 问题。
+2. **稳定性加固**：给 LLM 调用加重试、给关键 JSON 输出加校验、确保 Mock 和真实模型都能跑通。
+3. **Obsidian 包装**：给 `tasks/`、`mistakes/` 等 Markdown 加入 Obsidian 标签，生成截图或 GIF。
+4. **路演彩排**：完整排练 3 次以上，控制在 3 分钟内，准备离线 Demo 兜底方案。
+
+详见：`docs/plans/hackathon-2day-plan.md`
+
+### 6.2 赛后可扩展方向
+
+1. **技能化/插件化**：参考 pi.dev 的 Skills/Extensions，把出题、批改、计划调整拆成可插拔能力。
+2. **多模型支持**：增加 Ollama 本地模型，降低使用成本。
+3. **复杂记忆层**：引入向量检索 + 知识图谱，替代当前简单的概念列表。
+4. **FSRS 间隔重复**：替换固定艾宾浩斯间隔，提升复习效率。
+5. **Obsidian MCP / 插件**：让 Agent 能主动读写 Obsidian vault。
+6. **Web 看板**：为不习惯终端的用户提供可视化界面。
 
 ---
 
@@ -144,4 +175,6 @@
 ---
 
 > **最后更新**：2026-07-09  
-> **对应 PRD**：`智能备考Agent_PRD_MVP_v0.1.md`
+> **对应 PRD**：`docs/PRD_MVP_v0.1.md`  
+> **两天作战计划**：`docs/plans/hackathon-2day-plan.md`  
+> **外部参考**：`/Users/qrq/AI/AI-resource`、https://pi.dev/
