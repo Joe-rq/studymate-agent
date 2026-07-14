@@ -38,6 +38,9 @@ Thumbs.db
 *.swp
 *.swo
 
+# ZCode agent tooling
+.zcode/
+
 # Test coverage
 coverage/
 .nyc_output/

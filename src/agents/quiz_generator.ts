@@ -26,7 +26,9 @@ export async function generateQuiz(
   concepts: Concept[],
   llm: LLMClient,
   date: string,
-  eventLogFile: string
+  eventLogFile: string,
+  /** 历史薄弱知识点 ID，用于引导 LLM 优先出题。来自 weakness_profile.json。 */
+  focusNodeIds?: string[]
 ): Promise<Quiz> {
   const promptPath = path.join(PROMPTS_SOURCE, 'quiz_generator.txt');
   let system: string;
@@ -36,7 +38,21 @@ export async function generateQuiz(
     system = `You are an exam question generator. Given study concepts, create multiple-choice questions. Respond with JSON only. Format: { "questions": [{ "id": "q_1", "type": "single_choice", "stem": "...", "options": ["..."], "answer": 0, "explanation": "...", "nodeId": "node_1" }] }`;
   }
 
-  const user = concepts.map((c) => `## ${c.name}\n${c.definition}`).join('\n\n');
+  // 若存在薄弱点，在 user 消息开头标注，引导 LLM 优先针对这些出题（断点③）
+  const conceptById = new Map(concepts.map((c) => [c.id, c]));
+  const focusLines: string[] = [];
+  if (focusNodeIds && focusNodeIds.length > 0) {
+    const focusNames = focusNodeIds
+      .map((id) => conceptById.get(id)?.name)
+      .filter((n): n is string => Boolean(n));
+    if (focusNames.length > 0) {
+      focusLines.push('学生薄弱知识点（请优先针对这些出题）：' + focusNames.join(', '));
+      focusLines.push('');
+    }
+  }
+
+  const user =
+    focusLines.join('\n') + concepts.map((c) => `## ${c.name}\n${c.definition}`).join('\n\n');
   const raw = await llm.completeJSON<{ questions: Question[] }>(system, user, { temperature: 0.7, retries: 3 });
 
   if (!Array.isArray(raw.questions) || raw.questions.length === 0) {
