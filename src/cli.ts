@@ -12,6 +12,10 @@ import { dispatchToday } from './agents/task_dispatcher.js';
 import { generateQuiz } from './agents/quiz_generator.js';
 import { gradeQuiz, saveResult } from './agents/grader.js';
 import { analyzeMistakes, saveMistakes } from './agents/mistake_analyzer.js';
+import { updateMastery, saveMastery } from './agents/mastery_tracker.js';
+import { adjustPlan, saveAdjustedPlan } from './agents/plan_adjuster.js';
+import type { ConceptMap } from './agents/concept_mapper.js';
+import type { StudyPlan } from './agents/planner.js';
 import { createLLMClient } from './core/llm.js';
 import { createMockLLMClient } from './core/mock_llm.js';
 
@@ -116,7 +120,22 @@ program
     const today = new Date().toISOString().split('T')[0];
     const conceptsPath = path.join(Paths.graph, 'concepts.json');
     const concepts = JSON.parse(await fs.readFile(conceptsPath, 'utf-8')).concepts;
-    const quiz = await generateQuiz(concepts, llm, today, Paths.eventLog);
+
+    // 断点③：读取薄弱知识点，引导出题优先覆盖薄弱点
+    let focusNodeIds: string[] | undefined;
+    try {
+      const profilePath = path.join(Paths.mistakes, 'weakness_profile.json');
+      const profile = JSON.parse(await fs.readFile(profilePath, 'utf-8'));
+      const weakNodes: unknown = profile.weakNodes;
+      if (Array.isArray(weakNodes) && weakNodes.length > 0) {
+        focusNodeIds = weakNodes as string[];
+        console.log(`检测到薄弱知识点 ${focusNodeIds.length} 个，将优先出题`);
+      }
+    } catch {
+      // weakness_profile.json 不存在（首次答题前），正常跳过
+    }
+
+    const quiz = await generateQuiz(concepts, llm, today, Paths.eventLog, focusNodeIds);
     console.log(`Generated quiz: ${quiz.questions.length} questions`);
     console.log(`See: ${path.join(Paths.quizzes, `${today}_quiz.md`)}`);
   });
@@ -137,6 +156,40 @@ program
     console.log(`Mistakes: ${result.mistakes.length}`);
     if (mistakes.length > 0) {
       console.log(`Weak nodes: ${mistakes.map((m) => m.nodeId).join(', ')}`);
+    }
+
+    // 断点①：用本次批改结果更新各概念掌握度，写回 concepts.json
+    const conceptMap: ConceptMap = JSON.parse(
+      await fs.readFile(path.join(Paths.graph, 'concepts.json'), 'utf-8')
+    );
+    const masteryUpdate = updateMastery(conceptMap, result);
+    await saveMastery(masteryUpdate, Paths.eventLog);
+    if (masteryUpdate.changes.length > 0) {
+      console.log('\n掌握度更新：');
+      for (const c of masteryUpdate.changes) {
+        const arrow = c.newMastery >= c.oldMastery ? '↑' : '↓';
+        console.log(`  ${c.nodeName}: ${c.oldMastery.toFixed(2)} ${arrow} ${c.newMastery.toFixed(2)}（本次正确率 ${(c.sessionScore * 100).toFixed(0)}%）`);
+      }
+    }
+
+    // 断点②：根据最新掌握度调整明天及以后的计划
+    try {
+      const plan: StudyPlan = JSON.parse(
+        await fs.readFile(path.join(Paths.plan, 'plan_master.json'), 'utf-8')
+      );
+      const { plan: adjustedPlan, adjustments } = adjustPlan(plan, masteryUpdate.conceptMap);
+      await saveAdjustedPlan(adjustedPlan, adjustments, Paths.eventLog);
+      if (adjustments.length > 0) {
+        console.log(`\n已为 ${adjustments.length} 项复习任务加时（明日及以后）：`);
+        for (const a of adjustments) {
+          console.log(`  ${a.date} — ${a.nodeId} +${a.addedMinutes}分钟（掌握度 ${a.mastery.toFixed(2)}）`);
+        }
+      } else {
+        console.log('\n暂无需调整的计划项。');
+      }
+    } catch {
+      // plan_master.json 不存在（未生成计划），跳过调整
+      console.log('\n未找到学习计划，跳过计划调整。');
     }
   });
 
