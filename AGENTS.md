@@ -46,7 +46,14 @@ The project follows a 12-Factor Agents style: LLMs produce structured JSON decis
 │   │   ├── workspace.ts          # initWorkspace()
 │   │   ├── event_log.ts          # appendEvent(), loadEvents()
 │   │   ├── llm.ts                # OpenAI-compatible LLM client
-│   │   └── mock_llm.ts           # Mock LLM client for demo without API key
+│   │   ├── mock_llm.ts           # Mock LLM client for demo without API key
+│   │   ├── character.ts          # Study buddy character schema + load/select/persist
+│   │   └── context_reader.ts     # gatherStudyContext(): aggregates mastery/score/weakness
+│   ├── characters/               # Built-in buddy personas (JSON)
+│   │   ├── lu_xingye.json        # 温柔阳光学长
+│   │   ├── shen_ye.json          # 高冷学霸
+│   │   ├── su_nian.json          # 元气少女
+│   │   └── tuanzi.json           # 治愈萌系吉祥物
 │   ├── agents/                   # Domain agents
 │   │   ├── material_collector.ts # PDF / Markdown import
 │   │   ├── chunker.ts            # Header-based chunking
@@ -56,10 +63,13 @@ The project follows a 12-Factor Agents style: LLMs produce structured JSON decis
 │   │   ├── quiz_generator.ts     # LLM quiz generation
 │   │   ├── grader.ts             # Quiz grading
 │   │   ├── mistake_analyzer.ts   # Mistake extraction
-│   │   └── plan_adjuster.ts      # Plan adjustment based on mistakes
+│   │   ├── mastery_tracker.ts    # EMA mastery update from quiz results
+│   │   ├── plan_adjuster.ts      # Plan adjustment based on mistakes
+│   │   └── study_buddy.ts        # Personified buddy: chat + key-moment interjections
 │   └── prompts/                  # LLM system prompts
 │       ├── concept_mapper.txt
-│       └── quiz_generator.txt
+│       ├── quiz_generator.txt
+│       └── buddy_dialogue.txt    # Study buddy persona/conversation prompt
 ├── tests/                        # Vitest tests mirroring src/ structure
 │   ├── core/
 │   └── agents/
@@ -114,6 +124,9 @@ workspace/
 │   ├── mistake_log.jsonl
 │   └── weakness_profile.json
 ├── progress/
+├── buddy/
+│   └── chat_history.jsonl  # Study buddy conversation history (JSONL)
+├── config.json         # User config (selected buddy character id)
 ├── prompts/            # Copied/used prompt templates (reserved)
 └── event_log/
     └── events.jsonl    # Append-only event log
@@ -153,6 +166,21 @@ init → ingest (pdf|md) → plan --exam YYYY-MM-DD --daily N → today → quiz
 - `today` reads today’s daily plan, dispatches tasks, and writes a Markdown todo file.
 - `quiz` reads `workspace/graph/concepts.json`, generates questions with the LLM, and writes quiz files.
 - `grade` compares user answers against today’s quiz, writes results, and updates the weakness profile.
+
+### Personified Study Buddy (备考搭子)
+
+A separate interaction layer layered on top of the study loop:
+
+```
+character list → character select <id> → chat          # one-time selection + ongoing chat
+today / quiz / grade → buddy interjects a one-liner    # automatic, at command end
+```
+
+- `character list` scans `src/characters/*.json` and prints each buddy’s name, tagline, and form of address.
+- `character select <id>` persists the choice to `workspace/config.json` (`selectedCharacterId`); defaults to `lu_xingye`.
+- `chat` opens a REPL that calls `buddyChat()` — each turn reads the persona + `StudyContext` + recent history and appends to `workspace/buddy/chat_history.jsonl`.
+- The `today`/`quiz`/`grade` commands call `buddyInterject()` at their end; the one-liner adapts to score, mastery trend, and days-to-exam. Interjections fail silently (never block the main command).
+- `src/core/context_reader.ts` (`gatherStudyContext()`) aggregates `concepts.json` (avg mastery), `weakness_profile.json` (weak nodes), `plan_master.json` (days-to-exam), and the latest `results/*_result.json` (score). Every field degrades gracefully to empty/null when files are missing, so the buddy works even on a fresh workspace.
 
 ---
 

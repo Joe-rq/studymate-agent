@@ -2,6 +2,7 @@
 import { program } from 'commander';
 import fs from 'fs/promises';
 import path from 'path';
+import readline from 'readline';
 import { initWorkspace } from './core/workspace.js';
 import { Paths } from './core/paths.js';
 import { importPDF, importMarkdown } from './agents/material_collector.js';
@@ -18,6 +19,14 @@ import type { ConceptMap } from './agents/concept_mapper.js';
 import type { StudyPlan } from './agents/planner.js';
 import { createLLMClient } from './core/llm.js';
 import { createMockLLMClient } from './core/mock_llm.js';
+import {
+  listCharacters,
+  loadCharacter,
+  getSelectedCharacter,
+  saveSelectedCharacter,
+} from './core/character.js';
+import { gatherStudyContext } from './core/context_reader.js';
+import { buddyChat, buddyInterject, loadChatHistory } from './agents/study_buddy.js';
 
 function createLLM() {
   if (process.env.OPENAI_API_KEY) {
@@ -25,6 +34,27 @@ function createLLM() {
   }
   console.warn('Warning: OPENAI_API_KEY not set, using mock LLM for demo');
   return createMockLLMClient();
+}
+
+/**
+ * 在 today/quiz/grade 等命令末尾植入一句搭子台词。
+ * 静默失败：任何错误（无角色文件、LLM 失败）都不阻塞主流程。
+ */
+async function buddyLine(
+  event: 'today' | 'quiz' | 'grade',
+  extra?: { score?: number }
+): Promise<void> {
+  try {
+    const character = await getSelectedCharacter();
+    const ctx = await gatherStudyContext();
+    const llm = createLLM();
+    const line = await buddyInterject(event, character, ctx, llm, extra);
+    if (line) {
+      console.log(`\n${character.avatar} ${character.name}：${line}`);
+    }
+  } catch {
+    // 搭子台词是锦上添花，失败不影响主命令
+  }
 }
 
 program
@@ -106,6 +136,7 @@ program
       for (const t of tasks) {
         console.log(`- ${t.type === 'learn' ? '学习' : '复习'} ${t.nodeId} (${t.duration}min)`);
       }
+      await buddyLine('today');
     } catch {
       console.error(`No plan found for ${today}`);
       process.exit(1);
@@ -138,6 +169,7 @@ program
     const quiz = await generateQuiz(concepts, llm, today, Paths.eventLog, focusNodeIds);
     console.log(`Generated quiz: ${quiz.questions.length} questions`);
     console.log(`See: ${path.join(Paths.quizzes, `${today}_quiz.md`)}`);
+    await buddyLine('quiz');
   });
 
 program
@@ -191,6 +223,92 @@ program
       // plan_master.json 不存在（未生成计划），跳过调整
       console.log('\n未找到学习计划，跳过计划调整。');
     }
+
+    // 点③：搭子对本次成绩的一句点评（情境感知：分数驱动语气）
+    await buddyLine('grade', { score: result.totalScore });
+  });
+
+// ── 点③：拟人化备考搭子 ──────────────────────────────────────────
+const characterCmd = program.command('character').description('Manage your study buddy (备考搭子)');
+
+characterCmd
+  .command('list')
+  .description('List available characters')
+  .action(async () => {
+    const characters = await listCharacters();
+    if (characters.length === 0) {
+      console.log('暂无可用角色。');
+      return;
+    }
+    const selectedId = await getSelectedCharacter().then((c) => c.id).catch(() => '');
+    console.log('可选备考搭子：\n');
+    for (const c of characters) {
+      const mark = c.id === selectedId ? ' ✓（当前）' : '';
+      console.log(`${c.avatar} ${c.name} [${c.id}]${mark}`);
+      console.log(`   ${c.tagline}`);
+      console.log(`   称呼你「${c.formOfAddress}」· 自称「${c.selfAddress}」\n`);
+    }
+  });
+
+characterCmd
+  .command('select')
+  .description('Select a character as your buddy')
+  .argument('<id>', 'Character id (e.g. lu_xingye)')
+  .action(async (id: string) => {
+    try {
+      const c = await loadCharacter(id);
+      await saveSelectedCharacter(id);
+      console.log(`已选择 ${c.avatar} ${c.name} 作为你的备考搭子。`);
+      console.log(`${c.name}：${c.greetingTemplates[0]?.replace('{user_task}', '欢迎') ?? '你好'}`);
+    } catch {
+      console.error(`未找到角色「${id}」。运行 studymate character list 查看可选角色。`);
+      process.exit(1);
+    }
+  });
+
+program
+  .command('chat')
+  .description('Chat with your study buddy')
+  .action(async () => {
+    const character = await getSelectedCharacter();
+    const ctx = await gatherStudyContext();
+    const llm = createLLM();
+    const history = await loadChatHistory();
+
+    console.log(`${character.avatar} ${character.name} 已上线。输入「exit」或「退出」结束对话。\n`);
+    if (history.length === 0) {
+      const greet = character.greetingTemplates[0]?.replace('{user_task}', '今天') ?? '你好呀';
+      console.log(`${character.avatar} ${character.name}：${greet}\n`);
+    }
+
+    const rl = readline.createInterface({
+      input: process.stdin,
+      output: process.stdout,
+      prompt: '你 > ',
+    });
+    let closed = false;
+    rl.prompt();
+
+    rl.on('line', async (input: string) => {
+      const trimmed = input.trim();
+      if (trimmed === 'exit' || trimmed === '退出' || trimmed === 'quit') {
+        console.log(`${character.avatar} ${character.name}：下次见，${character.formOfAddress}！`);
+        closed = true;
+        rl.close();
+        return;
+      }
+      if (!trimmed) {
+        if (!closed) rl.prompt();
+        return;
+      }
+      try {
+        const reply = await buddyChat(trimmed, character, ctx, llm, Paths.eventLog);
+        console.log(`\n${character.avatar} ${character.name}：${reply}\n`);
+      } catch (err) {
+        console.error('搭子走神了，请重试。', err instanceof Error ? err.message : '');
+      }
+      if (!closed) rl.prompt();
+    });
   });
 
 program.parse();
