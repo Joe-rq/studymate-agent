@@ -15,9 +15,99 @@ export interface Chunk {
   sourceLink: string;
 }
 
+export interface ChunkOptions {
+  /** Maximum characters per chunk. Default: 2000. */
+  maxChunkChars?: number;
+  /** Minimum characters per chunk; smaller fragments are merged. Default: 100. */
+  minChunkChars?: number;
+}
+
+const DEFAULT_MAX_CHUNK_CHARS = 2000;
+const DEFAULT_MIN_CHUNK_CHARS = 0; // disabled by default; set explicitly to enable merging
+
 /** Compute a stable chunk ID from material ID + index. */
 function chunkId(materialId: string, index: number): string {
   return `chk_${materialId}_${String(index + 1).padStart(3, '0')}`;
+}
+
+interface RawSection {
+  title: string;
+  lines: string[];
+  /** Header level (1-3) for hierarchy tracking. 0 = preamble/no header. */
+  level: number;
+}
+
+/**
+ * Split a large section into sub-chunks at paragraph boundaries.
+ * Each part stays under maxChars.
+ */
+function splitOversized(title: string, lines: string[], maxChars: number): { title: string; lines: string[] }[] {
+  const fullText = lines.join('\n');
+  if (fullText.length <= maxChars) {
+    return [{ title, lines }];
+  }
+
+  const parts: { title: string; lines: string[] }[] = [];
+  let current: string[] = [];
+  let currentLen = 0;
+  let partNum = 1;
+
+  // Split by paragraphs (double newline or single newline if very long)
+  const paragraphs = fullText.split(/\n\n+/);
+  for (const para of paragraphs) {
+    const paraLen = para.length + 2; // account for newlines
+    if (currentLen + paraLen > maxChars && current.length > 0) {
+      parts.push({ title: `${title} (part ${partNum})`, lines: current });
+      partNum++;
+      current = [];
+      currentLen = 0;
+    }
+    current.push(para);
+    currentLen += paraLen;
+  }
+  if (current.length > 0) {
+    parts.push({ title: parts.length > 0 ? `${title} (part ${partNum})` : title, lines: current });
+  }
+
+  return parts;
+}
+
+/**
+ * Merge tiny fragments into their neighbor.
+ * A fragment below minChars is appended to the previous chunk (or next if first).
+ */
+function mergeTinyFragments(
+  sections: { title: string; lines: string[] }[],
+  minChars: number
+): { title: string; lines: string[] }[] {
+  if (sections.length <= 1) return sections;
+
+  const result: { title: string; lines: string[] }[] = [];
+  for (let i = 0; i < sections.length; i++) {
+    const section = sections[i];
+    const textLen = section.lines.join('\n').trim().length;
+
+    if (textLen < minChars) {
+      if (result.length > 0) {
+        // Merge into previous
+        const prev = result[result.length - 1];
+        prev.lines.push('', ...section.lines);
+      } else if (i + 1 < sections.length) {
+        // Merge into next
+        sections[i + 1].lines = [...section.lines, '', ...sections[i + 1].lines];
+      } else {
+        // Last item and tiny, merge into previous if possible
+        if (result.length > 0) {
+          result[result.length - 1].lines.push('', ...section.lines);
+        } else {
+          result.push(section);
+        }
+      }
+    } else {
+      result.push(section);
+    }
+  }
+  return result;
 }
 
 /** Update the chunk index registry (chunks/index.json). */
@@ -45,60 +135,106 @@ async function updateChunkIndex(chunks: Chunk[], chunksDir: string): Promise<voi
 export async function chunkMaterial(
   material: Pick<Material, 'id' | 'contentPath' | 'title'>,
   eventLogFile: string,
-  workspaceRoot?: string
+  workspaceRoot?: string,
+  options?: ChunkOptions
 ): Promise<Chunk[]> {
+  const maxChars = options?.maxChunkChars ?? DEFAULT_MAX_CHUNK_CHARS;
+  const minChars = options?.minChunkChars ?? DEFAULT_MIN_CHUNK_CHARS;
   const chunksDir = workspaceRoot ? path.join(workspaceRoot, 'chunks') : Paths.chunks;
   const content = await fs.readFile(material.contentPath, 'utf-8');
   const lines = content.split('\n');
-  const rawChunks: { title: string; lines: string[] }[] = [];
-  let currentChunk: { title: string; lines: string[] } | null = null;
+  const rawSections: RawSection[] = [];
+  let currentSection: RawSection | null = null;
   let preambleLines: string[] = [];
 
-  const flushChunk = () => {
-    if (!currentChunk) return;
-    // Skip empty chunks: only header line, no real body content
-    const body = currentChunk.lines.slice(1).join('\n').trim();
+  // Track header hierarchy for chapter paths
+  const headerStack: { level: number; index: number; title: string }[] = [];
+  const headerCounters: number[] = [0, 0, 0]; // counters for h1, h2, h3
+
+  const flushSection = () => {
+    if (!currentSection) return;
+    // Skip empty sections: only header line, no real body content
+    const body = currentSection.lines.slice(1).join('\n').trim();
     if (body.length === 0) return;
-    rawChunks.push({ title: currentChunk.title, lines: currentChunk.lines });
+    rawSections.push(currentSection);
   };
 
   for (const line of lines) {
     const headerMatch = line.match(/^(#{1,3})\s+(.+)$/);
     if (headerMatch) {
-      // If no chunk has been started yet, capture preamble
-      if (rawChunks.length === 0 && !currentChunk) {
+      // If no section has been started yet, capture preamble
+      if (rawSections.length === 0 && !currentSection) {
         const preambleContent = preambleLines.join('\n').trim();
         if (preambleContent.length > 0) {
-          rawChunks.push({
+          rawSections.push({
             title: `${material.title} — preamble`,
             lines: preambleLines,
+            level: 0,
           });
         }
       }
-      flushChunk();
-      currentChunk = { title: headerMatch[2], lines: [line] };
-    } else if (currentChunk) {
-      currentChunk.lines.push(line);
+      flushSection();
+
+      const level = headerMatch[1].length; // 1, 2, or 3
+      const title = headerMatch[2];
+
+      // Update header counters for hierarchical path
+      headerCounters[level - 1]++;
+      // Reset deeper counters
+      for (let d = level; d < 3; d++) headerCounters[d] = 0;
+      // Update stack
+      while (headerStack.length > 0 && headerStack[headerStack.length - 1].level >= level) {
+        headerStack.pop();
+      }
+      headerStack.push({ level, index: headerCounters[level - 1], title });
+
+      currentSection = { title, lines: [line], level };
+    } else if (currentSection) {
+      currentSection.lines.push(line);
     } else {
       preambleLines.push(line);
     }
   }
-  flushChunk();
+  flushSection();
 
   // If no headers were found at all, treat entire content as one chunk
-  if (rawChunks.length === 0 && preambleLines.length > 0) {
+  if (rawSections.length === 0 && preambleLines.length > 0) {
     const body = preambleLines.join('\n').trim();
     if (body.length > 0) {
-      rawChunks.push({ title: material.title, lines: preambleLines });
+      rawSections.push({ title: material.title, lines: preambleLines, level: 0 });
     }
   }
+
+  // Post-process: split oversized sections
+  let processedSections: { title: string; lines: string[]; chapterPath?: string }[] = [];
+  // Rebuild chapter paths by re-tracking hierarchy
+  const pathStack: string[] = [];
+  const pathCounters: number[] = [0, 0, 0];
+
+  for (const section of rawSections) {
+    if (section.level > 0) {
+      pathCounters[section.level - 1]++;
+      for (let d = section.level; d < 3; d++) pathCounters[d] = 0;
+      while (pathStack.length >= section.level) pathStack.pop();
+      pathStack.push(String(pathCounters[section.level - 1]));
+    }
+    const chapterPath = section.level > 0 ? pathStack.join(' > ') : '0';
+
+    const parts = splitOversized(section.title, section.lines, maxChars);
+    for (const part of parts) {
+      processedSections.push({ ...part, chapterPath });
+    }
+  }
+
+  // Post-process: merge tiny fragments
+  processedSections = mergeTinyFragments(processedSections, minChars);
 
   // Deduplicate titles: if same title appears multiple times, append counter
   const titleCounts = new Map<string, number>();
   const chunks: Chunk[] = [];
-  for (let i = 0; i < rawChunks.length; i++) {
-    const raw = rawChunks[i];
-    const baseTitle = raw.title;
+  for (let i = 0; i < processedSections.length; i++) {
+    const section = processedSections[i];
+    const baseTitle = section.title;
     const count = titleCounts.get(baseTitle) ?? 0;
     titleCounts.set(baseTitle, count + 1);
     const dedupedTitle = count > 0 ? `${baseTitle} (${count + 1})` : baseTitle;
@@ -107,8 +243,8 @@ export async function chunkMaterial(
       id: chunkId(material.id, i),
       materialId: material.id,
       title: dedupedTitle,
-      content: raw.lines.join('\n').trim(),
-      chapterPath: `${i + 1}`,
+      content: section.lines.join('\n').trim(),
+      chapterPath: section.chapterPath ?? `${i + 1}`,
       concepts: [],
       sourceLink: material.contentPath,
     });

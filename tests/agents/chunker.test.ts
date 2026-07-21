@@ -130,4 +130,79 @@ describe('chunker', () => {
     expect(titles).toContain('Summary');
     expect(titles).toContain('Summary (2)');
   });
+
+  it('should split oversized chunks at paragraph boundaries', async () => {
+    // Create a section with content exceeding 2000 chars
+    const longContent = Array.from({ length: 30 }, (_, i) => `Paragraph ${i + 1} with enough text to fill space. `.repeat(3)).join('\n\n');
+    const materialPath = path.join(TEST_DIR, 'oversized.md');
+    await fs.writeFile(
+      materialPath,
+      `# Big Section\n\n${longContent}`,
+      'utf-8'
+    );
+
+    const chunks = await chunkMaterial(
+      { id: 'mat_big', contentPath: materialPath, title: 'OversizedTest' },
+      TEST_LOG,
+      TEST_DIR,
+      { maxChunkChars: 500 }
+    );
+
+    // Should be split into multiple parts
+    expect(chunks.length).toBeGreaterThan(1);
+    // Each chunk should be roughly under the limit (some overhead from headers)
+    for (const chunk of chunks) {
+      expect(chunk.content.length).toBeLessThan(700); // allow some margin
+    }
+    // Titles should have part suffixes
+    expect(chunks[0].title).toContain('part');
+  });
+
+  it('should merge tiny fragments into neighbors', async () => {
+    const materialPath = path.join(TEST_DIR, 'tiny.md');
+    await fs.writeFile(
+      materialPath,
+      '# Big Section\n\nThis is a substantial section with plenty of content that exceeds the minimum threshold easily.\n\n# Tiny\n\nHi.\n\n# Another Big\n\nAnother substantial section with enough content to be above the minimum character threshold for sure.',
+      'utf-8'
+    );
+
+    const chunks = await chunkMaterial(
+      { id: 'mat_tiny', contentPath: materialPath, title: 'TinyTest' },
+      TEST_LOG,
+      TEST_DIR,
+      { minChunkChars: 50 }
+    );
+
+    // The tiny "Hi." section should be merged into a neighbor
+    const titles = chunks.map((c) => c.title);
+    expect(titles).not.toContain('Tiny');
+    expect(chunks.length).toBe(2); // Big + Another Big (Tiny merged)
+  });
+
+  it('should produce hierarchical chapter paths', async () => {
+    const materialPath = path.join(TEST_DIR, 'hierarchy.md');
+    await fs.writeFile(
+      materialPath,
+      '# Chapter 1\n\nIntro to ch1.\n\n## Section 1.1\n\nDetails of 1.1.\n\n## Section 1.2\n\nDetails of 1.2.\n\n# Chapter 2\n\nIntro to ch2.\n\n## Section 2.1\n\nDetails of 2.1.',
+      'utf-8'
+    );
+
+    const chunks = await chunkMaterial(
+      { id: 'mat_hier', contentPath: materialPath, title: 'HierTest' },
+      TEST_LOG,
+      TEST_DIR
+    );
+
+    expect(chunks.length).toBe(5);
+    // Chapter 1 -> path "1"
+    expect(chunks[0].chapterPath).toBe('1');
+    // Section 1.1 -> path "1 > 1"
+    expect(chunks[1].chapterPath).toBe('1 > 1');
+    // Section 1.2 -> path "1 > 2"
+    expect(chunks[2].chapterPath).toBe('1 > 2');
+    // Chapter 2 -> path "2"
+    expect(chunks[3].chapterPath).toBe('2');
+    // Section 2.1 -> path "2 > 1"
+    expect(chunks[4].chapterPath).toBe('2 > 1');
+  });
 });
