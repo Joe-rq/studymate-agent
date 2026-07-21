@@ -15,6 +15,9 @@ import { gradeAndAdapt } from './application/workflows/grade_and_adapt.js';
 import { bootstrapExam, loadExamProject } from './application/workflows/bootstrap_exam.js';
 import { researchExamWorkflow, approveSources } from './application/workflows/research_exam.js';
 import { MockSearchProvider } from './application/ports/search_provider.js';
+import { buildKnowledge } from './application/workflows/build_knowledge.js';
+import { WebContentFetcher } from './infrastructure/fetch/web_fetcher.js';
+import { loadMaterialIndex } from './agents/material_collector.js';
 import type { LearnerBaseline } from './domain/exam.js';
 import type { SourceRecord } from './domain/source.js';
 import { createLLMClient } from './core/llm.js';
@@ -450,6 +453,109 @@ examCmd
       console.log();
     }
     console.log('批准来源: studymate exam sources --approve <id1,id2,...>');
+  });
+
+// ── 知识构建 ──────────────────────────────────────────────────────
+const knowledgeCmd = program.command('knowledge').description('Build and manage knowledge base (知识构建)');
+
+knowledgeCmd
+  .command('build')
+  .description('Fetch approved sources, import materials, chunk, and extract concepts')
+  .action(async () => {
+    const project = await loadExamProject();
+    if (!project) {
+      console.error('暂无考试项目。请先运行: studymate exam create');
+      process.exit(1);
+    }
+    if (project.status !== 'sources_approved') {
+      console.error(`当前状态为 ${project.status}，知识构建只能在 sources_approved 状态执行。`);
+      console.error('请先运行: studymate exam sources --approve <ids>');
+      process.exit(1);
+    }
+
+    const llm = createLLM();
+    const fetcher = new WebContentFetcher();
+    console.log(`正在构建知识库...`);
+
+    try {
+      const result = await buildKnowledge({ fetcher, llm });
+      console.log(`\n知识构建完成！`);
+      console.log(`  导入资料: ${result.materialsImported} 份`);
+      console.log(`  生成切片: ${result.chunksGenerated} 个`);
+      console.log(`  抽取概念: ${result.conceptsExtracted} 个`);
+      console.log(`  未验证概念: ${result.unverifiedConcepts} 个`);
+      console.log(`  跳过重复: ${result.skippedDuplicates} 份`);
+      if (result.fetchErrors.length > 0) {
+        console.log(`  拓取失败: ${result.fetchErrors.length} 个`);
+        for (const e of result.fetchErrors) {
+          console.log(`    - ${e}`);
+        }
+      }
+      console.log(`\n下一步: studymate knowledge review (查看概念并确认)`);
+    } catch (err) {
+      console.error('知识构建失败:', err instanceof Error ? err.message : String(err));
+      process.exit(1);
+    }
+  });
+
+knowledgeCmd
+  .command('status')
+  .description('Show knowledge base statistics')
+  .action(async () => {
+    // Materials
+    const materials = await loadMaterialIndex();
+    console.log(`资料: ${materials.length} 份`);
+
+    // Chunks
+    try {
+      const chunkIndex = JSON.parse(await fs.readFile(path.join(Paths.chunks, 'index.json'), 'utf-8'));
+      console.log(`切片: ${chunkIndex.length} 个`);
+    } catch {
+      console.log(`切片: 0 个`);
+    }
+
+    // Concepts
+    try {
+      const conceptMap = JSON.parse(await fs.readFile(path.join(Paths.graph, 'concepts.json'), 'utf-8'));
+      const total = conceptMap.concepts.length;
+      const unverified = conceptMap.concepts.filter((c: { unverified?: boolean }) => c.unverified).length;
+      const inOrder = conceptMap.learningOrder.length;
+      console.log(`概念: ${total} 个 (已验证 ${inOrder}, 未验证 ${unverified})`);
+    } catch {
+      console.log(`概念: 0 个`);
+    }
+  });
+
+knowledgeCmd
+  .command('review')
+  .description('Review extracted concepts and their evidence status')
+  .action(async () => {
+    let conceptMap: { concepts: Array<{ id: string; name: string; definition: string; relatedChunks: string[]; unverified?: boolean }>; learningOrder: string[] };
+    try {
+      conceptMap = JSON.parse(await fs.readFile(path.join(Paths.graph, 'concepts.json'), 'utf-8'));
+    } catch {
+      console.error('暂无概念图谱。请先运行: studymate knowledge build');
+      process.exit(1);
+    }
+
+    const verified = conceptMap.concepts.filter((c) => !c.unverified);
+    const unverified = conceptMap.concepts.filter((c) => c.unverified);
+
+    console.log(`\n已验证概念 (${verified.length})：\n`);
+    for (const c of verified) {
+      console.log(`  ${c.id} ${c.name}`);
+      console.log(`    ${c.definition.slice(0, 80)}${c.definition.length > 80 ? '...' : ''}`);
+      console.log(`    证据切片: ${c.relatedChunks.length} 个`);
+    }
+
+    if (unverified.length > 0) {
+      console.log(`\n未验证概念 (${unverified.length})：\n`);
+      for (const c of unverified) {
+        console.log(`  ${c.id} ${c.name} [无证据切片]`);
+        console.log(`    ${c.definition.slice(0, 80)}${c.definition.length > 80 ? '...' : ''}`);
+      }
+      console.log(`\n提示: 未验证概念不会进入学习顺序。可重新导入更多资料以提供证据。`);
+    }
   });
 
 program.parse();
