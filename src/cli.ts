@@ -11,12 +11,12 @@ import { mapConcepts } from './agents/concept_mapper.js';
 import { generatePlan, savePlan } from './agents/planner.js';
 import { dispatchToday } from './agents/task_dispatcher.js';
 import { generateQuiz } from './agents/quiz_generator.js';
-import { gradeQuiz, saveResult } from './agents/grader.js';
-import { analyzeMistakes, saveMistakes } from './agents/mistake_analyzer.js';
-import { updateMastery, saveMastery } from './agents/mastery_tracker.js';
-import { adjustPlan, saveAdjustedPlan } from './agents/plan_adjuster.js';
-import type { ConceptMap } from './agents/concept_mapper.js';
-import type { StudyPlan } from './agents/planner.js';
+import { gradeAndAdapt } from './application/workflows/grade_and_adapt.js';
+import { bootstrapExam, loadExamProject } from './application/workflows/bootstrap_exam.js';
+import { researchExamWorkflow, approveSources } from './application/workflows/research_exam.js';
+import { MockSearchProvider } from './application/ports/search_provider.js';
+import type { LearnerBaseline } from './domain/exam.js';
+import type { SourceRecord } from './domain/source.js';
 import { createLLMClient } from './core/llm.js';
 import { createMockLLMClient } from './core/mock_llm.js';
 import {
@@ -134,7 +134,8 @@ program
       const tasks = await dispatchToday(plan, Paths.eventLog);
       console.log(`Today's tasks (${today}): ${tasks.length}`);
       for (const t of tasks) {
-        console.log(`- ${t.type === 'learn' ? '学习' : '复习'} ${t.nodeId} (${t.duration}min)`);
+        const typeLabel = t.type === 'learn' ? '学习' : t.type === 'review' ? '复习' : '冲刺';
+        console.log(`- ${typeLabel} ${t.nodeId} (${t.duration}min)`);
       }
       await buddyLine('today');
     } catch {
@@ -157,9 +158,17 @@ program
     try {
       const profilePath = path.join(Paths.mistakes, 'weakness_profile.json');
       const profile = JSON.parse(await fs.readFile(profilePath, 'utf-8'));
-      const weakNodes: unknown = profile.weakNodes;
-      if (Array.isArray(weakNodes) && weakNodes.length > 0) {
-        focusNodeIds = weakNodes as string[];
+      // Support both new cumulative schema (nodes map) and legacy (weakNodes array)
+      let weakNodes: string[] = [];
+      if (profile.nodes && typeof profile.nodes === 'object') {
+        weakNodes = Object.entries(profile.nodes as Record<string, { mistakeCount: number }>)
+          .sort((a, b) => b[1].mistakeCount - a[1].mistakeCount)
+          .map(([id]) => id);
+      } else if (Array.isArray(profile.weakNodes)) {
+        weakNodes = profile.weakNodes;
+      }
+      if (weakNodes.length > 0) {
+        focusNodeIds = weakNodes;
         console.log(`检测到薄弱知识点 ${focusNodeIds.length} 个，将优先出题`);
       }
     } catch {
@@ -180,51 +189,40 @@ program
     const today = new Date().toISOString().split('T')[0];
     const quiz = JSON.parse(await fs.readFile(path.join(Paths.quizzes, `${today}_quiz.json`), 'utf-8'));
     const answers = JSON.parse(await fs.readFile(options.answers, 'utf-8'));
-    const result = gradeQuiz(quiz, answers);
-    await saveResult(result, Paths.eventLog);
-    const mistakes = analyzeMistakes(result);
-    await saveMistakes(mistakes, today, Paths.eventLog);
+
+    const workflowResult = await gradeAndAdapt({
+      quiz,
+      answers,
+      conceptsPath: path.join(Paths.graph, 'concepts.json'),
+      planPath: path.join(Paths.plan, 'plan_master.json'),
+      eventLogFile: Paths.eventLog,
+    });
+
+    const { result, mistakeNodeIds, masteryChanges, adjustments } = workflowResult;
+
     console.log(`Score: ${result.totalScore}`);
     console.log(`Mistakes: ${result.mistakes.length}`);
-    if (mistakes.length > 0) {
-      console.log(`Weak nodes: ${mistakes.map((m) => m.nodeId).join(', ')}`);
+    if (mistakeNodeIds.length > 0) {
+      console.log(`Weak nodes: ${mistakeNodeIds.join(', ')}`);
     }
 
-    // 断点①：用本次批改结果更新各概念掌握度，写回 concepts.json
-    const conceptMap: ConceptMap = JSON.parse(
-      await fs.readFile(path.join(Paths.graph, 'concepts.json'), 'utf-8')
-    );
-    const masteryUpdate = updateMastery(conceptMap, result);
-    await saveMastery(masteryUpdate, Paths.eventLog);
-    if (masteryUpdate.changes.length > 0) {
+    if (masteryChanges.length > 0) {
       console.log('\n掌握度更新：');
-      for (const c of masteryUpdate.changes) {
+      for (const c of masteryChanges) {
         const arrow = c.newMastery >= c.oldMastery ? '↑' : '↓';
         console.log(`  ${c.nodeName}: ${c.oldMastery.toFixed(2)} ${arrow} ${c.newMastery.toFixed(2)}（本次正确率 ${(c.sessionScore * 100).toFixed(0)}%）`);
       }
     }
 
-    // 断点②：根据最新掌握度调整明天及以后的计划
-    try {
-      const plan: StudyPlan = JSON.parse(
-        await fs.readFile(path.join(Paths.plan, 'plan_master.json'), 'utf-8')
-      );
-      const { plan: adjustedPlan, adjustments } = adjustPlan(plan, masteryUpdate.conceptMap);
-      await saveAdjustedPlan(adjustedPlan, adjustments, Paths.eventLog);
-      if (adjustments.length > 0) {
-        console.log(`\n已为 ${adjustments.length} 项复习任务加时（明日及以后）：`);
-        for (const a of adjustments) {
-          console.log(`  ${a.date} — ${a.nodeId} +${a.addedMinutes}分钟（掌握度 ${a.mastery.toFixed(2)}）`);
-        }
-      } else {
-        console.log('\n暂无需调整的计划项。');
+    if (adjustments.length > 0) {
+      console.log(`\n已为 ${adjustments.length} 项复习任务加时（明日及以后）：`);
+      for (const a of adjustments) {
+        console.log(`  ${a.date} — ${a.nodeId} +${a.addedMinutes}分钟（掌握度 ${a.mastery.toFixed(2)}）`);
       }
-    } catch {
-      // plan_master.json 不存在（未生成计划），跳过调整
-      console.log('\n未找到学习计划，跳过计划调整。');
+    } else {
+      console.log('\n暂无需调整的计划项。');
     }
 
-    // 点③：搭子对本次成绩的一句点评（情境感知：分数驱动语气）
     await buddyLine('grade', { score: result.totalScore });
   });
 
@@ -309,6 +307,149 @@ program
       }
       if (!closed) rl.prompt();
     });
+  });
+
+// ── 考试项目建档与调研 ──────────────────────────────────────────
+const examCmd = program.command('exam').description('Manage exam project (考试项目)');
+
+examCmd
+  .command('create')
+  .description('Create a new exam project')
+  .requiredOption('--name <name>', 'Exam name (e.g. "2026年初级会计资格考试")')
+  .requiredOption('--date <date>', 'Exam date YYYY-MM-DD')
+  .requiredOption('--subjects <subjects>', 'Comma-separated subject list')
+  .requiredOption('--daily <minutes>', 'Daily study minutes')
+  .option('--baseline <level>', 'Learner baseline: beginner|intermediate|advanced', 'beginner')
+  .option('--target <target>', 'Target score or goal description')
+  .action(async (opts: {
+    name: string;
+    date: string;
+    subjects: string;
+    daily: string;
+    baseline: string;
+    target?: string;
+  }) => {
+    try {
+      const project = await bootstrapExam({
+        name: opts.name,
+        examDate: opts.date,
+        subjects: opts.subjects.split(',').map((s) => s.trim()),
+        baseline: opts.baseline as LearnerBaseline,
+        dailyMinutes: parseInt(opts.daily, 10),
+        target: opts.target,
+      });
+      console.log(`考试项目已创建：${project.name}`);
+      console.log(`  ID: ${project.id}`);
+      console.log(`  考试日期: ${project.examDate}`);
+      console.log(`  科目: ${project.subjects.join(', ')}`);
+      console.log(`  每日时长: ${project.learnerProfile.dailyMinutes} 分钟`);
+    } catch (err) {
+      console.error('创建失败:', err instanceof Error ? err.message : String(err));
+      process.exit(1);
+    }
+  });
+
+examCmd
+  .command('status')
+  .description('Show current exam project status')
+  .action(async () => {
+    const project = await loadExamProject();
+    if (!project) {
+      console.log('暂无考试项目。请先运行: studymate exam create');
+      return;
+    }
+    console.log(`考试项目：${project.name}`);
+    console.log(`  ID: ${project.id}`);
+    console.log(`  状态: ${project.status}`);
+    console.log(`  考试日期: ${project.examDate}`);
+    console.log(`  科目: ${project.subjects.join(', ')}`);
+    console.log(`  每日时长: ${project.learnerProfile.dailyMinutes} 分钟`);
+    console.log(`  基础水平: ${project.learnerProfile.baseline}`);
+  });
+
+examCmd
+  .command('research')
+  .description('Run exam research (search + classify + synthesize)')
+  .action(async () => {
+    const project = await loadExamProject();
+    if (!project) {
+      console.error('暂无考试项目。请先运行: studymate exam create');
+      process.exit(1);
+    }
+    if (project.status !== 'draft') {
+      console.error(`当前状态为 ${project.status}，调研只能在 draft 状态执行。`);
+      process.exit(1);
+    }
+
+    const llm = createLLM();
+    // Use mock search provider for now; real provider will be added later
+    const searchProvider = new MockSearchProvider({});
+    console.log(`正在调研「${project.name}」...`);
+
+    try {
+      const result = await researchExamWorkflow(
+        project,
+        searchProvider,
+        llm,
+        Paths.eventLog
+      );
+      console.log(`\n调研完成！`);
+      console.log(`  发现来源: ${result.research.sources.length} 个`);
+      console.log(`  搜索查询: ${result.research.queryCount} 个`);
+      console.log(`\n考试画像: ${result.profilePath}`);
+      console.log(`经验洞察: ${result.insightsPath}`);
+      console.log(`资料推荐: ${result.materialsPath}`);
+      console.log(`\n下一步: studymate exam sources (查看并确认来源)`);
+    } catch (err) {
+      console.error('调研失败:', err instanceof Error ? err.message : String(err));
+      process.exit(1);
+    }
+  });
+
+examCmd
+  .command('sources')
+  .description('List discovered sources and approve them')
+  .option('--approve <ids>', 'Comma-separated source IDs to approve')
+  .action(async (opts: { approve?: string }) => {
+    const project = await loadExamProject();
+    if (!project) {
+      console.error('暂无考试项目。');
+      process.exit(1);
+    }
+
+    // Load sources from research directory
+    const sourcesPath = path.join(Paths.research, 'sources.jsonl');
+    let sources: SourceRecord[] = [];
+    try {
+      const content = await fs.readFile(sourcesPath, 'utf-8');
+      sources = content
+        .split('\n')
+        .filter((line) => line.trim())
+        .map((line) => JSON.parse(line));
+    } catch {
+      console.error('暂无调研结果。请先运行: studymate exam research');
+      process.exit(1);
+    }
+
+    if (opts.approve) {
+      const ids = opts.approve.split(',').map((s) => s.trim());
+      const updated = await approveSources(project, ids, Paths.eventLog);
+      const approvedCount = updated.filter((s) => s.approved).length;
+      console.log(`已批准 ${ids.length} 个来源（总计 ${approvedCount} 个已批准）。`);
+      return;
+    }
+
+    // List all sources
+    console.log(`发现来源 (${sources.length} 个)：\n`);
+    for (const s of sources) {
+      const mark = s.approved ? ' [已批准]' : '';
+      console.log(`  ${s.id} [${s.sourceType}|${s.confidenceLevel}]${mark}`);
+      console.log(`    ${s.title}`);
+      console.log(`    ${s.summary.slice(0, 80)}${s.summary.length > 80 ? '...' : ''}`);
+      if (s.url) console.log(`    URL: ${s.url}`);
+      console.log();
+    }
+    console.log('批准来源: studymate exam sources --approve <id1,id2,...>');
   });
 
 program.parse();
