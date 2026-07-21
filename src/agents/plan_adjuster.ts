@@ -123,19 +123,21 @@ export function adjustPlan(
 export async function saveAdjustedPlan(
   plan: StudyPlan,
   adjustments: PlanAdjustment[],
-  eventLogFile: string
+  eventLogFile: string,
+  workspaceRoot?: string
 ): Promise<void> {
-  await fs.mkdir(path.join(Paths.plan, 'plan_daily'), { recursive: true });
+  const planDir = workspaceRoot ? path.join(workspaceRoot, 'plan') : Paths.plan;
+  await fs.mkdir(path.join(planDir, 'plan_daily'), { recursive: true });
 
   await fs.writeFile(
-    path.join(Paths.plan, 'plan_master.json'),
+    path.join(planDir, 'plan_master.json'),
     JSON.stringify(plan, null, 2),
     'utf-8'
   );
 
   for (const day of plan.schedule) {
     await fs.writeFile(
-      path.join(Paths.plan, 'plan_daily', `${day.date}.json`),
+      path.join(planDir, 'plan_daily', `${day.date}.json`),
       JSON.stringify(day, null, 2),
       'utf-8'
     );

@@ -6,10 +6,17 @@ export function createEventId(): string {
   return `evt_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
+/** Generate a correlation ID for linking related events in a workflow session. */
+export function createCorrelationId(): string {
+  return `corr_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
 export async function appendEvent(logFile: string, event: Event): Promise<void> {
   const dir = path.dirname(logFile);
   await fs.mkdir(dir, { recursive: true });
-  const line = JSON.stringify(event) + '\n';
+  // Ensure schemaVersion defaults to 1
+  const normalized: Event = { schemaVersion: 1, ...event };
+  const line = JSON.stringify(normalized) + '\n';
   await fs.appendFile(logFile, line, 'utf-8');
 }
 
