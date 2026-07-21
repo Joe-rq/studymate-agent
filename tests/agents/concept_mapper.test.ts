@@ -31,4 +31,20 @@ describe('concept_mapper', () => {
     expect(result.concepts).toHaveLength(3);
     expect(result.learningOrder).toContain('node_3');
   });
+
+  it('should detect cyclic prerequisites and throw', async () => {
+    const cyclicLLM = {
+      complete: async () => '',
+      completeJSON: async () => ({
+        concepts: [
+          { id: 'node_a', name: 'A', definition: '...', prerequisiteIds: ['node_b'] },
+          { id: 'node_b', name: 'B', definition: '...', prerequisiteIds: ['node_a'] },
+        ],
+      }),
+    };
+    const chunks = [
+      { id: 'c1', materialId: 'm1', title: 'A', content: 'A content', chapterPath: '1', concepts: [], sourceLink: '' },
+    ];
+    await expect(mapConcepts(chunks, cyclicLLM as any, TEST_LOG)).rejects.toThrow(/[Cc]ycle/);
+  });
 });

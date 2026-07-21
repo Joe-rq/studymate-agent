@@ -64,17 +64,31 @@ export async function mapConcepts(
     mastery: 0,
   }));
 
-  const visited = new Set<string>();
+  // Three-color DFS topological sort with cycle detection.
+  // white = unvisited, gray = in current DFS path, black = finished.
+  const WHITE = 0, GRAY = 1, BLACK = 2;
+  const color = new Map<string, number>();
+  for (const c of concepts) color.set(c.id, WHITE);
   const order: string[] = [];
-  const visit = (id: string) => {
-    if (visited.has(id)) return;
-    const concept = concepts.find((c) => c.id === id);
+
+  const visit = (id: string, path: string[]): void => {
+    const c = color.get(id);
+    if (c === BLACK) return;
+    if (c === GRAY) {
+      const cycleStart = path.indexOf(id);
+      const cyclePath = [...path.slice(cycleStart), id].join(' -> ');
+      throw new Error(`Cycle detected in concept prerequisites: ${cyclePath}`);
+    }
+    color.set(id, GRAY);
+    const concept = concepts.find((co) => co.id === id);
     if (!concept) return;
-    for (const pre of concept.prerequisiteIds) visit(pre);
-    visited.add(id);
+    for (const pre of concept.prerequisiteIds) {
+      visit(pre, [...path, id]);
+    }
+    color.set(id, BLACK);
     order.push(id);
   };
-  for (const c of concepts) visit(c.id);
+  for (const c of concepts) visit(c.id, []);
 
   const conceptMap: ConceptMap = { concepts, learningOrder: order };
 
