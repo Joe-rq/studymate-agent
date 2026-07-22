@@ -12,13 +12,19 @@
     "dev": "tsc --watch",
     "test": "vitest run",
     "test:watch": "vitest",
-    "smoke": "npm run build && node dist/cli.js --help"
+    "smoke": "npm run build && node dist/cli.js --help",
+    "serve": "npm run build && node dist/server/index.js",
+    "web": "cd web && npm run dev"
   },
   "dependencies": {
     "commander": "^12.1.0",
+    "cors": "^2.8.6",
+    "express": "^5.2.1",
     "pdf-parse": "^1.1.1"
   },
   "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
     "@types/node": "^20.14.0",
     "@types/pdf-parse": "^1.1.4",
     "typescript": "^5.5.0",

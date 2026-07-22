@@ -31,6 +31,19 @@ import {
 } from './core/character.js';
 import { gatherStudyContext } from './core/context_reader.js';
 import { buddyChat, buddyInterject, loadChatHistory } from './agents/study_buddy.js';
+import {
+  shouldIntervene,
+  generateIntervention,
+  type InterventionMoment,
+  type InterventionContext,
+} from './agents/buddy_interventions.js';
+import {
+  loadBuddyState,
+  saveBuddyState,
+  updateStreak,
+  addMemory,
+  increaseRelationship,
+} from './agents/buddy_state.js';
 
 function createLLM() {
   if (process.env.OPENAI_API_KEY) {
@@ -58,6 +71,34 @@ async function buddyLine(
     }
   } catch {
     // 搭子台词是锦上添花，失败不影响主命令
+  }
+}
+
+/**
+ * Trigger new intervention system at key moments.
+ * Uses BuddyState for cross-session memory.
+ */
+async function triggerIntervention(
+  moment: InterventionMoment,
+  extra?: InterventionContext
+): Promise<void> {
+  try {
+    const state = await loadBuddyState();
+    const character = await loadCharacter(state.characterId).catch(() => getSelectedCharacter());
+    const ctx = await gatherStudyContext();
+    if (!shouldIntervene(moment, state, ctx, extra)) return;
+    const llm = createLLM();
+    const line = await generateIntervention(moment, character, state, ctx, llm, extra);
+    if (line) {
+      console.log(`\n${character.avatar} ${character.name}：${line}`);
+    }
+    // Update streak + relationship on intervention
+    const today = new Date().toISOString().split('T')[0];
+    let updated = updateStreak(state, today);
+    updated = increaseRelationship(updated, 1);
+    await saveBuddyState(updated);
+  } catch {
+    // Intervention failure is non-fatal
   }
 }
 
@@ -140,6 +181,7 @@ program
     await savePlan(plan, Paths.eventLog);
     console.log(`\n计划已生成：${plan.schedule.length} 天，版本 ${plan.version}`);
     console.log(`概念: ${conceptMap.concepts.map((c) => c.name).join(', ')}`);
+    await triggerIntervention('plan_confirmed', { planDays: plan.schedule.length });
   });
 
 program
@@ -193,6 +235,7 @@ taskCmd
     const date = dateMatch[1];
     await completeTask(date, taskId, 'done', Paths.eventLog);
     console.log(`✓ 已完成: ${taskId}`);
+    await triggerIntervention('task_start', { taskId });
   });
 
 taskCmd
@@ -208,6 +251,7 @@ taskCmd
     const date = dateMatch[1];
     await completeTask(date, taskId, 'skipped', Paths.eventLog);
     console.log(`⏭ 已跳过: ${taskId}`);
+    await triggerIntervention('task_skipped', { taskId });
   });
 
 taskCmd
@@ -352,6 +396,7 @@ program
     }
 
     await buddyLine('grade', { score: result.totalScore });
+    await triggerIntervention('low_score', { score: result.totalScore });
   });
 
 // ── 点③：拟人化备考搭子 ──────────────────────────────────────────
@@ -471,6 +516,7 @@ examCmd
       console.log(`  考试日期: ${project.examDate}`);
       console.log(`  科目: ${project.subjects.join(', ')}`);
       console.log(`  每日时长: ${project.learnerProfile.dailyMinutes} 分钟`);
+      await triggerIntervention('exam_created', { examName: project.name });
     } catch (err) {
       console.error('创建失败:', err instanceof Error ? err.message : String(err));
       process.exit(1);
