@@ -29,16 +29,24 @@ export interface MasteryChange {
   questionCount: number;
 }
 
+/** Mastery history snapshot appended to mastery_history.jsonl. */
+export interface MasterySnapshot {
+  nodeId: string;
+  date: string;
+  mastery: number;
+  sessionScore: number;
+  consecutiveCorrect: number;
+}
+
 /** updateMastery 的返回值，包含更新后的概念图与逐条变化记录。 */
 export interface MasteryUpdate {
   conceptMap: ConceptMap;
   changes: MasteryChange[];
+  snapshots: MasterySnapshot[];
 }
 
 /**
  * 按概念归集本次测验的答题情况，计算每个被考概念的 sessionScore。
- *
- * @returns Map<nodeId, { correct, total }>，只包含本次实际被考到的概念。
  */
 function collectPerConceptStats(
   result: QuizResult
@@ -56,15 +64,7 @@ function collectPerConceptStats(
 
 /**
  * 根据批改结果，用指数移动平均（EMA）更新概念图中每个概念的掌握度。
- *
- * 设计要点（渐进式累积）：
- * - 本次未被考到的概念 mastery 保持不变（学不到新信息）。
- * - 被考概念按本次正确率更新，历史掌握度不会丢失。
- * - 输出值始终在 [0, 1] 区间内。
- *
- * @param conceptMap 当前概念图（mastery 字段会被就地更新）
- * @param result 本次批改结果
- * @param alpha 平滑系数，默认 0.4
+ * 同时追踪连续正确次数和证据计数。
  */
 export function updateMastery(
   conceptMap: ConceptMap,
@@ -73,18 +73,28 @@ export function updateMastery(
 ): MasteryUpdate {
   const stats = collectPerConceptStats(result);
   const changes: MasteryChange[] = [];
+  const snapshots: MasterySnapshot[] = [];
 
   for (const concept of conceptMap.concepts) {
     const entry = stats.get(concept.id);
-    // 本次未考到该概念，掌握度不变，不产生变化记录
     if (!entry || entry.total === 0) continue;
 
     const sessionScore = entry.correct / entry.total;
     const oldMastery = concept.mastery;
     const newMastery = oldMastery * (1 - alpha) + sessionScore * alpha;
 
-    // 浮点精度兜底：确保结果落在 [0, 1]
     concept.mastery = Math.min(1, Math.max(0, newMastery));
+
+    // Consecutive correct tracking
+    if (sessionScore >= 0.8) {
+      concept.consecutiveCorrect = (concept.consecutiveCorrect ?? 0) + 1;
+    } else if (sessionScore < 0.5) {
+      concept.consecutiveCorrect = 0;
+    }
+    // else: between 0.5 and 0.8, keep unchanged
+
+    // Evidence count
+    concept.evidenceCount = (concept.evidenceCount ?? 0) + entry.total;
 
     changes.push({
       nodeId: concept.id,
@@ -94,16 +104,22 @@ export function updateMastery(
       sessionScore,
       questionCount: entry.total,
     });
+
+    snapshots.push({
+      nodeId: concept.id,
+      date: result.date,
+      mastery: concept.mastery,
+      sessionScore,
+      consecutiveCorrect: concept.consecutiveCorrect ?? 0,
+    });
   }
 
-  return { conceptMap, changes };
+  return { conceptMap, changes, snapshots };
 }
 
 /**
- * 将更新后的掌握度写回 graph/concepts.json，并追加事件日志。
- *
- * 这是"自进化"持久化的关键一步：mastery 跨天累积，后续 plan_adjuster
- * 和 quiz_generator 都会读取这个文件来感知用户的薄弱点。
+ * 将更新后的掌握度写回 graph/concepts.json，追加快照到 mastery_history.jsonl，
+ * 并追加事件日志。
  */
 export async function saveMastery(
   update: MasteryUpdate,
@@ -117,6 +133,15 @@ export async function saveMastery(
     JSON.stringify(update.conceptMap, null, 2),
     'utf-8'
   );
+
+  // Append mastery history snapshots
+  if (update.snapshots.length > 0) {
+    const progressDir = workspaceRoot ? path.join(workspaceRoot, 'progress') : Paths.progress;
+    await fs.mkdir(progressDir, { recursive: true });
+    const historyPath = path.join(progressDir, 'mastery_history.jsonl');
+    const lines = update.snapshots.map((s) => JSON.stringify(s)).join('\n') + '\n';
+    await fs.appendFile(historyPath, lines, 'utf-8');
+  }
 
   const event: Event = {
     id: createEventId(),

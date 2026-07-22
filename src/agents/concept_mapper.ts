@@ -15,6 +15,14 @@ export interface Concept {
   mastery: number;
   /** True if no evidence chunks could be linked to this concept. */
   unverified?: boolean;
+  /** Difficulty 0-1, used for capacity estimation. Default 0.5 if absent. */
+  difficulty?: number;
+  /** Exam weight 0-1, used for prioritization. Default 0.5 if absent. */
+  weight?: number;
+  /** Number of consecutive correct answers across sessions. */
+  consecutiveCorrect?: number;
+  /** Total evidence count (times this concept was tested). */
+  evidenceCount?: number;
 }
 
 export interface ConceptMap {

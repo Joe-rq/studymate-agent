@@ -134,6 +134,11 @@ export function createMockLLMClient(): LLMClient {
   return {
     async complete(system: string, user: string, _options?: LLMOptions): Promise<string> {
       if (system.includes('exam question generator') || system.includes('multiple-choice questions')) {
+        // Extract concept IDs from user prompt (format: ## Name [id])
+        const idMatches = [...user.matchAll(/## .+? \[([^\]]+)\]/g)];
+        const nodeIds = idMatches.map((m) => m[1]);
+        const nid = (i: number) => nodeIds[i % Math.max(1, nodeIds.length)] ?? 'node_1';
+
         return JSON.stringify({
           questions: [
             {
@@ -143,16 +148,18 @@ export function createMockLLMClient(): LLMClient {
               options: ['右上方', '右下方', '水平', '垂直'],
               answer: 1,
               explanation: '需求曲线向右下方倾斜表示价格越高需求量越低。',
-              nodeId: 'node_1',
+              nodeId: nid(0),
+              difficulty: 'easy',
             },
             {
               id: 'q_2',
-              type: 'single_choice',
-              stem: '当需求价格弹性大于 1 时，价格上升会导致什么？',
-              options: ['总收入增加', '总收入减少', '总收入不变', '无法确定'],
-              answer: 1,
-              explanation: '弹性大于 1 意味着需求量变动百分比大于价格变动百分比。',
-              nodeId: 'node_4',
+              type: 'multi_choice',
+              stem: '以下哪些因素会导致需求曲线移动？',
+              options: ['消费者收入变化', '商品价格变化', '偏好变化', '供给量变化'],
+              answer: [0, 2],
+              explanation: '收入和偏好变化会使需求曲线整体移动，价格变化是沿曲线移动。',
+              nodeId: nid(1),
+              difficulty: 'medium',
             },
             {
               id: 'q_3',
@@ -161,7 +168,8 @@ export function createMockLLMClient(): LLMClient {
               options: ['价格最高时', '需求量等于供给量时', '政府干预时', '库存最多时'],
               answer: 1,
               explanation: '均衡是需求量等于供给量时的状态。',
-              nodeId: 'node_3',
+              nodeId: nid(0),
+              difficulty: 'easy',
             },
           ],
         });

@@ -1,6 +1,7 @@
 import fs from 'fs/promises';
 import path from 'path';
-import type { StudyPlan } from './planner.js';
+import type { StudyPlan, DailyTask } from './planner.js';
+import { estimateDuration } from './planner.js';
 import type { ConceptMap } from './concept_mapper.js';
 import type { Event } from '../core/types.js';
 import { createEventId, appendEvent } from '../core/event_log.js';
@@ -17,112 +18,178 @@ const MAX_EXTRA_MINUTES = 15;
 /** 默认的每日时长溢出上限倍数：调整后当天总时长不超过 dailyMinutes × 1.2。 */
 const DEFAULT_MAX_OVERFLOW = 1.2;
 
+/** Mastery threshold below which a NEW review task is inserted. */
+const INSERT_REVIEW_THRESHOLD = 0.3;
+
 /** 单条计划调整记录，用于事件日志与控制台反馈。 */
 export interface PlanAdjustment {
   date: string;
   nodeId: string;
+  type: 'extend' | 'insert_review' | 'insert_quiz';
   /** 本次为该任务增加的复习时长（分钟）。 */
   addedMinutes: number;
   /** 调整时该概念的掌握度，便于追溯加时依据。 */
   mastery: number;
+  /** 调整原因。 */
+  reason: string;
 }
 
-/** adjustPlan 的返回值：调整后的计划 + 逐条调整记录。 */
+/** 每次调整的完整记录，写入 adjustment_log.jsonl。 */
+export interface AdjustmentRecord {
+  adjustedAt: string;
+  reason: string;
+  version: number;
+  changes: PlanAdjustment[];
+  summary: { tasksAdded: number; minutesAdded: number; daysAffected: number };
+}
+
+/** adjustPlan 的返回值：调整后的计划 + 调整记录。 */
 export interface AdjustPlanResult {
   plan: StudyPlan;
   adjustments: PlanAdjustment[];
+  record: AdjustmentRecord;
 }
 
 export interface AdjustPlanOptions {
-  /** 只调整该日期（含）之后的计划，默认从"明天"开始。 */
+  /** 只调整该日期（含）之后的计划，默认从“明天”开始。 */
   fromDate?: string;
   /** 每日时长溢出上限倍数，默认 1.2。 */
   maxOverflow?: number;
+  /** 调整原因（必填）。 */
+  reason: string;
+  /** 需要插入测验的概念 ID（如从 weakness_profile 中获取）。 */
+  quizNodeIds?: string[];
 }
 
 /**
- * 根据掌握度，温和地为未来复习任务增加时长。
- *
- * 设计原则（渐进式，不打乱节奏）：
- * 1. 只调整 fromDate 及之后的 review 任务，今天的不动（今天可能已在进行）。
- * 2. 加时额度与掌握度反相关：mastery 越低加得越多，最多 MAX_EXTRA_MINUTES。
- * 3. 当天任务按掌握度从低到高排序，优先给最薄弱的概念加时。
- * 4. 软上限：调整后当天总时长 ≤ dailyMinutes × maxOverflow，超过则跳过该任务。
- * 5. learn 任务不调整（新学内容不应被拉长）。
- *
- * @param plan 当前主计划（会被深拷贝后修改，原对象不变）
- * @param conceptMap 含最新 mastery 的概念图
+ * 根据掌握度调整计划：
+ * 1. 为现有 review 任务加时（mastery < 1）
+ * 2. 为 mastery < 0.3 的概念插入新的 review 任务
+ * 3. 为 quizNodeIds 中的概念插入 quiz 任务
+ * 4. 每次调整保留原因和调整前后差异
  */
 export function adjustPlan(
   plan: StudyPlan,
   conceptMap: ConceptMap,
-  options: AdjustPlanOptions = {}
+  options: AdjustPlanOptions
 ): AdjustPlanResult {
-  const { fromDate, maxOverflow = DEFAULT_MAX_OVERFLOW } = options;
+  const { fromDate, maxOverflow = DEFAULT_MAX_OVERFLOW, reason, quizNodeIds = [] } = options;
 
   // 默认从明天开始调整：今天可能已在执行，不干预
   const today = new Date().toISOString().split('T')[0];
   const threshold = fromDate ?? today;
 
-  // 建立 nodeId → mastery 的查找表，O(1) 取值
-  const masteryById = new Map<string, number>();
-  for (const concept of conceptMap.concepts) {
-    masteryById.set(concept.id, concept.mastery);
-  }
+  // 建立 nodeId → concept 的查找表
+  const conceptById = new Map(conceptMap.concepts.map((c) => [c.id, c]));
 
   const adjusted: StudyPlan = JSON.parse(JSON.stringify(plan));
+  adjusted.version = (plan.version ?? 1) + 1;
   const adjustments: PlanAdjustment[] = [];
   const dailyCap = plan.dailyMinutes * maxOverflow;
 
-  for (const day of adjusted.schedule) {
-    // 跳过 threshold 之前的天（默认跳过今天及更早）
-    if (day.date < threshold) continue;
+  // Track which nodes already have tasks on each day (for insert logic)
+  const quizSet = new Set(quizNodeIds);
 
-    // 当天复习任务按掌握度从低到高排序，优先补最薄弱的
+  for (const day of adjusted.schedule) {
+    if (day.date < threshold) continue;
+    if (day.isRest) continue;
+
+    const currentTotal = () => day.tasks.reduce((sum, t) => sum + t.duration, 0);
+
+    // 1. Extend existing review tasks
     const reviewTasks = day.tasks.filter((t) => t.type === 'review');
     reviewTasks.sort((a, b) => {
-      const ma = masteryById.get(a.nodeId) ?? 1;
-      const mb = masteryById.get(b.nodeId) ?? 1;
+      const ma = conceptById.get(a.nodeId)?.mastery ?? 1;
+      const mb = conceptById.get(b.nodeId)?.mastery ?? 1;
       return ma - mb;
     });
 
     for (const task of reviewTasks) {
-      const mastery = masteryById.get(task.nodeId);
-      // 该概念不在概念图中（可能已删除），不调整
-      if (mastery === undefined) continue;
-      // 完全掌握则不加时
-      if (mastery >= 1) continue;
+      const concept = conceptById.get(task.nodeId);
+      if (!concept || concept.mastery >= 1) continue;
 
-      const extra = Math.round((1 - mastery) * MAX_EXTRA_MINUTES);
+      const extra = Math.round((1 - concept.mastery) * MAX_EXTRA_MINUTES);
       if (extra <= 0) continue;
-
-      const currentTotal = day.tasks.reduce((sum, t) => sum + t.duration, 0);
-      // 软上限：加时后不能超过当天上限，否则跳过该任务
-      if (currentTotal + extra > dailyCap) continue;
+      if (currentTotal() + extra > dailyCap) continue;
 
       task.duration += extra;
       adjustments.push({
         date: day.date,
         nodeId: task.nodeId,
+        type: 'extend',
         addedMinutes: extra,
-        mastery,
+        mastery: concept.mastery,
+        reason,
+      });
+    }
+
+    // 2. Insert NEW review tasks for very weak concepts not already scheduled today
+    const todayNodeIds = new Set(day.tasks.map((t) => t.nodeId));
+    for (const concept of conceptMap.concepts) {
+      if (concept.mastery >= INSERT_REVIEW_THRESHOLD) continue;
+      if (todayNodeIds.has(concept.id)) continue;
+      if (concept.unverified) continue;
+
+      const duration = estimateDuration(concept, 'review');
+      if (currentTotal() + duration > dailyCap) continue;
+
+      day.tasks.push({ type: 'review', nodeId: concept.id, duration });
+      todayNodeIds.add(concept.id);
+      adjustments.push({
+        date: day.date,
+        nodeId: concept.id,
+        type: 'insert_review',
+        addedMinutes: duration,
+        mastery: concept.mastery,
+        reason: `mastery ${concept.mastery.toFixed(2)} < ${INSERT_REVIEW_THRESHOLD}`,
+      });
+    }
+
+    // 3. Insert quiz tasks for concepts that need re-testing
+    for (const nodeId of quizNodeIds) {
+      if (todayNodeIds.has(nodeId)) continue;
+      const concept = conceptById.get(nodeId);
+      if (!concept) continue;
+
+      const duration = estimateDuration(concept, 'quiz');
+      if (currentTotal() + duration > dailyCap) continue;
+
+      day.tasks.push({ type: 'quiz', nodeId, duration });
+      todayNodeIds.add(nodeId);
+      adjustments.push({
+        date: day.date,
+        nodeId,
+        type: 'insert_quiz',
+        addedMinutes: duration,
+        mastery: concept.mastery,
+        reason: 're-test after repeated failures',
       });
     }
   }
 
-  return { plan: adjusted, adjustments };
+  // Build adjustment record
+  const daysAffected = new Set(adjustments.map((a) => a.date)).size;
+  const tasksAdded = adjustments.filter((a) => a.type !== 'extend').length;
+  const minutesAdded = adjustments.reduce((s, a) => s + a.addedMinutes, 0);
+
+  const record: AdjustmentRecord = {
+    adjustedAt: new Date().toISOString(),
+    reason,
+    version: adjusted.version,
+    changes: adjustments,
+    summary: { tasksAdded, minutesAdded, daysAffected },
+  };
+
+  return { plan: adjusted, adjustments, record };
 }
 
 /**
- * 将调整后的计划写回 plan_master.json 和受影响的 plan_daily/*.json，
- * 并追加事件日志。
- *
- * 注意：plan_daily 下未被调整的天也会被重写（内容不变），保证主计划与
- * 每日文件一致。这是现有 savePlan 的行为，这里保持同步。
+ * 将调整后的计划写回 plan_master.json 和 plan_daily/*.json，
+ * 并追加事件日志和调整历史。
  */
 export async function saveAdjustedPlan(
   plan: StudyPlan,
-  adjustments: PlanAdjustment[],
+  record: AdjustmentRecord,
   eventLogFile: string,
   workspaceRoot?: string
 ): Promise<void> {
@@ -143,19 +210,20 @@ export async function saveAdjustedPlan(
     );
   }
 
+  // Append to adjustment history log
+  const logPath = path.join(planDir, 'adjustment_log.jsonl');
+  await fs.appendFile(logPath, JSON.stringify(record) + '\n', 'utf-8');
+
   const event: Event = {
     id: createEventId(),
     timestamp: new Date().toISOString(),
     agent: 'plan_adjuster',
     action: 'plan_adjusted',
-    input: { planId: plan.id, examDate: plan.examDate },
+    input: { planId: plan.id, examDate: plan.examDate, reason: record.reason },
     output: {
-      adjustmentCount: adjustments.length,
-      adjustments: adjustments.map((a) => ({
-        date: a.date,
-        nodeId: a.nodeId,
-        addedMinutes: a.addedMinutes,
-      })),
+      version: plan.version,
+      adjustmentCount: record.changes.length,
+      ...record.summary,
     },
   };
   await appendEvent(eventLogFile, event);

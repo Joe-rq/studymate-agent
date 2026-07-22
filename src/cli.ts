@@ -8,10 +8,11 @@ import { Paths } from './core/paths.js';
 import { importPDF, importMarkdown } from './agents/material_collector.js';
 import { chunkMaterial } from './agents/chunker.js';
 import { mapConcepts } from './agents/concept_mapper.js';
-import { generatePlan, savePlan } from './agents/planner.js';
-import { dispatchToday } from './agents/task_dispatcher.js';
-import { generateQuiz } from './agents/quiz_generator.js';
+import { generatePlan, savePlan, formatPlanSummary } from './agents/planner.js';
+import { dispatchToday, completeTask, rolloverIncomplete } from './agents/task_dispatcher.js';
+import { generateQuiz, selectQuizScope, generateScopedQuiz, type QuizConfig } from './agents/quiz_generator.js';
 import { gradeAndAdapt } from './application/workflows/grade_and_adapt.js';
+import { computeMetrics } from './agents/metrics.js';
 import { bootstrapExam, loadExamProject } from './application/workflows/bootstrap_exam.js';
 import { researchExamWorkflow, approveSources } from './application/workflows/research_exam.js';
 import { MockSearchProvider } from './application/ports/search_provider.js';
@@ -97,7 +98,8 @@ program
   .description('Generate study plan')
   .requiredOption('--exam <date>', 'Exam date YYYY-MM-DD')
   .requiredOption('--daily <minutes>', 'Daily minutes')
-  .action(async (options: { exam: string; daily: string }) => {
+  .option('--yes', 'Skip confirmation prompt')
+  .action(async (options: { exam: string; daily: string; yes?: boolean }) => {
     const llm = createLLM();
     const chunkFiles = await fs.readdir(Paths.chunks).catch(() => []);
     if (chunkFiles.length === 0) {
@@ -121,9 +123,23 @@ program
 
     const conceptMap = await mapConcepts(chunks, llm, Paths.eventLog);
     const plan = generatePlan(conceptMap, { examDate: options.exam, dailyMinutes: parseInt(options.daily, 10) });
+
+    // Show summary
+    console.log('\n' + formatPlanSummary(plan, conceptMap) + '\n');
+
+    if (!options.yes) {
+      const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+      const answer = await new Promise<string>((resolve) => rl.question('确认生成此计划？(y/N) ', resolve));
+      rl.close();
+      if (answer.trim().toLowerCase() !== 'y') {
+        console.log('已取消。');
+        return;
+      }
+    }
+
     await savePlan(plan, Paths.eventLog);
-    console.log(`Plan generated: ${plan.schedule.length} days`);
-    console.log(`Concepts: ${conceptMap.concepts.map((c) => c.name).join(', ')}`);
+    console.log(`\n计划已生成：${plan.schedule.length} 天，版本 ${plan.version}`);
+    console.log(`概念: ${conceptMap.concepts.map((c) => c.name).join(', ')}`);
   });
 
 program
@@ -134,11 +150,25 @@ program
     const planPath = path.join(Paths.plan, 'plan_daily', `${today}.json`);
     try {
       const plan = JSON.parse(await fs.readFile(planPath, 'utf-8'));
-      const tasks = await dispatchToday(plan, Paths.eventLog);
+
+      // Auto-rollover incomplete tasks from past days
+      let rolloverTasks;
+      try {
+        const masterPlan = JSON.parse(await fs.readFile(path.join(Paths.plan, 'plan_master.json'), 'utf-8'));
+        rolloverTasks = await rolloverIncomplete(plan, masterPlan.dailyMinutes);
+        if (rolloverTasks.length > 0) {
+          console.log(`滚动未完成的任务: ${rolloverTasks.length} 项`);
+        }
+      } catch {
+        // No master plan or no past tasks
+      }
+
+      const tasks = await dispatchToday(plan, Paths.eventLog, { rolloverTasks });
       console.log(`Today's tasks (${today}): ${tasks.length}`);
+      const typeLabels: Record<string, string> = { learn: '学习', review: '复习', quiz: '测验', sprint: '冲刺', buffer: '缓冲' };
       for (const t of tasks) {
-        const typeLabel = t.type === 'learn' ? '学习' : t.type === 'review' ? '复习' : '冲刺';
-        console.log(`- ${typeLabel} ${t.nodeId} (${t.duration}min)`);
+        const typeLabel = typeLabels[t.type] ?? t.type;
+        console.log(`- [${t.id}] ${typeLabel} ${t.nodeId} (${t.duration}min)`);
       }
       await buddyLine('today');
     } catch {
@@ -147,39 +177,114 @@ program
     }
   });
 
+// ── 任务管理 ────────────────────────────────────────────────────────
+const taskCmd = program.command('task').description('Manage daily tasks (任务管理)');
+
+taskCmd
+  .command('done')
+  .description('Mark a task as completed')
+  .argument('<taskId>', 'Task ID (e.g. task_2026-07-22_0)')
+  .action(async (taskId: string) => {
+    const dateMatch = taskId.match(/task_(\d{4}-\d{2}-\d{2})_/);
+    if (!dateMatch) {
+      console.error('无效的任务 ID 格式。示例: task_2026-07-22_0');
+      process.exit(1);
+    }
+    const date = dateMatch[1];
+    await completeTask(date, taskId, 'done', Paths.eventLog);
+    console.log(`✓ 已完成: ${taskId}`);
+  });
+
+taskCmd
+  .command('skip')
+  .description('Mark a task as skipped')
+  .argument('<taskId>', 'Task ID (e.g. task_2026-07-22_0)')
+  .action(async (taskId: string) => {
+    const dateMatch = taskId.match(/task_(\d{4}-\d{2}-\d{2})_/);
+    if (!dateMatch) {
+      console.error('无效的任务 ID 格式。示例: task_2026-07-22_0');
+      process.exit(1);
+    }
+    const date = dateMatch[1];
+    await completeTask(date, taskId, 'skipped', Paths.eventLog);
+    console.log(`⏭ 已跳过: ${taskId}`);
+  });
+
+taskCmd
+  .command('rollover')
+  .description('Roll over incomplete tasks from past days to today')
+  .action(async () => {
+    const today = new Date().toISOString().split('T')[0];
+    const planPath = path.join(Paths.plan, 'plan_daily', `${today}.json`);
+    try {
+      const plan = JSON.parse(await fs.readFile(planPath, 'utf-8'));
+      const masterPlan = JSON.parse(await fs.readFile(path.join(Paths.plan, 'plan_master.json'), 'utf-8'));
+      const rollover = await rolloverIncomplete(plan, masterPlan.dailyMinutes);
+      if (rollover.length === 0) {
+        console.log('没有未完成的任务需要滚动。');
+        return;
+      }
+      console.log(`滚动 ${rollover.length} 项未完成任务到今天：`);
+      for (const t of rollover) {
+        console.log(`  - 复习 ${t.nodeId} (${t.duration}min)`);
+      }
+      console.log('\n运行 studymate today 查看更新后的任务列表。');
+    } catch {
+      console.error(`找不到今天的计划 (${today})。`);
+      process.exit(1);
+    }
+  });
+
 program
   .command('quiz')
   .description('Generate quiz for today')
-  .action(async () => {
+  .option('--count <n>', 'Number of questions', '5')
+  .option('--no-multi', 'Disable multi-choice questions')
+  .action(async (options: { count: string; multi: boolean }) => {
     const llm = createLLM();
     const today = new Date().toISOString().split('T')[0];
     const conceptsPath = path.join(Paths.graph, 'concepts.json');
-    const concepts = JSON.parse(await fs.readFile(conceptsPath, 'utf-8')).concepts;
+    const conceptMap = JSON.parse(await fs.readFile(conceptsPath, 'utf-8'));
 
-    // 断点③：读取薄弱知识点，引导出题优先覆盖薄弱点
-    let focusNodeIds: string[] | undefined;
+    const config: QuizConfig = {
+      questionCount: parseInt(options.count, 10),
+      allowMultiChoice: options.multi,
+    };
+
+    // Read today's plan for scope selection
+    let todayPlan;
     try {
-      const profilePath = path.join(Paths.mistakes, 'weakness_profile.json');
-      const profile = JSON.parse(await fs.readFile(profilePath, 'utf-8'));
-      // Support both new cumulative schema (nodes map) and legacy (weakNodes array)
-      let weakNodes: string[] = [];
-      if (profile.nodes && typeof profile.nodes === 'object') {
-        weakNodes = Object.entries(profile.nodes as Record<string, { mistakeCount: number }>)
-          .sort((a, b) => b[1].mistakeCount - a[1].mistakeCount)
-          .map(([id]) => id);
-      } else if (Array.isArray(profile.weakNodes)) {
-        weakNodes = profile.weakNodes;
-      }
-      if (weakNodes.length > 0) {
-        focusNodeIds = weakNodes;
-        console.log(`检测到薄弱知识点 ${focusNodeIds.length} 个，将优先出题`);
-      }
+      const planPath = path.join(Paths.plan, 'plan_daily', `${today}.json`);
+      todayPlan = JSON.parse(await fs.readFile(planPath, 'utf-8'));
     } catch {
-      // weakness_profile.json 不存在（首次答题前），正常跳过
+      // No plan for today — scope will fall back to weakness profile or empty
     }
 
-    const quiz = await generateQuiz(concepts, llm, today, Paths.eventLog, focusNodeIds);
+    // Read weakness profile
+    let weaknessProfile;
+    try {
+      const profilePath = path.join(Paths.mistakes, 'weakness_profile.json');
+      weaknessProfile = JSON.parse(await fs.readFile(profilePath, 'utf-8'));
+    } catch {
+      // No weakness profile yet
+    }
+
+    const scope = selectQuizScope(todayPlan, conceptMap, weaknessProfile);
+    const scopeInfo = [
+      scope.todayConcepts.length > 0 ? `今日学习 ${scope.todayConcepts.length} 个` : null,
+      scope.dueReviewConcepts.length > 0 ? `复习 ${scope.dueReviewConcepts.length} 个` : null,
+      scope.weakConcepts.length > 0 ? `薄弱 ${scope.weakConcepts.length} 个` : null,
+    ].filter(Boolean);
+    if (scopeInfo.length > 0) {
+      console.log(`出题范围：${scopeInfo.join('，')}`);
+    }
+
+    const quiz = await generateScopedQuiz(scope, config, llm, today, Paths.eventLog);
     console.log(`Generated quiz: ${quiz.questions.length} questions`);
+    const multiCount = quiz.questions.filter((q) => q.type === 'multi_choice').length;
+    if (multiCount > 0) {
+      console.log(`  单选题 ${quiz.questions.length - multiCount} 道，多选题 ${multiCount} 道`);
+    }
     console.log(`See: ${path.join(Paths.quizzes, `${today}_quiz.md`)}`);
     await buddyLine('quiz');
   });
@@ -201,12 +306,32 @@ program
       eventLogFile: Paths.eventLog,
     });
 
-    const { result, mistakeNodeIds, masteryChanges, adjustments } = workflowResult;
+    const { result, mistakes, mistakeNodeIds, masteryChanges, adjustments, weaknessExplanations } = workflowResult;
 
     console.log(`Score: ${result.totalScore}`);
     console.log(`Mistakes: ${result.mistakes.length}`);
+
+    if (mistakes.length > 0) {
+      console.log('\n错误分类：');
+      for (const m of mistakes) {
+        const typeLabels: Record<string, string> = {
+          concept_unclear: '概念不清',
+          memory_fuzzy: '记忆模糊',
+          careless: '粗心',
+          multi_partial: '多选部分正确',
+        };
+        console.log(`  ${m.nodeId} — ${typeLabels[m.errorType] ?? m.errorType}`);
+      }
+    }
+
     if (mistakeNodeIds.length > 0) {
-      console.log(`Weak nodes: ${mistakeNodeIds.join(', ')}`);
+      console.log(`\n薄弱知识点分析：`);
+      for (const nodeId of mistakeNodeIds) {
+        const explanation = weaknessExplanations[nodeId];
+        if (explanation) {
+          console.log(`  ${nodeId}: ${explanation}`);
+        }
+      }
     }
 
     if (masteryChanges.length > 0) {
@@ -556,6 +681,20 @@ knowledgeCmd
       }
       console.log(`\n提示: 未验证概念不会进入学习顺序。可重新导入更多资料以提供证据。`);
     }
+  });
+
+// ── 策略指标 ──────────────────────────────────────────────────────
+program
+  .command('metrics')
+  .description('Show strategy metrics (学习策略指标)')
+  .action(async () => {
+    const m = await computeMetrics();
+    console.log('\n学习策略指标\n');
+    console.log(`  计划完成率：${(m.planCompletionRate * 100).toFixed(0)}%`);
+    console.log(`  复习后正确率：${(m.postReviewAccuracy * 100).toFixed(0)}%`);
+    console.log(`  知识保持率：${(m.knowledgeRetention * 100).toFixed(0)}%`);
+    console.log(`  题目废弃率：${(m.questionDiscardRate * 100).toFixed(0)}%`);
+    console.log('');
   });
 
 program.parse();

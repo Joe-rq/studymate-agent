@@ -14,7 +14,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { gradeQuiz, saveResult, type UserAnswer, type QuizResult } from '../../agents/grader.js';
-import { analyzeMistakes, saveMistakes } from '../../agents/mistake_analyzer.js';
+import { analyzeMistakes, saveMistakes, explainWeakness, loadWeaknessProfilePublic, type Mistake } from '../../agents/mistake_analyzer.js';
 import { updateMastery, saveMastery, type MasteryChange } from '../../agents/mastery_tracker.js';
 import { adjustPlan, saveAdjustedPlan, type PlanAdjustment } from '../../agents/plan_adjuster.js';
 import type { Quiz } from '../../agents/quiz_generator.js';
@@ -38,7 +38,9 @@ export interface GradeAndAdaptInput {
 export interface GradeAndAdaptResult {
   /** The graded quiz result. */
   result: QuizResult;
-  /** Mistakes extracted from this session. */
+  /** Mistakes extracted from this session (with error type classification). */
+  mistakes: Mistake[];
+  /** Unique node IDs that had mistakes. */
   mistakeNodeIds: string[];
   /** Mastery changes for concepts tested in this session. */
   masteryChanges: MasteryChange[];
@@ -46,6 +48,8 @@ export interface GradeAndAdaptResult {
   adjustments: PlanAdjustment[];
   /** Correlation ID linking all events from this session. */
   correlationId: string;
+  /** Human-readable weakness explanations for mistake nodes. */
+  weaknessExplanations: Record<string, string>;
 }
 
 export async function gradeAndAdapt(input: GradeAndAdaptInput): Promise<GradeAndAdaptResult> {
@@ -57,13 +61,22 @@ export async function gradeAndAdapt(input: GradeAndAdaptInput): Promise<GradeAnd
   const result = gradeQuiz(quiz, answers);
   await saveResult(result, eventLogFile, workspaceRoot);
 
-  // 2. Analyze mistakes and save cumulatively
-  const mistakes = analyzeMistakes(result);
+  // 2. Analyze mistakes and save cumulatively (pass concepts for rule-based classification)
+  const conceptMap: ConceptMap = JSON.parse(await fs.readFile(conceptsPath, 'utf-8'));
+  const mistakes = analyzeMistakes(result, conceptMap.concepts);
   await saveMistakes(mistakes, date, eventLogFile, workspaceRoot);
   const mistakeNodeIds = [...new Set(mistakes.map((m) => m.nodeId))];
 
+  // Generate weakness explanations
+  const weaknessExplanations: Record<string, string> = {};
+  if (mistakeNodeIds.length > 0) {
+    const profile = await loadWeaknessProfilePublic(workspaceRoot);
+    for (const nodeId of mistakeNodeIds) {
+      weaknessExplanations[nodeId] = explainWeakness(nodeId, profile);
+    }
+  }
+
   // 3. Update mastery via EMA
-  const conceptMap: ConceptMap = JSON.parse(await fs.readFile(conceptsPath, 'utf-8'));
   const masteryUpdate = updateMastery(conceptMap, result);
   await saveMastery(masteryUpdate, eventLogFile, workspaceRoot);
 
@@ -72,8 +85,14 @@ export async function gradeAndAdapt(input: GradeAndAdaptInput): Promise<GradeAnd
   if (planPath) {
     try {
       const plan: StudyPlan = JSON.parse(await fs.readFile(planPath, 'utf-8'));
-      const adjusted = adjustPlan(plan, masteryUpdate.conceptMap);
-      await saveAdjustedPlan(adjusted.plan, adjusted.adjustments, eventLogFile, workspaceRoot);
+      const adjusted = adjustPlan(plan, masteryUpdate.conceptMap, {
+        reason: `Post-quiz adaptation: ${mistakeNodeIds.length} weak nodes detected`,
+        quizNodeIds: mistakeNodeIds.filter((id) => {
+          const c = masteryUpdate.conceptMap.concepts.find((co) => co.id === id);
+          return c !== undefined && c.mastery < 0.3;
+        }),
+      });
+      await saveAdjustedPlan(adjusted.plan, adjusted.record, eventLogFile, workspaceRoot);
       adjustments = adjusted.adjustments;
     } catch {
       // plan_master.json doesn't exist — skip plan adjustment
@@ -82,9 +101,11 @@ export async function gradeAndAdapt(input: GradeAndAdaptInput): Promise<GradeAnd
 
   return {
     result,
+    mistakes,
     mistakeNodeIds,
     masteryChanges: masteryUpdate.changes,
     adjustments,
     correlationId,
+    weaknessExplanations,
   };
 }

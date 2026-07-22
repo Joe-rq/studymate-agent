@@ -1,7 +1,12 @@
-import { describe, it, expect } from 'vitest';
-import { updateMastery, DEFAULT_MASTERY_ALPHA } from '../../src/agents/mastery_tracker.js';
+import { describe, it, expect, beforeEach } from 'vitest';
+import { updateMastery, saveMastery, DEFAULT_MASTERY_ALPHA } from '../../src/agents/mastery_tracker.js';
 import type { ConceptMap } from '../../src/agents/concept_mapper.js';
 import type { QuizResult } from '../../src/agents/grader.js';
+import fs from 'fs/promises';
+import path from 'path';
+
+const TEST_DIR = path.join(process.cwd(), 'workspace_test_mastery');
+const TEST_LOG = path.join(TEST_DIR, 'event_log', 'events.jsonl');
 
 /** 构造一个最小概念图，便于测试。 */
 function makeConceptMap(masteries: Record<string, number>): ConceptMap {
@@ -122,5 +127,92 @@ describe('mastery_tracker', () => {
     const { changes } = updateMastery(map, result);
     // new = 0×0.6 + 1×0.4 = 0.4
     expect(changes[0].newMastery).toBeCloseTo(DEFAULT_MASTERY_ALPHA, 5);
+  });
+
+  it('should increment consecutiveCorrect on sessionScore >= 0.8', () => {
+    const map = makeConceptMap({ node_1: 0.5 });
+    const result = makeResult({ node_1: [true, true, true, true] }); // 4/4 = 1.0
+    const { conceptMap } = updateMastery(map, result);
+    expect(conceptMap.concepts[0].consecutiveCorrect).toBe(1);
+
+    // Second session also >= 0.8
+    const second = updateMastery(conceptMap, result);
+    expect(second.conceptMap.concepts[0].consecutiveCorrect).toBe(2);
+  });
+
+  it('should reset consecutiveCorrect on sessionScore < 0.5', () => {
+    const map = makeConceptMap({ node_1: 0.5 });
+    map.concepts[0].consecutiveCorrect = 3;
+    const result = makeResult({ node_1: [false, false, false] }); // 0/3 = 0
+    const { conceptMap } = updateMastery(map, result);
+    expect(conceptMap.concepts[0].consecutiveCorrect).toBe(0);
+  });
+
+  it('should keep consecutiveCorrect unchanged for sessionScore between 0.5 and 0.8', () => {
+    const map = makeConceptMap({ node_1: 0.5 });
+    map.concepts[0].consecutiveCorrect = 2;
+    // 3/5 = 0.6 — between 0.5 and 0.8
+    const result = makeResult({ node_1: [true, true, true, false, false] });
+    const { conceptMap } = updateMastery(map, result);
+    expect(conceptMap.concepts[0].consecutiveCorrect).toBe(2);
+  });
+
+  it('should increment evidenceCount by question count', () => {
+    const map = makeConceptMap({ node_1: 0.5 });
+    const result = makeResult({ node_1: [true, false, true] });
+    const { conceptMap } = updateMastery(map, result);
+    expect(conceptMap.concepts[0].evidenceCount).toBe(3);
+
+    // Second session adds more
+    const second = updateMastery(conceptMap, result);
+    expect(second.conceptMap.concepts[0].evidenceCount).toBe(6);
+  });
+
+  it('should produce snapshots for each tested concept', () => {
+    const map = makeConceptMap({ node_1: 0.5, node_2: 0.3 });
+    const result = makeResult({ node_1: [true], node_2: [false] });
+    const { snapshots } = updateMastery(map, result);
+    expect(snapshots).toHaveLength(2);
+    expect(snapshots[0].nodeId).toBe('node_1');
+    expect(snapshots[0].date).toBe('2026-07-10');
+    expect(snapshots[1].nodeId).toBe('node_2');
+  });
+});
+
+describe('saveMastery (history append)', () => {
+  beforeEach(async () => {
+    await fs.rm(TEST_DIR, { recursive: true, force: true });
+    await fs.mkdir(TEST_DIR, { recursive: true });
+  });
+
+  it('should append snapshots to mastery_history.jsonl', async () => {
+    const map = makeConceptMap({ node_1: 0.5 });
+    const result = makeResult({ node_1: [true, true] });
+    const update = updateMastery(map, result);
+    await saveMastery(update, TEST_LOG, TEST_DIR);
+
+    const historyPath = path.join(TEST_DIR, 'progress', 'mastery_history.jsonl');
+    const content = await fs.readFile(historyPath, 'utf-8');
+    const lines = content.trim().split('\n');
+    expect(lines).toHaveLength(1);
+    const snapshot = JSON.parse(lines[0]);
+    expect(snapshot.nodeId).toBe('node_1');
+    expect(snapshot.consecutiveCorrect).toBe(1);
+  });
+
+  it('should accumulate history across multiple saves', async () => {
+    const map = makeConceptMap({ node_1: 0.5 });
+    const result = makeResult({ node_1: [true] });
+
+    const update1 = updateMastery(map, result);
+    await saveMastery(update1, TEST_LOG, TEST_DIR);
+
+    const update2 = updateMastery(update1.conceptMap, result);
+    await saveMastery(update2, TEST_LOG, TEST_DIR);
+
+    const historyPath = path.join(TEST_DIR, 'progress', 'mastery_history.jsonl');
+    const content = await fs.readFile(historyPath, 'utf-8');
+    const lines = content.trim().split('\n');
+    expect(lines).toHaveLength(2);
   });
 });
