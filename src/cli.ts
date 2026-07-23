@@ -12,6 +12,7 @@ import { generatePlan, savePlan, formatPlanSummary } from './agents/planner.js';
 import { dispatchToday, completeTask, rolloverIncomplete } from './agents/task_dispatcher.js';
 import { generateQuiz, selectQuizScope, generateScopedQuiz, type QuizConfig } from './agents/quiz_generator.js';
 import { gradeAndAdapt } from './application/workflows/grade_and_adapt.js';
+import { qualityLabel, daysUntilDue } from './agents/spaced_repetition.js';
 import { computeMetrics } from './agents/metrics.js';
 import { bootstrapExam, loadExamProject } from './application/workflows/bootstrap_exam.js';
 import { researchExamWorkflow, approveSources } from './application/workflows/research_exam.js';
@@ -383,6 +384,13 @@ program
       for (const c of masteryChanges) {
         const arrow = c.newMastery >= c.oldMastery ? '↑' : '↓';
         console.log(`  ${c.nodeName}: ${c.oldMastery.toFixed(2)} ${arrow} ${c.newMastery.toFixed(2)}（本次正确率 ${(c.sessionScore * 100).toFixed(0)}%）`);
+        // SM-2 status
+        if (c.srQuality !== undefined && c.srState) {
+          const today = new Date().toISOString().split('T')[0];
+          const daysUntil = daysUntilDue(c.srState, today);
+          const intervalStr = daysUntil > 0 ? `+${daysUntil} 天` : '今天';
+          console.log(`    SM-2: 质量 ${c.srQuality}/5 (${qualityLabel(c.srQuality)}), 下次复习 ${c.srState.dueDate} (${intervalStr}), EF=${c.srState.easeFactor.toFixed(2)}`);
+        }
       }
     }
 

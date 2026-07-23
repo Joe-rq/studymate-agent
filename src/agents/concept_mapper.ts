@@ -5,6 +5,7 @@ import type { LLMClient } from '../core/llm.js';
 import type { Event } from '../core/types.js';
 import { createEventId, appendEvent } from '../core/event_log.js';
 import { Paths, PROMPTS_SOURCE } from '../core/paths.js';
+import type { SRState } from './spaced_repetition.js';
 
 export const PROMPT_VERSION = 'concept_map_v1';
 
@@ -25,6 +26,8 @@ export interface Concept {
   consecutiveCorrect?: number;
   /** Total evidence count (times this concept was tested). */
   evidenceCount?: number;
+  /** SM-2 spaced repetition state for adaptive review scheduling. */
+  srState?: SRState;
 }
 
 export interface ConceptMap {

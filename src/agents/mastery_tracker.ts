@@ -5,6 +5,12 @@ import type { QuizResult } from './grader.js';
 import type { Event } from '../core/types.js';
 import { createEventId, appendEvent } from '../core/event_log.js';
 import { Paths } from '../core/paths.js';
+import {
+  processReview,
+  scoreToQuality,
+  createInitialSRState,
+  type SRState,
+} from './spaced_repetition.js';
 
 /**
  * 默认 EMA 平滑系数 α。
@@ -27,6 +33,10 @@ export interface MasteryChange {
   sessionScore: number;
   /** 本次该概念的题目总数。 */
   questionCount: number;
+  /** SM-2 quality grade (0-5) derived from sessionScore. */
+  srQuality?: number;
+  /** Updated SM-2 state after this review. */
+  srState?: SRState;
 }
 
 /** Mastery history snapshot appended to mastery_history.jsonl. */
@@ -96,6 +106,12 @@ export function updateMastery(
     // Evidence count
     concept.evidenceCount = (concept.evidenceCount ?? 0) + entry.total;
 
+    // SM-2 Spaced Repetition: update SR state based on session score
+    const quality = scoreToQuality(sessionScore);
+    const currentSRState = concept.srState ?? createInitialSRState(result.date);
+    const newSRState = processReview(currentSRState, quality, result.date);
+    concept.srState = newSRState;
+
     changes.push({
       nodeId: concept.id,
       nodeName: concept.name,
@@ -103,6 +119,8 @@ export function updateMastery(
       newMastery: concept.mastery,
       sessionScore,
       questionCount: entry.total,
+      srQuality: quality,
+      srState: newSRState,
     });
 
     snapshots.push({

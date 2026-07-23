@@ -4,6 +4,11 @@ import type { Concept, ConceptMap } from './concept_mapper.js';
 import type { Event } from '../core/types.js';
 import { createEventId, appendEvent } from '../core/event_log.js';
 import { Paths } from '../core/paths.js';
+import {
+  createInitialSRState,
+  isDue,
+  type SRState,
+} from './spaced_repetition.js';
 
 export const PROMPT_VERSION = 'plan_v1';
 
@@ -180,8 +185,8 @@ export function generatePlan(conceptMap: ConceptMap, config: PlanConfig): StudyP
         if (!concept) continue;
         tasks.push({ type: 'quiz', nodeId, duration: estimateDuration(concept, 'quiz') });
       }
-      // Add review tasks from intervals
-      addReviewTasks(tasks, d, learnDayMap, conceptById, learningOrder, 'review');
+      // Add review tasks using SR-based scheduling
+      scheduleSRReviewTasks(tasks, dateStr, conceptById, learningOrder, learnDayMap, d, 'review');
     } else {
       // Learn phase
       // Quiz day?
@@ -202,11 +207,15 @@ export function generatePlan(conceptMap: ConceptMap, config: PlanConfig): StudyP
             const concept = conceptById.get(nodeId);
             if (!concept) continue;
             tasks.push({ type: 'learn', nodeId, duration: estimateDuration(concept, 'learn') });
+            // Initialize SRState for newly learned concepts
+            if (!concept.srState) {
+              concept.srState = createInitialSRState(dateStr);
+            }
           }
         }
       }
-      // Review tasks from intervals
-      addReviewTasks(tasks, d, learnDayMap, conceptById, learningOrder, 'review');
+      // Review tasks: use SR-based scheduling (falls back to fixed intervals)
+      scheduleSRReviewTasks(tasks, dateStr, conceptById, learningOrder, learnDayMap, d, 'review');
     }
 
     // Capacity limit: prioritize learn/sprint > quiz > review
@@ -275,6 +284,42 @@ function addReviewTasks(
         const concept = conceptById.get(nodeId);
         if (!concept) continue;
         tasks.push({ type, nodeId, duration: estimateDuration(concept, type) });
+      }
+    }
+  }
+}
+
+/**
+ * Schedule review tasks based on SM-2 due dates.
+ * Falls back to fixed intervals for concepts without SRState.
+ */
+function scheduleSRReviewTasks(
+  tasks: DailyTask[],
+  currentDate: string,
+  conceptById: Map<string, Concept>,
+  learningOrder: string[],
+  learnDayMap: Map<string, number>,
+  currentDay: number,
+  type: 'review' | 'sprint' = 'review'
+): void {
+  for (const nodeId of learningOrder) {
+    const concept = conceptById.get(nodeId);
+    if (!concept) continue;
+
+    // Check if this concept has SR state with a due date
+    if (concept.srState) {
+      if (isDue(concept.srState, currentDate)) {
+        tasks.push({ type, nodeId, duration: estimateDuration(concept, type) });
+      }
+    } else {
+      // Fallback: use fixed intervals for concepts without SR state
+      const learnDay = learnDayMap.get(nodeId);
+      if (learnDay === undefined) continue;
+      for (const interval of REVIEW_INTERVALS) {
+        if (currentDay - interval === learnDay) {
+          tasks.push({ type, nodeId, duration: estimateDuration(concept, type) });
+          break;
+        }
       }
     }
   }

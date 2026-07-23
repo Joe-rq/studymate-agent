@@ -169,6 +169,41 @@ export function createApp() {
     }
   });
 
+  // ── SM-2 Spaced Repetition State ──────────────────────────────────
+  app.get('/api/concepts/sr-state', async (_req, res) => {
+    try {
+      const conceptMap = JSON.parse(await fs.readFile(path.join(Paths.graph, 'concepts.json'), 'utf-8'));
+      const srStates = conceptMap.concepts.map((c: { id: string; name: string; mastery: number; srState?: unknown }) => ({
+        id: c.id,
+        name: c.name,
+        mastery: c.mastery,
+        srState: c.srState ?? null,
+      }));
+      res.json({ concepts: srStates });
+    } catch {
+      res.json({ concepts: [] });
+    }
+  });
+
+  app.get('/api/concepts/:id/sr-state', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const conceptMap = JSON.parse(await fs.readFile(path.join(Paths.graph, 'concepts.json'), 'utf-8'));
+      const concept = conceptMap.concepts.find((c: { id: string }) => c.id === id);
+      if (!concept) {
+        return res.status(404).json({ error: `Concept ${id} not found` });
+      }
+      res.json({
+        id: concept.id,
+        name: concept.name,
+        mastery: concept.mastery,
+        srState: concept.srState ?? null,
+      });
+    } catch (err) {
+      res.status(500).json({ error: String(err) });
+    }
+  });
+
   // ── Plan Generation ────────────────────────────────────────────────
   app.post('/api/plan/generate', async (req, res) => {
     try {
