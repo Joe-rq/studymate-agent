@@ -15,7 +15,7 @@ import { gradeAndAdapt } from './application/workflows/grade_and_adapt.js';
 import { computeMetrics } from './agents/metrics.js';
 import { bootstrapExam, loadExamProject } from './application/workflows/bootstrap_exam.js';
 import { researchExamWorkflow, approveSources } from './application/workflows/research_exam.js';
-import { MockSearchProvider } from './application/ports/search_provider.js';
+import { MockSearchProvider, createSearchProvider } from './application/ports/search_provider.js';
 import { buildKnowledge } from './application/workflows/build_knowledge.js';
 import { WebContentFetcher } from './infrastructure/fetch/web_fetcher.js';
 import { loadMaterialIndex } from './agents/material_collector.js';
@@ -556,8 +556,10 @@ examCmd
     }
 
     const llm = createLLM();
-    // Use mock search provider for now; real provider will be added later
-    const searchProvider = new MockSearchProvider({});
+    const searchProvider = createSearchProvider();
+    if (!process.env.SERP_API_KEY) {
+      console.log('提示: 未设置 SERP_API_KEY，使用 Mock 搜索（搜索结果为空）。设置后可获取真实搜索结果。');
+    }
     console.log(`正在调研「${project.name}」...`);
 
     try {

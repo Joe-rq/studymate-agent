@@ -14,9 +14,16 @@ import { selectQuizScope, generateScopedQuiz, type QuizConfig } from '../agents/
 import { gradeAndAdapt } from '../application/workflows/grade_and_adapt.js';
 import { computeMetrics } from '../agents/metrics.js';
 import { completeTask } from '../agents/task_dispatcher.js';
-import { loadExamProject } from '../application/workflows/bootstrap_exam.js';
+import { bootstrapExam, loadExamProject, saveExamProject } from '../application/workflows/bootstrap_exam.js';
+import { researchExamWorkflow, approveSources } from '../application/workflows/research_exam.js';
+import { buildKnowledge } from '../application/workflows/build_knowledge.js';
+import { createSearchProvider } from '../application/ports/search_provider.js';
+import { WebContentFetcher } from '../infrastructure/fetch/web_fetcher.js';
+import { generatePlan, savePlan } from '../agents/planner.js';
 import { loadWeaknessProfilePublic, explainWeakness } from '../agents/mistake_analyzer.js';
 import type { UserAnswer } from '../agents/grader.js';
+import type { LearnerBaseline } from '../domain/exam.js';
+import type { SourceRecord } from '../domain/source.js';
 
 function createLLM() {
   if (process.env.OPENAI_API_KEY) {
@@ -44,6 +51,147 @@ export function createApp() {
         tasksToday: ctx.tasksToday,
         recentScore: ctx.recentScore,
       });
+    } catch (err) {
+      res.status(500).json({ error: String(err) });
+    }
+  });
+
+  // ── Exam Project ─────────────────────────────────────────────────
+  app.get('/api/exam', async (_req, res) => {
+    try {
+      const project = await loadExamProject();
+      res.json(project);
+    } catch (err) {
+      res.status(500).json({ error: String(err) });
+    }
+  });
+
+  app.post('/api/exam/create', async (req, res) => {
+    try {
+      const { name, examDate, subjects, dailyMinutes, baseline, target } = req.body;
+      if (!name || !examDate || !subjects || !dailyMinutes) {
+        return res.status(400).json({ error: 'name, examDate, subjects, dailyMinutes are required' });
+      }
+      const project = await bootstrapExam({
+        name,
+        examDate,
+        subjects: Array.isArray(subjects) ? subjects : subjects.split(',').map((s: string) => s.trim()),
+        baseline: (baseline as LearnerBaseline) ?? 'beginner',
+        dailyMinutes: parseInt(dailyMinutes, 10),
+        target,
+      });
+      res.json(project);
+    } catch (err) {
+      res.status(500).json({ error: String(err) });
+    }
+  });
+
+  app.post('/api/exam/research', async (_req, res) => {
+    try {
+      const project = await loadExamProject();
+      if (!project) return res.status(400).json({ error: 'No exam project. Create one first.' });
+      if (project.status !== 'draft') {
+        return res.status(400).json({ error: `Current status is ${project.status}. Research requires draft status.` });
+      }
+      const llm = createLLM();
+      const searchProvider = createSearchProvider();
+      const result = await researchExamWorkflow(project, searchProvider, llm, Paths.eventLog);
+      res.json({
+        sources: result.research.sources,
+        summary: result.research.summary,
+        sourceCount: result.research.sources.length,
+        queryCount: result.research.queryCount,
+      });
+    } catch (err) {
+      res.status(500).json({ error: String(err) });
+    }
+  });
+
+  app.get('/api/exam/research', async (_req, res) => {
+    try {
+      const sourcesPath = path.join(Paths.research, 'sources.jsonl');
+      const content = await fs.readFile(sourcesPath, 'utf-8');
+      const sources: SourceRecord[] = content
+        .split('\n')
+        .filter((line) => line.trim())
+        .map((line) => JSON.parse(line));
+
+      let profile = null;
+      try {
+        profile = JSON.parse(await fs.readFile(path.join(Paths.research, 'exam_profile.json'), 'utf-8'));
+      } catch { /* no profile */ }
+
+      res.json({ sources, profile });
+    } catch {
+      res.json({ sources: [], profile: null });
+    }
+  });
+
+  app.post('/api/exam/sources/approve', async (req, res) => {
+    try {
+      const { ids } = req.body as { ids: string[] };
+      if (!ids || !Array.isArray(ids)) {
+        return res.status(400).json({ error: 'ids array is required' });
+      }
+      const project = await loadExamProject();
+      if (!project) return res.status(400).json({ error: 'No exam project.' });
+      const sources = await approveSources(project, ids, Paths.eventLog);
+      const approvedCount = sources.filter((s) => s.approved).length;
+      res.json({ approvedCount, totalSources: sources.length });
+    } catch (err) {
+      res.status(500).json({ error: String(err) });
+    }
+  });
+
+  // ── Knowledge ─────────────────────────────────────────────────────
+  app.post('/api/knowledge/build', async (_req, res) => {
+    try {
+      const llm = createLLM();
+      const fetcher = new WebContentFetcher();
+      const result = await buildKnowledge({ fetcher, llm });
+      res.json(result);
+    } catch (err) {
+      res.status(500).json({ error: String(err) });
+    }
+  });
+
+  app.get('/api/knowledge/status', async (_req, res) => {
+    try {
+      const conceptMap = JSON.parse(await fs.readFile(path.join(Paths.graph, 'concepts.json'), 'utf-8'));
+      res.json({
+        conceptCount: conceptMap.concepts.length,
+        concepts: conceptMap.concepts.slice(0, 20).map((c: { id: string; name: string; mastery: number }) => ({
+          id: c.id, name: c.name, mastery: c.mastery,
+        })),
+      });
+    } catch {
+      res.json({ conceptCount: 0, concepts: [] });
+    }
+  });
+
+  // ── Plan Generation ────────────────────────────────────────────────
+  app.post('/api/plan/generate', async (req, res) => {
+    try {
+      const { examDate, dailyMinutes } = req.body;
+      const conceptMap = JSON.parse(await fs.readFile(path.join(Paths.graph, 'concepts.json'), 'utf-8'));
+      if (!conceptMap.concepts.length) {
+        return res.status(400).json({ error: 'No concepts found. Build knowledge first.' });
+      }
+      const plan = generatePlan(conceptMap, {
+        examDate: examDate ?? (await loadExamProject())?.examDate ?? new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0],
+        dailyMinutes: parseInt(dailyMinutes ?? '60', 10),
+      });
+      await savePlan(plan, Paths.eventLog);
+
+      // Update exam status to 'planned' if applicable
+      const exam = await loadExamProject();
+      if (exam && (exam.status === 'materials_ready' || exam.status === 'sources_approved')) {
+        const { transitionStatus } = await import('../domain/exam.js');
+        const updated = transitionStatus(exam, 'planned');
+        await saveExamProject(updated);
+      }
+
+      res.json(plan);
     } catch (err) {
       res.status(500).json({ error: String(err) });
     }

@@ -14,6 +14,21 @@ export default function Dashboard() {
   if (error) return <p style={{ color: 'var(--danger)' }}>加载失败：{error}</p>;
   if (!status) return <p>加载中...</p>;
 
+  // No exam project — show onboarding prompt
+  if (!status.exam) {
+    return (
+      <div>
+        <h2 className="page-title">欢迎使用 StudyMate</h2>
+        <p style={{ color: '#6b7280', marginBottom: 24 }}>
+          还没有考试项目。请先创建考试项目，开始你的备考之旅。
+        </p>
+        <button className="btn btn-primary" onClick={() => navigate('/onboarding')}>
+          创建考试项目
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div>
       <h2 className="page-title">

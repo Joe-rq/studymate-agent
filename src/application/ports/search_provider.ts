@@ -6,6 +6,7 @@
  */
 
 import type { SourceType } from '../../domain/source.js';
+import { SerpApiSearchProvider } from '../../infrastructure/search/serp_search_provider.js';
 
 export interface SearchResult {
   url: string;
@@ -23,6 +24,18 @@ export interface SearchOptions {
 
 export interface SearchProvider {
   search(query: string, options?: SearchOptions): Promise<SearchResult[]>;
+}
+
+/**
+ * Factory function: returns SerpApiSearchProvider if SERP_API_KEY is set,
+ * otherwise falls back to MockSearchProvider with empty results.
+ */
+export function createSearchProvider(): SearchProvider {
+  const apiKey = process.env.SERP_API_KEY;
+  if (apiKey) {
+    return new SerpApiSearchProvider(apiKey);
+  }
+  return new MockSearchProvider({});
 }
 
 /**

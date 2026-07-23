@@ -6,6 +6,7 @@ import GradeReport from './pages/GradeReport';
 import PlanView from './pages/PlanView';
 import BuddyChat from './pages/BuddyChat';
 import Settings from './pages/Settings';
+import Onboarding from './pages/Onboarding';
 import BuddyPanel from './components/BuddyPanel';
 
 const navItems = [
@@ -35,6 +36,7 @@ export default function App() {
       <main className="main-content">
         <Routes>
           <Route path="/" element={<Dashboard />} />
+          <Route path="/onboarding" element={<Onboarding />} />
           <Route path="/tasks" element={<TodayTasks />} />
           <Route path="/quiz" element={<QuizPage />} />
           <Route path="/grade" element={<GradeReport />} />

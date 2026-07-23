@@ -125,3 +125,79 @@ export interface ConceptMap {
   concepts: ConceptNode[];
   learningOrder: string[];
 }
+
+// ── Onboarding types ──────────────────────────────────────────────
+
+export interface ExamProject {
+  id: string;
+  name: string;
+  examDate: string;
+  subjects: string[];
+  status: string;
+  learnerProfile: {
+    baseline: string;
+    dailyMinutes: number;
+  };
+}
+
+export interface SourceRecord {
+  id: string;
+  url: string;
+  title: string;
+  sourceType: 'official' | 'community' | 'commercial' | 'user_file';
+  confidenceLevel: string;
+  summary: string;
+  approved?: boolean;
+}
+
+export interface ResearchResult {
+  sources: SourceRecord[];
+  summary: {
+    examFacts: string;
+    experienceConsensus: string;
+    disputedAdvice: string;
+    materialRecommendations: string;
+    gapsInEvidence: string;
+  };
+  sourceCount: number;
+  queryCount: number;
+}
+
+export interface KnowledgeStatus {
+  conceptCount: number;
+  concepts: Array<{ id: string; name: string; mastery: number }>;
+}
+
+// ── Onboarding API calls ──────────────────────────────────────────
+
+export const onboarding = {
+  createExam: (data: {
+    name: string;
+    examDate: string;
+    subjects: string;
+    dailyMinutes: number;
+    baseline?: string;
+    target?: string;
+  }) => api.post<ExamProject>('/exam/create', data),
+
+  getExam: () => api.get<ExamProject | null>('/exam'),
+
+  runResearch: () => api.post<ResearchResult>('/exam/research'),
+
+  getResearch: () => api.get<{ sources: SourceRecord[]; profile: unknown }>('/exam/research'),
+
+  approveSources: (ids: string[]) =>
+    api.post<{ approvedCount: number; totalSources: number }>('/exam/sources/approve', { ids }),
+
+  buildKnowledge: () => api.post<{
+    materialsImported: number;
+    chunksGenerated: number;
+    conceptsExtracted: number;
+    fetchErrors: string[];
+  }>('/knowledge/build'),
+
+  getKnowledgeStatus: () => api.get<KnowledgeStatus>('/knowledge/status'),
+
+  generatePlan: (examDate?: string, dailyMinutes?: number) =>
+    api.post<unknown>('/plan/generate', { examDate, dailyMinutes }),
+};
