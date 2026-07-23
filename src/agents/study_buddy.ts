@@ -7,6 +7,8 @@ import { Paths, PROMPTS_SOURCE } from '../core/paths.js';
 import type { Character } from '../core/character.js';
 import type { StudyContext } from '../core/context_reader.js';
 
+export const PROMPT_VERSION = 'buddy_v1';
+
 /** 搭子对话的单条历史记录。 */
 export interface ChatTurn {
   role: 'user' | 'buddy';

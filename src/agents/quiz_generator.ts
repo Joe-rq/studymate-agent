@@ -8,6 +8,8 @@ import type { Event } from '../core/types.js';
 import { createEventId, appendEvent } from '../core/event_log.js';
 import { Paths, PROMPTS_SOURCE } from '../core/paths.js';
 
+export const PROMPT_VERSION = 'quiz_v2';
+
 // ── Types ────────────────────────────────────────────────────────────
 
 export type QuestionType = 'single_choice' | 'multi_choice';

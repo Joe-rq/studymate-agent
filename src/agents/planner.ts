@@ -5,6 +5,8 @@ import type { Event } from '../core/types.js';
 import { createEventId, appendEvent } from '../core/event_log.js';
 import { Paths } from '../core/paths.js';
 
+export const PROMPT_VERSION = 'plan_v1';
+
 export interface PlanConfig {
   examDate: string;
   dailyMinutes: number;

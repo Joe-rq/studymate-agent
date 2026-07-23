@@ -3,6 +3,8 @@ import type { Character } from '../core/character.js';
 import type { StudyContext } from '../core/context_reader.js';
 import type { BuddyState } from '../domain/buddy.js';
 
+export const PROMPT_VERSION = 'intervention_v1';
+
 // ── Types ────────────────────────────────────────────────────────────
 
 export type InterventionMoment =

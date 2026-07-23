@@ -6,6 +6,8 @@ import type { Event } from '../core/types.js';
 import { createEventId, appendEvent } from '../core/event_log.js';
 import { Paths } from '../core/paths.js';
 
+export const PROMPT_VERSION = 'mistake_v1';
+
 // ── Types ────────────────────────────────────────────────────────────
 
 export type ErrorType = 'concept_unclear' | 'memory_fuzzy' | 'careless' | 'multi_partial';

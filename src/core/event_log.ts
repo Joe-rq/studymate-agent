@@ -1,6 +1,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import type { Event } from './types.js';
+import type { TokenUsage } from './llm.js';
 
 export function createEventId(): string {
   return `evt_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
@@ -18,6 +19,34 @@ export async function appendEvent(logFile: string, event: Event): Promise<void> 
   const normalized: Event = { schemaVersion: 1, ...event };
   const line = JSON.stringify(normalized) + '\n';
   await fs.appendFile(logFile, line, 'utf-8');
+}
+
+/** LLM metadata to attach to an event. */
+export interface EventLLMMeta {
+  model?: string;
+  promptVersion?: string;
+  durationMs?: number;
+  tokenUsage?: TokenUsage;
+}
+
+/**
+ * Append an event with LLM metadata (model, promptVersion, duration, tokenUsage).
+ * Sets schemaVersion to 2.
+ */
+export async function appendEventWithMeta(
+  logFile: string,
+  event: Omit<Event, 'schemaVersion'> & Partial<Pick<Event, 'schemaVersion'>>,
+  meta: EventLLMMeta
+): Promise<void> {
+  const enriched: Event = {
+    ...event,
+    schemaVersion: 2,
+    model: meta.model,
+    promptVersion: meta.promptVersion,
+    durationMs: meta.durationMs,
+    tokenUsage: meta.tokenUsage,
+  };
+  await appendEvent(logFile, enriched);
 }
 
 export async function loadEvents(logFile: string): Promise<Event[]> {

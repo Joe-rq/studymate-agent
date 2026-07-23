@@ -6,6 +6,8 @@ import type { Event } from '../core/types.js';
 import { createEventId, appendEvent } from '../core/event_log.js';
 import { Paths, PROMPTS_SOURCE } from '../core/paths.js';
 
+export const PROMPT_VERSION = 'concept_map_v1';
+
 export interface Concept {
   id: string;
   name: string;

@@ -11,6 +11,14 @@ export interface Event {
   correlationId?: string;
   /** Exam project ID for multi-project support. */
   examProjectId?: string;
+  /** LLM model used for this event. */
+  model?: string;
+  /** Prompt version identifier (e.g. 'quiz_v2'). */
+  promptVersion?: string;
+  /** Wall-clock duration of the LLM call in milliseconds. */
+  durationMs?: number;
+  /** Token usage breakdown from LLM response. */
+  tokenUsage?: { prompt: number; completion: number; total: number };
 }
 
 export interface AppState {
