@@ -91,17 +91,18 @@ All state is stored locally in the `workspace/` directory.
 
 ## Current Limitations
 
-- **Search provider**: Uses a mock search provider for web research; real search integration is planned
 - **Single-user / single-exam**: Workspace supports one active exam project at a time
 - **No voice or animation**: Text-only interaction; no TTS/STT or animated avatars yet
 - **Mock LLM**: Without an API key, the mock LLM returns fixed responses for demo purposes
+- **Search**: Requires `SERP_API_KEY` for real search; falls back to mock data otherwise
 
 ## Docs
 
+- `docs/PRODUCT_INTRO.md` — **product introduction (current stage)**
 - `docs/PRD_v1.0.md` — original product requirements
 - `docs/PRD_MVP_v0.1.md` — MVP scope PRD
 - `docs/review_summary.md` — design review and reference projects
-- `docs/plans/2026-07-09-hackathon-mvp.md` — detailed implementation plan
+- `docs/plans/` — implementation plans by phase
 - `docs/hackathon-pitch.md` — pitch deck script
 - `docs/demo-script.md` — 3-minute demo script
 - `AGENTS.md` — contributor guide for AI agents
