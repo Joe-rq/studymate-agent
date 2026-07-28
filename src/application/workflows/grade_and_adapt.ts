@@ -17,6 +17,7 @@ import { gradeQuiz, saveResult, type UserAnswer, type QuizResult } from '../../a
 import { analyzeMistakes, saveMistakes, explainWeakness, loadWeaknessProfilePublic, type Mistake } from '../../agents/mistake_analyzer.js';
 import { updateMastery, saveMastery, type MasteryChange } from '../../agents/mastery_tracker.js';
 import { adjustPlan, saveAdjustedPlan, type PlanAdjustment } from '../../agents/plan_adjuster.js';
+import { loadLearnerModel, saveLearnerModel, updateFromQuizResult } from '../../agents/learner_model.js';
 import type { Quiz } from '../../agents/quiz_generator.js';
 import type { ConceptMap } from '../../agents/concept_mapper.js';
 import type { StudyPlan } from '../../agents/planner.js';
@@ -50,6 +51,8 @@ export interface GradeAndAdaptResult {
   correlationId: string;
   /** Human-readable weakness explanations for mistake nodes. */
   weaknessExplanations: Record<string, string>;
+  /** Latest learner insight (if learner model exists). */
+  latestInsight?: string;
 }
 
 export async function gradeAndAdapt(input: GradeAndAdaptInput): Promise<GradeAndAdaptResult> {
@@ -99,6 +102,19 @@ export async function gradeAndAdapt(input: GradeAndAdaptInput): Promise<GradeAnd
     }
   }
 
+  // 5. Update learner model if it exists
+  let latestInsight: string | undefined;
+  const learnerModel = await loadLearnerModel(workspaceRoot);
+  if (learnerModel) {
+    const updatedModel = updateFromQuizResult(learnerModel, result, masteryUpdate.changes);
+    await saveLearnerModel(updatedModel, workspaceRoot);
+    // Get the latest insight if any new ones were generated
+    if (updatedModel.insights.length > learnerModel.insights.length) {
+      const newInsight = updatedModel.insights[updatedModel.insights.length - 1];
+      latestInsight = newInsight.content;
+    }
+  }
+
   return {
     result,
     mistakes,
@@ -107,5 +123,6 @@ export async function gradeAndAdapt(input: GradeAndAdaptInput): Promise<GradeAnd
     adjustments,
     correlationId,
     weaknessExplanations,
+    latestInsight,
   };
 }

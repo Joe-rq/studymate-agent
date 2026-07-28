@@ -3,6 +3,7 @@ import path from 'path';
 import { Paths } from './paths.js';
 import type { ConceptMap } from '../agents/concept_mapper.js';
 import type { StudyPlan } from '../agents/planner.js';
+import type { LearnerModel } from '../domain/learner.js';
 
 /**
  * 备考搭子做"情境感知"所需的聚合状态。
@@ -22,6 +23,10 @@ export interface StudyContext {
   masteryTrend: 'up' | 'down' | 'flat' | 'unknown';
   /** 今日任务数；无计划则为 0。 */
   tasksToday: number;
+  /** 学习者洞察（最新 3 条）。 */
+  learnerInsights: string[];
+  /** 推荐重点关注的内容。 */
+  recommendedFocus: string[];
 }
 
 const EMPTY_CONTEXT: StudyContext = {
@@ -31,6 +36,8 @@ const EMPTY_CONTEXT: StudyContext = {
   recentScore: null,
   masteryTrend: 'unknown',
   tasksToday: 0,
+  learnerInsights: [],
+  recommendedFocus: [],
 };
 
 async function readJSON<T>(file: string): Promise<T | null> {
@@ -128,6 +135,21 @@ export async function gatherStudyContext(
     }
   } catch {
     // results 目录不存在
+  }
+
+  // 5. 学习者模型洞察
+  const learnerModel = await readJSON<LearnerModel>(
+    path.join(workspaceRoot, 'progress', 'learner_model.json')
+  );
+  if (learnerModel?.insights?.length) {
+    ctx.learnerInsights = learnerModel.insights
+      .slice(-3)
+      .map((i) => i.content);
+    // 推荐重点：薄弱类别 + 薄弱知识点
+    ctx.recommendedFocus = [
+      ...learnerModel.patterns.weakCategories.slice(0, 2),
+      ...ctx.weakNodeNames.slice(0, 2),
+    ];
   }
 
   return ctx;

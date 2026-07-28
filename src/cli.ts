@@ -45,6 +45,13 @@ import {
   addMemory,
   increaseRelationship,
 } from './agents/buddy_state.js';
+import {
+  loadLearnerModel,
+  saveLearnerModel,
+  initLearnerModel,
+  formatLearnerProfile,
+  formatInsights,
+} from './agents/learner_model.js';
 
 function createLLM() {
   if (process.env.OPENAI_API_KEY) {
@@ -405,6 +412,71 @@ program
 
     await buddyLine('grade', { score: result.totalScore });
     await triggerIntervention('low_score', { score: result.totalScore });
+
+    // Display learner insight if available
+    if (workflowResult.latestInsight) {
+      console.log(`\n💡 学习洞察: ${workflowResult.latestInsight}`);
+    }
+  });
+
+// ── 学习者画像 ────────────────────────────────────────────────
+const learnerCmd = program.command('learner').description('Manage your learner profile (学习者画像)');
+
+learnerCmd
+  .command('profile')
+  .description('View your learner profile')
+  .action(async () => {
+    const model = await loadLearnerModel();
+    if (!model) {
+      console.log('尚未创建学习者画像。完成一次测验后将自动生成。');
+      return;
+    }
+    console.log(formatLearnerProfile(model));
+  });
+
+learnerCmd
+  .command('insights')
+  .description('View personalized insights and recommendations')
+  .action(async () => {
+    const model = await loadLearnerModel();
+    if (!model) {
+      console.log('尚未创建学习者画像。完成一次测验后将自动生成。');
+      return;
+    }
+    console.log(formatInsights(model));
+  });
+
+learnerCmd
+  .command('init')
+  .description('Initialize learner profile for current exam')
+  .option('--baseline <level>', 'Baseline level (beginner/intermediate/advanced)', 'intermediate')
+  .option('--daily <minutes>', 'Daily study minutes', '60')
+  .action(async (options: { baseline: string; daily: string }) => {
+    const exam = await loadExamProject();
+    const examId = exam?.id ?? 'default';
+    const baseline = options.baseline as LearnerBaseline;
+    const dailyMinutes = parseInt(options.daily, 10);
+
+    const model = await initLearnerModel(examId, baseline, dailyMinutes);
+    await saveLearnerModel(model);
+    console.log(`学习者画像已创建！`);
+    console.log(`  基线水平: ${baseline}`);
+    console.log(`  每日时长: ${dailyMinutes} 分钟`);
+    console.log(`  初始难度: ${model.adaptive.currentDifficulty.toFixed(2)}`);
+  });
+
+learnerCmd
+  .command('reset')
+  .description('Reset learner profile (keeps exam project)')
+  .action(async () => {
+    const exam = await loadExamProject();
+    const examId = exam?.id ?? 'default';
+    const baseline = exam?.learnerProfile.baseline ?? 'intermediate';
+    const dailyMinutes = exam?.learnerProfile.dailyMinutes ?? 60;
+
+    const model = await initLearnerModel(examId, baseline, dailyMinutes);
+    await saveLearnerModel(model);
+    console.log('学习者画像已重置。');
   });
 
 // ── 点③：拟人化备考搭子 ──────────────────────────────────────────

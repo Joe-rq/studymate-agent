@@ -21,6 +21,7 @@ import { createSearchProvider } from '../application/ports/search_provider.js';
 import { WebContentFetcher } from '../infrastructure/fetch/web_fetcher.js';
 import { generatePlan, savePlan } from '../agents/planner.js';
 import { loadWeaknessProfilePublic, explainWeakness } from '../agents/mistake_analyzer.js';
+import { loadLearnerModel, saveLearnerModel, initLearnerModel } from '../agents/learner_model.js';
 import type { UserAnswer } from '../agents/grader.js';
 import type { LearnerBaseline } from '../domain/exam.js';
 import type { SourceRecord } from '../domain/source.js';
@@ -199,6 +200,65 @@ export function createApp() {
         mastery: concept.mastery,
         srState: concept.srState ?? null,
       });
+    } catch (err) {
+      res.status(500).json({ error: String(err) });
+    }
+  });
+
+  // ── Learner Model ────────────────────────────────────────────────
+  app.get('/api/learner/profile', async (_req, res) => {
+    try {
+      const model = await loadLearnerModel();
+      if (!model) {
+        return res.json({ exists: false, profile: null });
+      }
+      res.json({ exists: true, profile: model });
+    } catch (err) {
+      res.status(500).json({ error: String(err) });
+    }
+  });
+
+  app.get('/api/learner/insights', async (_req, res) => {
+    try {
+      const model = await loadLearnerModel();
+      if (!model) {
+        return res.json({ insights: [] });
+      }
+      res.json({ insights: model.insights });
+    } catch (err) {
+      res.status(500).json({ error: String(err) });
+    }
+  });
+
+  app.get('/api/learner/performance', async (_req, res) => {
+    try {
+      const model = await loadLearnerModel();
+      if (!model) {
+        return res.json({ scoreHistory: [], masteryHistory: [] });
+      }
+      res.json({
+        scoreHistory: model.performance.scoreHistory,
+        masteryHistory: model.performance.masteryHistory,
+        overallAccuracy: model.performance.overallAccuracy,
+        totalSessions: model.performance.totalSessions,
+      });
+    } catch (err) {
+      res.status(500).json({ error: String(err) });
+    }
+  });
+
+  app.post('/api/learner/init', async (req, res) => {
+    try {
+      const { baseline, dailyMinutes } = req.body;
+      const exam = await loadExamProject();
+      const examId = exam?.id ?? 'default';
+      const model = await initLearnerModel(
+        examId,
+        (baseline as LearnerBaseline) ?? 'intermediate',
+        parseInt(dailyMinutes ?? '60', 10)
+      );
+      await saveLearnerModel(model);
+      res.json({ success: true, profile: model });
     } catch (err) {
       res.status(500).json({ error: String(err) });
     }
