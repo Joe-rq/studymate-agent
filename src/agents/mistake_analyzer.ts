@@ -5,6 +5,8 @@ import type { Concept } from './concept_mapper.js';
 import type { Event } from '../core/types.js';
 import { createEventId, appendEvent } from '../core/event_log.js';
 import { Paths } from '../core/paths.js';
+import { addDaysToDateKey } from '../core/date.js';
+import { atomicWriteFile, atomicWriteJSON } from '../core/atomic_file.js';
 
 export const PROMPT_VERSION = 'mistake_v1';
 
@@ -68,19 +70,16 @@ export function classifyError(graded: GradedQuestion, concept?: Concept): ErrorT
 // ── Analysis ────────────────────────────────────────────────────────
 
 export function analyzeMistakes(result: QuizResult, concepts?: Concept[]): Mistake[] {
-  const today = new Date(result.date);
   const conceptById = new Map((concepts ?? []).map((c) => [c.id, c]));
 
   return result.mistakes.map((m, idx) => {
-    const nextReview = new Date(today);
-    nextReview.setDate(today.getDate() + 1);
     const concept = conceptById.get(m.question.nodeId);
     return {
       id: `mist_${result.date}_${idx}`,
       questionId: m.question.id,
       nodeId: m.question.nodeId,
       errorType: classifyError(m, concept),
-      nextReview: nextReview.toISOString().split('T')[0],
+      nextReview: addDaysToDateKey(result.date, 1),
     };
   });
 }
@@ -193,11 +192,7 @@ export async function saveMistakes(
   const updated = mergeWeaknesses(profile, mistakes, date);
   const weakNodes = deriveWeakNodes(updated);
 
-  await fs.writeFile(
-    path.join(mistakesDir, 'weakness_profile.json'),
-    JSON.stringify(updated, null, 2),
-    'utf-8'
-  );
+  await atomicWriteJSON(path.join(mistakesDir, 'weakness_profile.json'), updated);
 
   if (mistakes.length > 0) {
     const lines: string[] = [
@@ -214,7 +209,11 @@ export async function saveMistakes(
     for (const m of mistakes) {
       lines.push(`- [[${m.nodeId}]] — 错误类型：${m.errorType} — 下次复习：${m.nextReview}`);
     }
-    await fs.writeFile(path.join(mistakesDir, `${date}_wrong.md`), lines.join('\n'), 'utf-8');
+    await atomicWriteFile(
+      path.join(mistakesDir, `${date}_wrong.md`),
+      lines.join('\n'),
+      'utf-8'
+    );
   }
 
   const event: Event = {

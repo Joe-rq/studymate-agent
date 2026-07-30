@@ -11,6 +11,7 @@ import {
   createInitialSRState,
   type SRState,
 } from './spaced_repetition.js';
+import { atomicWriteJSON } from '../core/atomic_file.js';
 
 /**
  * 默认 EMA 平滑系数 α。
@@ -146,11 +147,7 @@ export async function saveMastery(
 ): Promise<void> {
   const graphDir = workspaceRoot ? path.join(workspaceRoot, 'graph') : Paths.graph;
   await fs.mkdir(graphDir, { recursive: true });
-  await fs.writeFile(
-    path.join(graphDir, 'concepts.json'),
-    JSON.stringify(update.conceptMap, null, 2),
-    'utf-8'
-  );
+  await atomicWriteJSON(path.join(graphDir, 'concepts.json'), update.conceptMap);
 
   // Append mastery history snapshots
   if (update.snapshots.length > 0) {

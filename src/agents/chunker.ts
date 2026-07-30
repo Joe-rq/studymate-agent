@@ -4,6 +4,7 @@ import type { Material } from './material_collector.js';
 import type { Event } from '../core/types.js';
 import { createEventId, appendEvent } from '../core/event_log.js';
 import { Paths } from '../core/paths.js';
+import { atomicWriteFile, atomicWriteJSON } from '../core/atomic_file.js';
 
 export interface Chunk {
   id: string;
@@ -129,7 +130,7 @@ async function updateChunkIndex(chunks: Chunk[], chunksDir: string): Promise<voi
       index.push(chunk);
     }
   }
-  await fs.writeFile(indexPath, JSON.stringify(index, null, 2), 'utf-8');
+  await atomicWriteJSON(indexPath, index);
 }
 
 export async function chunkMaterial(
@@ -266,7 +267,7 @@ export async function chunkMaterial(
 
   for (const chunk of chunks) {
     const chunkPath = path.join(chunksDir, `${chunk.id}.md`);
-    await fs.writeFile(chunkPath, `# ${chunk.title}\n\n${chunk.content}`, 'utf-8');
+    await atomicWriteFile(chunkPath, `# ${chunk.title}\n\n${chunk.content}`, 'utf-8');
   }
 
   await updateChunkIndex(chunks, chunksDir);

@@ -75,6 +75,19 @@ describe('planner', () => {
     ).toThrow(/480/);
   });
 
+  it('should reject invalid unavailable dates', () => {
+    const conceptMap = makeConceptMap(1);
+    const examDate = new Date();
+    examDate.setDate(examDate.getDate() + 30);
+    expect(() =>
+      generatePlan(conceptMap, {
+        examDate: examDate.toISOString().split('T')[0],
+        dailyMinutes: 60,
+        unavailableDates: ['2026-02-30'],
+      })
+    ).toThrow(/Invalid unavailable date/);
+  });
+
   it('should respect unavailable dates as rest days', () => {
     const conceptMap = makeConceptMap(2);
     const examDate = new Date();
