@@ -32,6 +32,16 @@ const mockContext: StudyContext = {
   recentScore: 70,
   masteryTrend: 'up',
   tasksToday: 3,
+  latestPlanAdjustment: {
+    adjustedAt: '2026-07-11T00:00:00.000Z',
+    reason: '连续答错后加强复习',
+    tasksAdded: 2,
+    minutesAdded: 25,
+    daysAffected: 2,
+    affectedConcepts: ['需求曲线'],
+  },
+  learnerInsights: [],
+  recommendedFocus: [],
 };
 
 beforeEach(async () => {
@@ -78,6 +88,8 @@ describe('buddyChat', () => {
 
     expect(capturedUser).toContain('沈夜');
     expect(capturedUser).toContain('毒舌但用心');
+    expect(capturedUser).toContain('连续答错后加强复习');
+    expect(capturedUser).toContain('需求曲线');
     expect(capturedUser).toContain('笨蛋');
     expect(capturedUser).toContain('距考试还有 30 天');
     expect(capturedUser).toContain('需求曲线');

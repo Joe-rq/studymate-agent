@@ -85,6 +85,40 @@ describe('exam_researcher', () => {
     expect(result.sources.length).toBeGreaterThanOrEqual(1);
     expect(result.queryCount).toBe(6);
     expect(result.summary.examFacts).toContain('初级会计');
+    expect(result.summary.examFacts).toContain('证据不足');
+    expect(result.summary.citations.examFacts).toEqual([]);
+  });
+
+  it('should keep only citations that reference discovered sources', async () => {
+    const searchProvider = new MockSearchProvider({
+      '考试大纲': [
+        { url: 'https://mof.gov.cn/exam', title: '考试大纲', snippet: '官方信息', sourceType: 'official' as const },
+      ],
+    });
+    const citingLLM = {
+      complete: async () => '',
+      completeJSON: async (_system: string, user: string) => {
+        const sourceId = user.match(/\[(src_[^\]]+)\]/)?.[1] ?? '';
+        return {
+          examFacts: '考试事实',
+          experienceConsensus: '',
+          disputedAdvice: '',
+          materialRecommendations: '',
+          gapsInEvidence: '',
+          citations: {
+            examFacts: [sourceId, 'src_not_found'],
+            experienceConsensus: [],
+            disputedAdvice: [],
+            materialRecommendations: [],
+          },
+        };
+      },
+    };
+
+    const result = await researchExam(mockExam, searchProvider, citingLLM as any, TEST_LOG);
+    expect(result.summary.examFacts).toBe('考试事实');
+    expect(result.summary.citations.examFacts).toHaveLength(1);
+    expect(result.summary.citations.examFacts[0]).toBe(result.sources[0].id);
   });
 
   it('should handle empty search results gracefully', async () => {

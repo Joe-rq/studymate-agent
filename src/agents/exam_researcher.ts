@@ -111,6 +111,12 @@ export interface ResearchSummary {
   disputedAdvice: string;
   materialRecommendations: string;
   gapsInEvidence: string;
+  citations: {
+    examFacts: string[];
+    experienceConsensus: string[];
+    disputedAdvice: string[];
+    materialRecommendations: string[];
+  };
 }
 
 /**
@@ -123,28 +129,63 @@ async function synthesizeResearch(
   llm: LLMClient
 ): Promise<ResearchSummary> {
   const system = `You are an exam research analyst. Given search results about an exam, synthesize them into structured categories. Respond with JSON only. No markdown fences.
-Format: {
+Each factual or advisory section must cite source IDs from the input. Format: {
   "examFacts": "Verified official facts about the exam",
   "experienceConsensus": "Common advice from multiple experience posts",
   "disputedAdvice": "Conflicting or minority opinions that need user judgment",
   "materialRecommendations": "Recommended textbooks and practice materials",
-  "gapsInEvidence": "Questions that could not be answered from available sources"
+  "gapsInEvidence": "Questions that could not be answered from available sources",
+  "citations": {
+    "examFacts": ["src_id"],
+    "experienceConsensus": ["src_id"],
+    "disputedAdvice": ["src_id"],
+    "materialRecommendations": ["src_id"]
+  }
 }`;
 
   const sourcesText = sources
     .map(
       (s) =>
-        `[${s.sourceType}|${s.confidenceLevel}] ${s.title}\n${s.summary}\nURL: ${s.url ?? 'N/A'}`
+        `[${s.id}] [${s.sourceType}|${s.confidenceLevel}] ${s.title}\n${s.summary}\nURL: ${s.url ?? 'N/A'}`
     )
     .join('\n\n');
 
   const user = `Exam: ${examName}\n\nDiscovered sources:\n${sourcesText}`;
 
   try {
-    return await llm.completeJSON<ResearchSummary>(system, user, {
+    const raw = await llm.completeJSON<ResearchSummary>(system, user, {
       temperature: 0.3,
       retries: 2,
     });
+    const validIds = new Set(sources.map((source) => source.id));
+    const normalize = (ids: unknown): string[] =>
+      Array.isArray(ids)
+        ? [...new Set(ids.filter((id): id is string => typeof id === 'string' && validIds.has(id)))]
+        : [];
+    const citations = {
+      examFacts: normalize(raw.citations?.examFacts),
+      experienceConsensus: normalize(raw.citations?.experienceConsensus),
+      disputedAdvice: normalize(raw.citations?.disputedAdvice),
+      materialRecommendations: normalize(raw.citations?.materialRecommendations),
+    };
+    const requireEvidence = (text: string, ids: string[]): string => {
+      if (!text || ids.length > 0) return text;
+      return `[证据不足] ${text}`;
+    };
+    return {
+      ...raw,
+      examFacts: requireEvidence(raw.examFacts, citations.examFacts),
+      experienceConsensus: requireEvidence(
+        raw.experienceConsensus,
+        citations.experienceConsensus
+      ),
+      disputedAdvice: requireEvidence(raw.disputedAdvice, citations.disputedAdvice),
+      materialRecommendations: requireEvidence(
+        raw.materialRecommendations,
+        citations.materialRecommendations
+      ),
+      citations,
+    };
   } catch {
     return {
       examFacts: 'Unable to synthesize — LLM unavailable',
@@ -152,6 +193,12 @@ Format: {
       disputedAdvice: '',
       materialRecommendations: '',
       gapsInEvidence: 'All evidence gaps unknown due to synthesis failure',
+      citations: {
+        examFacts: [],
+        experienceConsensus: [],
+        disputedAdvice: [],
+        materialRecommendations: [],
+      },
     };
   }
 }
@@ -217,6 +264,10 @@ export async function researchExam(
       sourceCount: sources.length,
       queryCount: queries.length,
       rawResultCount,
+      citationCount: Object.values(summary.citations).reduce(
+        (total, ids) => total + ids.length,
+        0
+      ),
     },
     examProjectId: exam.id,
   };

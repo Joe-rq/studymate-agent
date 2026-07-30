@@ -1,5 +1,6 @@
 import fs from 'fs/promises';
 import path from 'path';
+import { daysBetweenDateKeys, todayDateKey } from './date.js';
 import { Paths } from './paths.js';
 import type { ConceptMap } from '../agents/concept_mapper.js';
 import type { StudyPlan } from '../agents/planner.js';
@@ -27,6 +28,15 @@ export interface StudyContext {
   learnerInsights: string[];
   /** 推荐重点关注的内容。 */
   recommendedFocus: string[];
+  /** 最近一次计划调整，供搭子解释“为什么改、改了什么”。 */
+  latestPlanAdjustment: {
+    adjustedAt: string;
+    reason: string;
+    tasksAdded: number;
+    minutesAdded: number;
+    daysAffected: number;
+    affectedConcepts: string[];
+  } | null;
 }
 
 const EMPTY_CONTEXT: StudyContext = {
@@ -38,6 +48,7 @@ const EMPTY_CONTEXT: StudyContext = {
   tasksToday: 0,
   learnerInsights: [],
   recommendedFocus: [],
+  latestPlanAdjustment: null,
 };
 
 async function readJSON<T>(file: string): Promise<T | null> {
@@ -48,8 +59,23 @@ async function readJSON<T>(file: string): Promise<T | null> {
   }
 }
 
-function daysBetween(from: Date, to: Date): number {
-  return Math.ceil((to.getTime() - from.getTime()) / (1000 * 60 * 60 * 24));
+async function readLastJSONLine<T>(file: string): Promise<T | null> {
+  try {
+    const lines = (await fs.readFile(file, 'utf-8'))
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean);
+    for (let index = lines.length - 1; index >= 0; index -= 1) {
+      try {
+        return JSON.parse(lines[index]) as T;
+      } catch {
+        // Skip malformed historical lines and continue to the latest valid record.
+      }
+    }
+  } catch {
+    // Missing adjustment history is valid on a fresh workspace.
+  }
+  return null;
 }
 
 /**
@@ -84,16 +110,40 @@ export async function gatherStudyContext(
   // 2. 学习计划 → 距考天数 + 今日任务数
   const masterPlan = await readJSON<StudyPlan>(path.join(planDir, 'plan_master.json'));
   if (masterPlan?.examDate) {
-    const examDate = new Date(masterPlan.examDate);
-    const today = new Date();
-    ctx.daysToExam = daysBetween(today, examDate);
+    ctx.daysToExam = daysBetweenDateKeys(todayDateKey(), masterPlan.examDate);
   }
-  const today = new Date().toISOString().split('T')[0];
+  const today = todayDateKey();
   const dailyPlan = await readJSON<{ tasks: unknown[] }>(
     path.join(planDir, 'plan_daily', `${today}.json`)
   );
   if (dailyPlan?.tasks) {
     ctx.tasksToday = dailyPlan.tasks.length;
+  }
+
+  const latestAdjustment = await readLastJSONLine<{
+    adjustedAt: string;
+    reason: string;
+    changes: Array<{ nodeId: string }>;
+    summary: { tasksAdded: number; minutesAdded: number; daysAffected: number };
+  }>(path.join(planDir, 'adjustment_log.jsonl'));
+  if (latestAdjustment?.summary && Array.isArray(latestAdjustment.changes)) {
+    const conceptNameById = new Map(
+      (conceptMap?.concepts ?? []).map((concept) => [concept.id, concept.name])
+    );
+    ctx.latestPlanAdjustment = {
+      adjustedAt: latestAdjustment.adjustedAt,
+      reason: latestAdjustment.reason,
+      tasksAdded: latestAdjustment.summary.tasksAdded,
+      minutesAdded: latestAdjustment.summary.minutesAdded,
+      daysAffected: latestAdjustment.summary.daysAffected,
+      affectedConcepts: [
+        ...new Set(
+          latestAdjustment.changes.map(
+            (change) => conceptNameById.get(change.nodeId) ?? change.nodeId
+          )
+        ),
+      ],
+    };
   }
 
   // 3. 薄弱知识点 (supports both new cumulative schema and legacy format)

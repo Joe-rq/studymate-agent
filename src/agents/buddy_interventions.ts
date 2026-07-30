@@ -155,6 +155,12 @@ export async function generateIntervention(
   if (ctx.weakNodeNames.length > 0) ctxLines.push(`薄弱知识点：${ctx.weakNodeNames.join('、')}`);
   if (ctx.recentScore !== null) ctxLines.push(`最近测验得分 ${ctx.recentScore}/100`);
   if (state.streakDays > 0) ctxLines.push(`连续学习 ${state.streakDays} 天`);
+  if (ctx.latestPlanAdjustment) {
+    const adjustment = ctx.latestPlanAdjustment;
+    ctxLines.push(
+      `最近计划调整：因为“${adjustment.reason}”，新增 ${adjustment.tasksAdded} 项任务、增加 ${adjustment.minutesAdded} 分钟，影响 ${adjustment.daysAffected} 天`
+    );
+  }
 
   const contextBlock = ctxLines.length > 0
     ? `【学生当前情境】\n${ctxLines.join('\n')}`
