@@ -9,18 +9,22 @@ import { importPDF, importMarkdown } from './agents/material_collector.js';
 import { chunkMaterial } from './agents/chunker.js';
 import { mapConcepts } from './agents/concept_mapper.js';
 import { generatePlan, savePlan, formatPlanSummary } from './agents/planner.js';
-import { dispatchToday, completeTask, rolloverIncomplete } from './agents/task_dispatcher.js';
+import { completeTask, prepareTasksForDate } from './agents/task_dispatcher.js';
 import { generateQuiz, selectQuizScope, generateScopedQuiz, type QuizConfig } from './agents/quiz_generator.js';
 import { gradeAndAdapt } from './application/workflows/grade_and_adapt.js';
 import { qualityLabel, daysUntilDue } from './agents/spaced_repetition.js';
 import { computeMetrics } from './agents/metrics.js';
-import { bootstrapExam, loadExamProject } from './application/workflows/bootstrap_exam.js';
+import {
+  bootstrapExam,
+  loadExamProject,
+  saveExamProject,
+} from './application/workflows/bootstrap_exam.js';
 import { researchExamWorkflow, approveSources } from './application/workflows/research_exam.js';
 import { MockSearchProvider, createSearchProvider } from './application/ports/search_provider.js';
 import { buildKnowledge } from './application/workflows/build_knowledge.js';
 import { WebContentFetcher } from './infrastructure/fetch/web_fetcher.js';
 import { loadMaterialIndex } from './agents/material_collector.js';
-import type { LearnerBaseline } from './domain/exam.js';
+import { transitionStatus, type LearnerBaseline } from './domain/exam.js';
 import type { SourceRecord } from './domain/source.js';
 import { createLLMClient } from './core/llm.js';
 import { createMockLLMClient } from './core/mock_llm.js';
@@ -52,6 +56,8 @@ import {
   formatLearnerProfile,
   formatInsights,
 } from './agents/learner_model.js';
+import { todayDateKey } from './core/date.js';
+import { approvePlan } from './application/workflows/approve_plan.js';
 
 function createLLM() {
   if (process.env.OPENAI_API_KEY) {
@@ -101,7 +107,7 @@ async function triggerIntervention(
       console.log(`\n${character.avatar} ${character.name}：${line}`);
     }
     // Update streak + relationship on intervention
-    const today = new Date().toISOString().split('T')[0];
+    const today = todayDateKey();
     let updated = updateStreak(state, today);
     updated = increaseRelationship(updated, 1);
     await saveBuddyState(updated);
@@ -147,8 +153,9 @@ program
   .description('Generate study plan')
   .requiredOption('--exam <date>', 'Exam date YYYY-MM-DD')
   .requiredOption('--daily <minutes>', 'Daily minutes')
+  .option('--unavailable <dates>', 'Comma-separated unavailable dates')
   .option('--yes', 'Skip confirmation prompt')
-  .action(async (options: { exam: string; daily: string; yes?: boolean }) => {
+  .action(async (options: { exam: string; daily: string; unavailable?: string; yes?: boolean }) => {
     const llm = createLLM();
     const chunkFiles = await fs.readdir(Paths.chunks).catch(() => []);
     if (chunkFiles.length === 0) {
@@ -171,7 +178,15 @@ program
     );
 
     const conceptMap = await mapConcepts(chunks, llm, Paths.eventLog);
-    const plan = generatePlan(conceptMap, { examDate: options.exam, dailyMinutes: parseInt(options.daily, 10) });
+    const examProject = await loadExamProject();
+    const unavailableDates = options.unavailable
+      ? options.unavailable.split(',').map((date) => date.trim()).filter(Boolean)
+      : examProject?.learnerProfile.unavailableDates;
+    const plan = generatePlan(conceptMap, {
+      examDate: options.exam,
+      dailyMinutes: parseInt(options.daily, 10),
+      unavailableDates,
+    });
 
     // Show summary
     console.log('\n' + formatPlanSummary(plan, conceptMap) + '\n');
@@ -187,6 +202,12 @@ program
     }
 
     await savePlan(plan, Paths.eventLog);
+    if (examProject?.status === 'materials_ready') {
+      await saveExamProject(transitionStatus(examProject, 'planned'));
+      await approvePlan(Paths.eventLog);
+    } else if (examProject?.status === 'planned') {
+      await approvePlan(Paths.eventLog);
+    }
     console.log(`\n计划已生成：${plan.schedule.length} 天，版本 ${plan.version}`);
     console.log(`概念: ${conceptMap.concepts.map((c) => c.name).join(', ')}`);
     await triggerIntervention('plan_confirmed', { planDays: plan.schedule.length });
@@ -196,24 +217,9 @@ program
   .command('today')
   .description('Show today tasks')
   .action(async () => {
-    const today = new Date().toISOString().split('T')[0];
-    const planPath = path.join(Paths.plan, 'plan_daily', `${today}.json`);
+    const today = todayDateKey();
     try {
-      const plan = JSON.parse(await fs.readFile(planPath, 'utf-8'));
-
-      // Auto-rollover incomplete tasks from past days
-      let rolloverTasks;
-      try {
-        const masterPlan = JSON.parse(await fs.readFile(path.join(Paths.plan, 'plan_master.json'), 'utf-8'));
-        rolloverTasks = await rolloverIncomplete(plan, masterPlan.dailyMinutes);
-        if (rolloverTasks.length > 0) {
-          console.log(`滚动未完成的任务: ${rolloverTasks.length} 项`);
-        }
-      } catch {
-        // No master plan or no past tasks
-      }
-
-      const tasks = await dispatchToday(plan, Paths.eventLog, { rolloverTasks });
+      const { tasks } = await prepareTasksForDate(today, Paths.eventLog);
       console.log(`Today's tasks (${today}): ${tasks.length}`);
       const typeLabels: Record<string, string> = { learn: '学习', review: '复习', quiz: '测验', sprint: '冲刺', buffer: '缓冲' };
       for (const t of tasks) {
@@ -266,18 +272,18 @@ taskCmd
   .command('rollover')
   .description('Roll over incomplete tasks from past days to today')
   .action(async () => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = todayDateKey();
     const planPath = path.join(Paths.plan, 'plan_daily', `${today}.json`);
     try {
-      const plan = JSON.parse(await fs.readFile(planPath, 'utf-8'));
-      const masterPlan = JSON.parse(await fs.readFile(path.join(Paths.plan, 'plan_master.json'), 'utf-8'));
-      const rollover = await rolloverIncomplete(plan, masterPlan.dailyMinutes);
-      if (rollover.length === 0) {
+      const before = JSON.parse(await fs.readFile(planPath, 'utf-8'));
+      const prepared = await prepareTasksForDate(today, Paths.eventLog);
+      const migratedCount = prepared.tasks.length - before.tasks.length;
+      if (migratedCount === 0) {
         console.log('没有未完成的任务需要滚动。');
         return;
       }
-      console.log(`滚动 ${rollover.length} 项未完成任务到今天：`);
-      for (const t of rollover) {
+      console.log(`滚动 ${migratedCount} 项未完成任务到今天：`);
+      for (const t of prepared.tasks.slice(before.tasks.length)) {
         console.log(`  - 复习 ${t.nodeId} (${t.duration}min)`);
       }
       console.log('\n运行 studymate today 查看更新后的任务列表。');
@@ -294,7 +300,7 @@ program
   .option('--no-multi', 'Disable multi-choice questions')
   .action(async (options: { count: string; multi: boolean }) => {
     const llm = createLLM();
-    const today = new Date().toISOString().split('T')[0];
+    const today = todayDateKey();
     const conceptsPath = path.join(Paths.graph, 'concepts.json');
     const conceptMap = JSON.parse(await fs.readFile(conceptsPath, 'utf-8'));
 
@@ -346,7 +352,7 @@ program
   .description('Grade quiz from answers JSON')
   .requiredOption('--answers <file>', 'Answers JSON file')
   .action(async (options: { answers: string }) => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = todayDateKey();
     const quiz = JSON.parse(await fs.readFile(path.join(Paths.quizzes, `${today}_quiz.json`), 'utf-8'));
     const answers = JSON.parse(await fs.readFile(options.answers, 'utf-8'));
 
@@ -393,7 +399,7 @@ program
         console.log(`  ${c.nodeName}: ${c.oldMastery.toFixed(2)} ${arrow} ${c.newMastery.toFixed(2)}（本次正确率 ${(c.sessionScore * 100).toFixed(0)}%）`);
         // SM-2 status
         if (c.srQuality !== undefined && c.srState) {
-          const today = new Date().toISOString().split('T')[0];
+          const today = todayDateKey();
           const daysUntil = daysUntilDue(c.srState, today);
           const intervalStr = daysUntil > 0 ? `+${daysUntil} 天` : '今天';
           console.log(`    SM-2: 质量 ${c.srQuality}/5 (${qualityLabel(c.srQuality)}), 下次复习 ${c.srState.dueDate} (${intervalStr}), EF=${c.srState.easeFactor.toFixed(2)}`);
@@ -574,6 +580,7 @@ examCmd
   .requiredOption('--daily <minutes>', 'Daily study minutes')
   .option('--baseline <level>', 'Learner baseline: beginner|intermediate|advanced', 'beginner')
   .option('--target <target>', 'Target score or goal description')
+  .option('--unavailable <dates>', 'Comma-separated unavailable dates')
   .action(async (opts: {
     name: string;
     date: string;
@@ -581,6 +588,7 @@ examCmd
     daily: string;
     baseline: string;
     target?: string;
+    unavailable?: string;
   }) => {
     try {
       const project = await bootstrapExam({
@@ -590,6 +598,9 @@ examCmd
         baseline: opts.baseline as LearnerBaseline,
         dailyMinutes: parseInt(opts.daily, 10),
         target: opts.target,
+        unavailableDates: opts.unavailable
+          ? opts.unavailable.split(',').map((date) => date.trim()).filter(Boolean)
+          : [],
       });
       console.log(`考试项目已创建：${project.name}`);
       console.log(`  ID: ${project.id}`);

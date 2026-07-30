@@ -13,7 +13,7 @@ import { shouldIntervene, generateIntervention, type InterventionMoment } from '
 import { selectQuizScope, generateScopedQuiz, type QuizConfig } from '../agents/quiz_generator.js';
 import { gradeAndAdapt } from '../application/workflows/grade_and_adapt.js';
 import { computeMetrics } from '../agents/metrics.js';
-import { completeTask } from '../agents/task_dispatcher.js';
+import { completeTask, prepareTasksForDate } from '../agents/task_dispatcher.js';
 import { bootstrapExam, loadExamProject, saveExamProject } from '../application/workflows/bootstrap_exam.js';
 import { researchExamWorkflow, approveSources } from '../application/workflows/research_exam.js';
 import { buildKnowledge } from '../application/workflows/build_knowledge.js';
@@ -25,6 +25,8 @@ import { loadLearnerModel, saveLearnerModel, initLearnerModel } from '../agents/
 import type { UserAnswer } from '../agents/grader.js';
 import type { LearnerBaseline } from '../domain/exam.js';
 import type { SourceRecord } from '../domain/source.js';
+import { addDaysToDateKey, todayDateKey } from '../core/date.js';
+import { approvePlan } from '../application/workflows/approve_plan.js';
 
 function createLLM() {
   if (process.env.OPENAI_API_KEY) {
@@ -33,8 +35,19 @@ function createLLM() {
   return createMockLLMClient();
 }
 
-export function createApp() {
+export interface AppOptions {
+  /** Optional workspace override for isolated integration tests. */
+  workspaceRoot?: string;
+  /** Date provider for deterministic daily-route behavior. */
+  today?: () => string;
+}
+
+export function createApp(options: AppOptions = {}) {
   const app = express();
+  const todayProvider = options.today ?? todayDateKey;
+  const taskEventLog = options.workspaceRoot
+    ? path.join(options.workspaceRoot, 'event_log', 'events.jsonl')
+    : Paths.eventLog;
   app.use(cors());
   app.use(express.json());
 
@@ -69,7 +82,15 @@ export function createApp() {
 
   app.post('/api/exam/create', async (req, res) => {
     try {
-      const { name, examDate, subjects, dailyMinutes, baseline, target } = req.body;
+      const {
+        name,
+        examDate,
+        subjects,
+        dailyMinutes,
+        baseline,
+        target,
+        unavailableDates,
+      } = req.body;
       if (!name || !examDate || !subjects || !dailyMinutes) {
         return res.status(400).json({ error: 'name, examDate, subjects, dailyMinutes are required' });
       }
@@ -80,6 +101,7 @@ export function createApp() {
         baseline: (baseline as LearnerBaseline) ?? 'beginner',
         dailyMinutes: parseInt(dailyMinutes, 10),
         target,
+        unavailableDates: Array.isArray(unavailableDates) ? unavailableDates : [],
       });
       res.json(project);
     } catch (err) {
@@ -267,20 +289,23 @@ export function createApp() {
   // ── Plan Generation ────────────────────────────────────────────────
   app.post('/api/plan/generate', async (req, res) => {
     try {
-      const { examDate, dailyMinutes } = req.body;
+      const { examDate, dailyMinutes, unavailableDates } = req.body;
       const conceptMap = JSON.parse(await fs.readFile(path.join(Paths.graph, 'concepts.json'), 'utf-8'));
       if (!conceptMap.concepts.length) {
         return res.status(400).json({ error: 'No concepts found. Build knowledge first.' });
       }
+      const exam = await loadExamProject();
       const plan = generatePlan(conceptMap, {
-        examDate: examDate ?? (await loadExamProject())?.examDate ?? new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0],
-        dailyMinutes: parseInt(dailyMinutes ?? '60', 10),
+        examDate: examDate ?? exam?.examDate ?? addDaysToDateKey(todayProvider(), 30),
+        dailyMinutes: parseInt(dailyMinutes ?? String(exam?.learnerProfile.dailyMinutes ?? 60), 10),
+        unavailableDates: Array.isArray(unavailableDates)
+          ? unavailableDates
+          : exam?.learnerProfile.unavailableDates,
       });
       await savePlan(plan, Paths.eventLog);
 
       // Update exam status to 'planned' if applicable
-      const exam = await loadExamProject();
-      if (exam && (exam.status === 'materials_ready' || exam.status === 'sources_approved')) {
+      if (exam?.status === 'materials_ready') {
         const { transitionStatus } = await import('../domain/exam.js');
         const updated = transitionStatus(exam, 'planned');
         await saveExamProject(updated);
@@ -292,15 +317,22 @@ export function createApp() {
     }
   });
 
+  app.post('/api/plan/approve', async (_req, res) => {
+    try {
+      const exam = await approvePlan(Paths.eventLog);
+      res.json({ ok: true, exam });
+    } catch (err) {
+      res.status(400).json({ error: err instanceof Error ? err.message : String(err) });
+    }
+  });
+
   // ── Plan ────────────────────────────────────────────────────────────
   app.get('/api/plan/today', async (_req, res) => {
     try {
-      const today = new Date().toISOString().split('T')[0];
-      const planPath = path.join(Paths.plan, 'plan_daily', `${today}.json`);
-      const plan = JSON.parse(await fs.readFile(planPath, 'utf-8'));
-      res.json(plan);
+      const today = todayProvider();
+      res.json(await prepareTasksForDate(today, taskEventLog, options.workspaceRoot));
     } catch {
-      res.json({ date: new Date().toISOString().split('T')[0], tasks: [] });
+      res.json({ date: todayProvider(), tasks: [] });
     }
   });
 
@@ -326,7 +358,7 @@ export function createApp() {
   // ── Quiz ────────────────────────────────────────────────────────────
   app.get('/api/quiz/today', async (_req, res) => {
     try {
-      const today = new Date().toISOString().split('T')[0];
+      const today = todayProvider();
       const quiz = JSON.parse(await fs.readFile(path.join(Paths.quizzes, `${today}_quiz.json`), 'utf-8'));
       res.json(quiz);
     } catch {
@@ -338,7 +370,7 @@ export function createApp() {
     try {
       const { count = 5, allowMulti = true } = req.body ?? {};
       const llm = createLLM();
-      const today = new Date().toISOString().split('T')[0];
+      const today = todayProvider();
       const conceptMap = JSON.parse(await fs.readFile(path.join(Paths.graph, 'concepts.json'), 'utf-8'));
 
       const config: QuizConfig = { questionCount: count, allowMultiChoice: allowMulti };
@@ -365,7 +397,7 @@ export function createApp() {
   app.post('/api/grade', async (req, res) => {
     try {
       const { answers } = req.body as { answers: UserAnswer[] };
-      const today = new Date().toISOString().split('T')[0];
+      const today = todayProvider();
       const quiz = JSON.parse(await fs.readFile(path.join(Paths.quizzes, `${today}_quiz.json`), 'utf-8'));
 
       const result = await gradeAndAdapt({
@@ -377,7 +409,9 @@ export function createApp() {
       });
       res.json(result);
     } catch (err) {
-      res.status(500).json({ error: String(err) });
+      const message = err instanceof Error ? err.message : String(err);
+      const status = message.includes('already been graded') ? 409 : 500;
+      res.status(status).json({ error: message });
     }
   });
 
@@ -411,7 +445,7 @@ export function createApp() {
       const taskId = req.params.id;
       const dateMatch = taskId.match(/task_(\d{4}-\d{2}-\d{2})_/);
       if (!dateMatch) return res.status(400).json({ error: 'Invalid task ID format' });
-      await completeTask(dateMatch[1], taskId, 'done', Paths.eventLog);
+      await completeTask(dateMatch[1], taskId, 'done', taskEventLog, options.workspaceRoot);
       res.json({ ok: true, taskId, status: 'done' });
     } catch (err) {
       res.status(500).json({ error: String(err) });
@@ -423,7 +457,7 @@ export function createApp() {
       const taskId = req.params.id;
       const dateMatch = taskId.match(/task_(\d{4}-\d{2}-\d{2})_/);
       if (!dateMatch) return res.status(400).json({ error: 'Invalid task ID format' });
-      await completeTask(dateMatch[1], taskId, 'skipped', Paths.eventLog);
+      await completeTask(dateMatch[1], taskId, 'skipped', taskEventLog, options.workspaceRoot);
       res.json({ ok: true, taskId, status: 'skipped' });
     } catch (err) {
       res.status(500).json({ error: String(err) });
@@ -456,7 +490,7 @@ export function createApp() {
       const reply = await buddyChat(message, character, ctx, llm, Paths.eventLog);
 
       // Update streak and relationship on chat
-      const today = new Date().toISOString().split('T')[0];
+      const today = todayProvider();
       let updated = updateStreak(state, today);
       updated = increaseRelationship(updated, 1);
       await saveBuddyState(updated);

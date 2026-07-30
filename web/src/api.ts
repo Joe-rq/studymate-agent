@@ -34,6 +34,7 @@ export interface Task {
   nodeId: string;
   nodeName: string;
   type: string;
+  duration: number;
   status: 'pending' | 'done' | 'skipped';
 }
 
@@ -137,7 +138,16 @@ export interface ExamProject {
   learnerProfile: {
     baseline: string;
     dailyMinutes: number;
+    unavailableDates: string[];
   };
+}
+
+export interface StudyPlan {
+  id: string;
+  examDate: string;
+  dailyMinutes: number;
+  schedule: Array<{ date: string; tasks: unknown[]; isRest?: boolean }>;
+  version: number;
 }
 
 export interface SourceRecord {
@@ -158,6 +168,12 @@ export interface ResearchResult {
     disputedAdvice: string;
     materialRecommendations: string;
     gapsInEvidence: string;
+    citations: {
+      examFacts: string[];
+      experienceConsensus: string[];
+      disputedAdvice: string[];
+      materialRecommendations: string[];
+    };
   };
   sourceCount: number;
   queryCount: number;
@@ -178,6 +194,7 @@ export const onboarding = {
     dailyMinutes: number;
     baseline?: string;
     target?: string;
+    unavailableDates?: string[];
   }) => api.post<ExamProject>('/exam/create', data),
 
   getExam: () => api.get<ExamProject | null>('/exam'),
@@ -198,6 +215,9 @@ export const onboarding = {
 
   getKnowledgeStatus: () => api.get<KnowledgeStatus>('/knowledge/status'),
 
-  generatePlan: (examDate?: string, dailyMinutes?: number) =>
-    api.post<unknown>('/plan/generate', { examDate, dailyMinutes }),
+  generatePlan: (examDate?: string, dailyMinutes?: number, unavailableDates?: string[]) =>
+    api.post<StudyPlan>('/plan/generate', { examDate, dailyMinutes, unavailableDates }),
+
+  approvePlan: () =>
+    api.post<{ ok: true; exam: ExamProject }>('/plan/approve'),
 };

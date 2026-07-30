@@ -13,6 +13,7 @@
 
 import fs from 'fs/promises';
 import path from 'path';
+import crypto from 'crypto';
 import { gradeQuiz, saveResult, type UserAnswer, type QuizResult } from '../../agents/grader.js';
 import { analyzeMistakes, saveMistakes, explainWeakness, loadWeaknessProfilePublic, type Mistake } from '../../agents/mistake_analyzer.js';
 import { updateMastery, saveMastery, type MasteryChange } from '../../agents/mastery_tracker.js';
@@ -22,6 +23,8 @@ import type { Quiz } from '../../agents/quiz_generator.js';
 import type { ConceptMap } from '../../agents/concept_mapper.js';
 import type { StudyPlan } from '../../agents/planner.js';
 import { createCorrelationId } from '../../core/event_log.js';
+import { Paths } from '../../core/paths.js';
+import { atomicWriteJSON } from '../../core/atomic_file.js';
 
 export interface GradeAndAdaptInput {
   quiz: Quiz;
@@ -55,8 +58,70 @@ export interface GradeAndAdaptResult {
   latestInsight?: string;
 }
 
+interface GradeReceipt {
+  quizId: string;
+  quizHash: string;
+  answerHash: string;
+  result: GradeAndAdaptResult;
+}
+
+function stableHash(value: unknown): string {
+  return crypto.createHash('sha256').update(JSON.stringify(value), 'utf-8').digest('hex');
+}
+
+function normalizeAnswers(answers: UserAnswer[]): UserAnswer[] {
+  return [...answers]
+    .map((answer) => ({
+      questionId: answer.questionId,
+      answer: Array.isArray(answer.answer)
+        ? [...answer.answer].sort((a, b) => a - b)
+        : answer.answer,
+    }))
+    .sort((a, b) => a.questionId.localeCompare(b.questionId));
+}
+
+function receiptPathFor(quizId: string, workspaceRoot?: string): string {
+  const resultsDir = workspaceRoot ? path.join(workspaceRoot, 'results') : Paths.results;
+  const safeId = crypto.createHash('sha256').update(quizId, 'utf-8').digest('hex').slice(0, 16);
+  return path.join(resultsDir, `grade_receipt_${safeId}.json`);
+}
+
+async function loadExistingReceipt(
+  receiptPath: string,
+  quizHash: string,
+  answerHash: string,
+  quizId: string
+): Promise<GradeAndAdaptResult | null> {
+  let receipt: GradeReceipt;
+  try {
+    receipt = JSON.parse(await fs.readFile(receiptPath, 'utf-8'));
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') return null;
+    throw err;
+  }
+
+  if (receipt.quizHash !== quizHash) {
+    throw new Error(`Quiz ${quizId} has already been graded with different quiz content`);
+  }
+  if (receipt.answerHash !== answerHash) {
+    throw new Error(`Quiz ${quizId} has already been graded with different answers`);
+  }
+  return receipt.result;
+}
+
 export async function gradeAndAdapt(input: GradeAndAdaptInput): Promise<GradeAndAdaptResult> {
   const { quiz, answers, conceptsPath, planPath, eventLogFile, workspaceRoot } = input;
+  const receiptPath = receiptPathFor(quiz.id, workspaceRoot);
+  const quizHash = stableHash(quiz);
+  const answerHash = stableHash(normalizeAnswers(answers));
+  const existing = await loadExistingReceipt(
+    receiptPath,
+    quizHash,
+    answerHash,
+    quiz.id
+  );
+  if (existing) return existing;
+
   const correlationId = createCorrelationId();
   const date = quiz.date;
 
@@ -115,7 +180,7 @@ export async function gradeAndAdapt(input: GradeAndAdaptInput): Promise<GradeAnd
     }
   }
 
-  return {
+  const workflowResult: GradeAndAdaptResult = {
     result,
     mistakes,
     mistakeNodeIds,
@@ -125,4 +190,14 @@ export async function gradeAndAdapt(input: GradeAndAdaptInput): Promise<GradeAnd
     weaknessExplanations,
     latestInsight,
   };
+
+  const receipt: GradeReceipt = {
+    quizId: quiz.id,
+    quizHash,
+    answerHash,
+    result: workflowResult,
+  };
+  await atomicWriteJSON(receiptPath, receipt);
+
+  return workflowResult;
 }
