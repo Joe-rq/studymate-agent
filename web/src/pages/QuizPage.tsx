@@ -57,14 +57,14 @@ export default function QuizPage() {
     setSubmitting(false);
   };
 
-  if (loading) return <p>加载中...</p>;
+  if (loading) return <p className="muted">加载中...</p>;
 
   if (!quiz) {
     return (
       <div>
         <h2 className="page-title">测验</h2>
         <div className="card">
-          <p style={{ marginBottom: 16 }}>今天还没有测验，点击下方按钮生成一份。</p>
+          <p className="muted" style={{ marginBottom: 16 }}>今天还没有测验，点击下方按钮生成一份。</p>
           <button className="btn btn-primary" onClick={handleGenerate} disabled={generating}>
             {generating ? '生成中...' : '生成测验'}
           </button>
@@ -78,7 +78,7 @@ export default function QuizPage() {
   return (
     <div>
       <h2 className="page-title">测验</h2>
-      <p style={{ marginBottom: 16, color: 'var(--text-secondary)' }}>
+      <p className="muted" style={{ marginBottom: 16 }}>
         已答 {answeredCount}/{quiz.questions.length} 题
       </p>
 

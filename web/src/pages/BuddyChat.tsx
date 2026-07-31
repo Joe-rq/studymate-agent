@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { api, type BuddyStateResponse } from '../api';
+import Mascot from '../components/Mascot';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -11,11 +12,13 @@ export default function BuddyChat() {
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
   const [characterName, setCharacterName] = useState('搭子');
+  const [characterId, setCharacterId] = useState<string | undefined>(undefined);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     api.get<BuddyStateResponse>('/buddy/state').then((data) => {
       setCharacterName(data.character?.name ?? '搭子');
+      setCharacterId(data.character?.id);
       const history = data.recentHistory.map((h) => ({
         role: h.role as 'user' | 'assistant',
         content: h.content,
@@ -53,23 +56,31 @@ export default function BuddyChat() {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 64px)' }}>
+    <div className="chat-page">
       <h2 className="page-title">和{characterName}聊天</h2>
 
-      <div className="chat-messages" style={{ flex: 1 }}>
-        {messages.length === 0 && (
-          <p style={{ textAlign: 'center', color: 'var(--text-secondary)', marginTop: 40 }}>
-            开始和{characterName}聊天吧！
-          </p>
+      <div className="chat-messages">
+        {messages.length === 0 && !sending && (
+          <p className="chat-empty">开始和{characterName}聊天吧！</p>
         )}
         {messages.map((msg, i) => (
-          <div key={i} className={`chat-bubble ${msg.role}`}>
-            {msg.content}
+          <div key={i} className={`chat-row ${msg.role}`}>
+            {msg.role === 'assistant' && (
+              <div className="chat-avatar">
+                <Mascot characterId={characterId} mood="default" size={34} />
+              </div>
+            )}
+            <div className={`chat-bubble ${msg.role}`}>{msg.content}</div>
           </div>
         ))}
         {sending && (
-          <div className="chat-bubble assistant" style={{ opacity: 0.6 }}>
-            {characterName}正在思考...
+          <div className="chat-row assistant">
+            <div className="chat-avatar">
+              <Mascot characterId={characterId} mood="thinking" size={34} />
+            </div>
+            <div className="chat-bubble assistant" style={{ opacity: 0.7 }}>
+              {characterName}正在思考...
+            </div>
           </div>
         )}
         <div ref={bottomRef} />

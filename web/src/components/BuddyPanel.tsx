@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api, type BuddyStateResponse } from '../api';
+import Mascot, { deriveMood } from './Mascot';
 
 export default function BuddyPanel() {
   const [data, setData] = useState<BuddyStateResponse | null>(null);
@@ -17,20 +18,23 @@ export default function BuddyPanel() {
   }, []);
 
   const character = data?.character;
-  const mood = getMood(data?.state.streakDays ?? 0);
+  const streak = data?.state.streakDays ?? 0;
+  const mood = deriveMood({ streakDays: streak });
 
   return (
     <div>
-      <div className="buddy-avatar">{mood.emoji}</div>
+      <div className="buddy-avatar">
+        <Mascot characterId={character?.id} mood={mood} size={96} />
+      </div>
       <div className="buddy-name">{character?.name ?? '搭子'}</div>
       <div className="buddy-mood">
-        {character ? `${character.personality}` : '加载中...'}
+        {character ? character.tagline : '加载中...'}
       </div>
 
       {intervention && <div className="buddy-message">{intervention}</div>}
 
       {data?.state && (
-        <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+        <div className="buddy-stats">
           <p>关系等级：{data.state.relationshipLevel}/100</p>
           <p>连续学习：{data.state.streakDays} 天</p>
           {data.state.memories.length > 0 && (
@@ -40,11 +44,4 @@ export default function BuddyPanel() {
       )}
     </div>
   );
-}
-
-function getMood(streak: number): { emoji: string; label: string } {
-  if (streak >= 7) return { emoji: '🎉', label: 'celebrating' };
-  if (streak >= 3) return { emoji: '😊', label: 'happy' };
-  if (streak >= 1) return { emoji: '🙂', label: 'neutral' };
-  return { emoji: '😴', label: 'waiting' };
 }

@@ -89,6 +89,7 @@ export interface BuddyStateResponse {
   character: {
     id: string;
     name: string;
+    tagline?: string;
     personality: string;
     speechStyle: string;
     formOfAddress: string;
@@ -101,6 +102,7 @@ export interface BuddyStateResponse {
 export interface CharacterInfo {
   id: string;
   name: string;
+  tagline?: string;
   personality: string;
   speechStyle: string;
   formOfAddress: string;

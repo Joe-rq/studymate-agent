@@ -1,27 +1,40 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { api, type StatusResponse } from '../api';
+import { api, type StatusResponse, type BuddyStateResponse } from '../api';
+import Mascot, { deriveMood } from '../components/Mascot';
 
 export default function Dashboard() {
   const [status, setStatus] = useState<StatusResponse | null>(null);
+  const [buddy, setBuddy] = useState<BuddyStateResponse | null>(null);
   const [error, setError] = useState('');
   const navigate = useNavigate();
 
   useEffect(() => {
     api.get<StatusResponse>('/status').then(setStatus).catch((e) => setError(e.message));
+    api.get<BuddyStateResponse>('/buddy/state').then(setBuddy).catch(() => {});
   }, []);
 
-  if (error) return <p style={{ color: 'var(--danger)' }}>加载失败：{error}</p>;
-  if (!status) return <p>加载中...</p>;
+  if (error) return <p className="error-text">加载失败：{error}</p>;
+  if (!status) return <p className="muted">加载中...</p>;
+
+  const character = buddy?.character;
+  const mood = deriveMood({
+    streakDays: status.streakDays,
+    recentScore: status.recentScore,
+    hasExam: !!status.exam,
+  });
 
   // No exam project — show onboarding prompt
   if (!status.exam) {
     return (
       <div>
-        <h2 className="page-title">欢迎使用 StudyMate</h2>
-        <p style={{ color: '#6b7280', marginBottom: 24 }}>
-          还没有考试项目。请先创建考试项目，开始你的备考之旅。
-        </p>
+        <div className="welcome-hero">
+          <Mascot characterId={character?.id} mood="waiting" size={120} />
+          <div>
+            <h2 className="page-title">欢迎使用 StudyMate</h2>
+            <p className="muted">还没有考试项目。请先创建考试项目，开始你的备考之旅。</p>
+          </div>
+        </div>
         <button className="btn btn-primary" onClick={() => navigate('/onboarding')}>
           创建考试项目
         </button>
@@ -31,9 +44,19 @@ export default function Dashboard() {
 
   return (
     <div>
-      <h2 className="page-title">
-        {status.exam ? status.exam.name : '备考面板'}
-      </h2>
+      <div className="dashboard-head">
+        <div className="dashboard-mascot">
+          <Mascot characterId={character?.id} mood={mood} size={88} />
+        </div>
+        <div>
+          <h2 className="page-title">{status.exam.name}</h2>
+          <p className="muted">
+            {character
+              ? `${character.name} 陪你一起备考 · ${character.tagline}`
+              : '加油，今天也是元气满满的一天！'}
+          </p>
+        </div>
+      </div>
 
       <div className="stat-grid">
         <div className="stat-card">
@@ -62,7 +85,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: 12 }}>
+      <div className="action-row">
         <button className="btn btn-primary" onClick={() => navigate('/tasks')}>
           查看今日任务
         </button>

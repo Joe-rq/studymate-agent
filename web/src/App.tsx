@@ -8,6 +8,7 @@ import BuddyChat from './pages/BuddyChat';
 import Settings from './pages/Settings';
 import Onboarding from './pages/Onboarding';
 import BuddyPanel from './components/BuddyPanel';
+import ThemeToggle from './components/ThemeToggle';
 
 const navItems = [
   { to: '/', label: '首页' },
@@ -32,6 +33,9 @@ export default function App() {
             </li>
           ))}
         </ul>
+        <div className="sidebar-footer">
+          <ThemeToggle />
+        </div>
       </nav>
       <main className="main-content">
         <Routes>

@@ -25,7 +25,7 @@ export default function TodayTasks() {
     load();
   };
 
-  if (loading) return <p>加载中...</p>;
+  if (loading) return <p className="muted">加载中...</p>;
 
   const tasks = plan?.tasks ?? [];
   const doneCount = tasks.filter((t) => t.status === 'done').length;
@@ -33,13 +33,13 @@ export default function TodayTasks() {
   return (
     <div>
       <h2 className="page-title">今日任务</h2>
-      <p style={{ marginBottom: 16, color: 'var(--text-secondary)' }}>
+      <p className="muted" style={{ marginBottom: 16 }}>
         {plan?.date ?? ''} · 完成 {doneCount}/{tasks.length}
       </p>
 
       {tasks.length === 0 ? (
         <div className="card">
-          <p>今天没有安排任务，去生成计划吧！</p>
+          <p className="muted">今天没有安排任务，去生成计划吧！</p>
         </div>
       ) : (
         tasks.map((task) => (

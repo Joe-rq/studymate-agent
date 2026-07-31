@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api, type CharacterInfo, type BuddyStateResponse } from '../api';
+import Mascot from '../components/Mascot';
 
 interface CharactersResponse {
   characters: CharacterInfo[];
@@ -40,42 +41,36 @@ export default function Settings() {
     setSaving(false);
   };
 
-  if (loading) return <p>加载中...</p>;
+  if (loading) return <p className="muted">加载中...</p>;
 
   return (
     <div>
       <h2 className="page-title">设置</h2>
 
-      <h3 style={{ fontSize: '1.1rem', margin: '16px 0 12px' }}>选择角色</h3>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, marginBottom: 24 }}>
+      <h3 className="section-title">选择角色</h3>
+      <div className="character-grid">
         {characters.map((char) => (
           <div
             key={char.id}
-            className="card"
-            style={{
-              cursor: 'pointer',
-              border: selectedId === char.id ? '2px solid var(--primary)' : '2px solid transparent',
-            }}
+            className={`character-card${selectedId === char.id ? ' selected' : ''}`}
             onClick={() => handleSelectCharacter(char.id)}
           >
-            <div className="buddy-avatar" style={{ width: 60, height: 60, fontSize: '1.5rem', marginBottom: 8 }}>
-              {char.name[0]}
+            <div className="character-avatar">
+              <Mascot characterId={char.id} mood="idle" size={72} />
             </div>
-            <div style={{ textAlign: 'center' }}>
-              <p style={{ fontWeight: 600 }}>{char.name}</p>
-              <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{char.personality}</p>
-              <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: 4 }}>
-                说话风格：{char.speechStyle}
-              </p>
+            <div className="character-info">
+              <p className="character-name">{char.name}</p>
+              <p className="character-personality">{char.personality}</p>
+              <p className="character-speech">说话风格：{char.speechStyle}</p>
               {selectedId === char.id && (
-                <span className="badge badge-done" style={{ marginTop: 8 }}>当前选择</span>
+                <span className="badge badge-done">当前选择</span>
               )}
             </div>
           </div>
         ))}
       </div>
 
-      <h3 style={{ fontSize: '1.1rem', margin: '16px 0 12px' }}>互动偏好</h3>
+      <h3 className="section-title">互动偏好</h3>
       <div className="card">
         <div className="form-group">
           <label>提醒强度</label>
@@ -110,6 +105,13 @@ export default function Settings() {
         <button className="btn btn-primary" onClick={handleSavePrefs} disabled={saving}>
           {saving ? '保存中...' : '保存偏好'}
         </button>
+      </div>
+
+      <h3 className="section-title">外观</h3>
+      <div className="card">
+        <p className="muted" style={{ marginBottom: 8 }}>
+          主题切换位于左侧导航栏底部，支持浅色 / 深色 / 跟随系统三种模式。
+        </p>
       </div>
     </div>
   );
