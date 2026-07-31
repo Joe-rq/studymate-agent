@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api, type StatusResponse, type BuddyStateResponse } from '../api';
 import Mascot, { deriveMood } from '../components/Mascot';
+import ProgressRing from '../components/ProgressRing';
+import { SkeletonGrid, EmptyState, ErrorState } from '../components/Feedback';
 
 export default function Dashboard() {
   const [status, setStatus] = useState<StatusResponse | null>(null);
@@ -9,13 +11,26 @@ export default function Dashboard() {
   const [error, setError] = useState('');
   const navigate = useNavigate();
 
+  const load = () => {
+    setError('');
+    setStatus(null);
+    Promise.all([
+      api.get<StatusResponse>('/status'),
+      api.get<BuddyStateResponse>('/buddy/state'),
+    ])
+      .then(([s, b]) => {
+        setStatus(s);
+        setBuddy(b);
+      })
+      .catch((e) => setError(e.message));
+  };
+
   useEffect(() => {
-    api.get<StatusResponse>('/status').then(setStatus).catch((e) => setError(e.message));
-    api.get<BuddyStateResponse>('/buddy/state').then(setBuddy).catch(() => {});
+    load();
   }, []);
 
-  if (error) return <p className="error-text">加载失败：{error}</p>;
-  if (!status) return <p className="muted">加载中...</p>;
+  if (error) return <ErrorState message={error} onRetry={load} />;
+  if (!status) return <SkeletonGrid count={5} />;
 
   const character = buddy?.character;
   const mood = deriveMood({
@@ -27,24 +42,23 @@ export default function Dashboard() {
   // No exam project — show onboarding prompt
   if (!status.exam) {
     return (
-      <div>
-        <div className="welcome-hero">
-          <Mascot characterId={character?.id} mood="waiting" size={120} />
-          <div>
-            <h2 className="page-title">欢迎使用 StudyMate</h2>
-            <p className="muted">还没有考试项目。请先创建考试项目，开始你的备考之旅。</p>
-          </div>
-        </div>
-        <button className="btn btn-primary" onClick={() => navigate('/onboarding')}>
-          创建考试项目
-        </button>
-      </div>
+      <EmptyState
+        characterId={character?.id}
+        mood="waiting"
+        title="还没有考试项目"
+        hint="创建你的第一个考试项目，搭子会陪你一起备考。"
+        action={
+          <button className="btn btn-primary" onClick={() => navigate('/onboarding')}>
+            创建考试项目
+          </button>
+        }
+      />
     );
   }
 
   return (
     <div>
-      <div className="dashboard-head">
+      <div className="dashboard-head fade-in-up">
         <div className="dashboard-mascot">
           <Mascot characterId={character?.id} mood={mood} size={88} />
         </div>
@@ -52,40 +66,44 @@ export default function Dashboard() {
           <h2 className="page-title">{status.exam.name}</h2>
           <p className="muted">
             {character
-              ? `${character.name} 陪你一起备考 · ${character.tagline}`
+              ? `${character.name} 陪你一起备考 · ${character.tagline ?? character.personality}`
               : '加油，今天也是元气满满的一天！'}
           </p>
         </div>
       </div>
 
       <div className="stat-grid">
-        <div className="stat-card">
+        <div className="stat-card stagger" style={{ ['--i' as string]: 0 }}>
+          <ProgressRing value={status.avgMastery} size={88} stroke={7} />
+          <div className="stat-label">平均掌握度</div>
+        </div>
+        <div className="stat-card stagger" style={{ ['--i' as string]: 1 }}>
           <div className="stat-value">
             {status.daysToExam !== null ? status.daysToExam : '--'}
           </div>
           <div className="stat-label">距考试（天）</div>
         </div>
-        <div className="stat-card">
-          <div className="stat-value">{Math.round(status.avgMastery * 100)}%</div>
-          <div className="stat-label">平均掌握度</div>
-        </div>
-        <div className="stat-card">
+        <div className="stat-card stagger" style={{ ['--i' as string]: 2 }}>
           <div className="stat-value">{status.streakDays}</div>
           <div className="stat-label">连续学习（天）</div>
         </div>
-        <div className="stat-card">
+        <div className="stat-card stagger" style={{ ['--i' as string]: 3 }}>
           <div className="stat-value">{status.tasksToday}</div>
           <div className="stat-label">今日任务</div>
         </div>
-        <div className="stat-card">
-          <div className="stat-value">
-            {status.recentScore !== null ? status.recentScore : '--'}
-          </div>
-          <div className="stat-label">最近得分</div>
+        <div className="stat-card stagger" style={{ ['--i' as string]: 4 }}>
+          <ProgressRing
+            value={status.recentScore !== null ? status.recentScore / 100 : 0}
+            size={88}
+            stroke={7}
+            suffix="分"
+            displayValue={status.recentScore ?? 0}
+            label="最近得分"
+          />
         </div>
       </div>
 
-      <div className="action-row">
+      <div className="action-row fade-in-up">
         <button className="btn btn-primary" onClick={() => navigate('/tasks')}>
           查看今日任务
         </button>

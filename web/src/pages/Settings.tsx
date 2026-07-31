@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { api, type CharacterInfo, type BuddyStateResponse } from '../api';
 import Mascot from '../components/Mascot';
+import { Loading } from '../components/Feedback';
+import { toast } from '../components/Toast';
 
 interface CharactersResponse {
   characters: CharacterInfo[];
@@ -33,15 +35,21 @@ export default function Settings() {
   const handleSelectCharacter = async (id: string) => {
     setSelectedId(id);
     await api.post('/characters/select', { characterId: id });
+    toast.push('已切换搭子', 'success');
   };
 
   const handleSavePrefs = async () => {
     setSaving(true);
-    await api.post('/buddy/preferences', prefs);
+    try {
+      await api.post('/buddy/preferences', prefs);
+      toast.push('偏好已保存', 'success');
+    } catch {
+      toast.push('保存失败，请重试', 'info');
+    }
     setSaving(false);
   };
 
-  if (loading) return <p className="muted">加载中...</p>;
+  if (loading) return <Loading />;
 
   return (
     <div>
@@ -110,7 +118,7 @@ export default function Settings() {
       <h3 className="section-title">外观</h3>
       <div className="card">
         <p className="muted" style={{ marginBottom: 8 }}>
-          主题切换位于左侧导航栏底部，支持浅色 / 深色 / 跟随系统三种模式。
+          主题切换位于页面顶部，支持浅色 / 深色 / 跟随系统三种模式，选择会自动记住。
         </p>
       </div>
     </div>

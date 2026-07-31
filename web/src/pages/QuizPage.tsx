@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api, type Quiz } from '../api';
 import QuizCard from '../components/QuizCard';
+import { Loading, EmptyState } from '../components/Feedback';
 
 export default function QuizPage() {
   const [quiz, setQuiz] = useState<Quiz | null>(null);
@@ -57,19 +58,20 @@ export default function QuizPage() {
     setSubmitting(false);
   };
 
-  if (loading) return <p className="muted">加载中...</p>;
+  if (loading) return <Loading />;
 
   if (!quiz) {
     return (
-      <div>
-        <h2 className="page-title">测验</h2>
-        <div className="card">
-          <p className="muted" style={{ marginBottom: 16 }}>今天还没有测验，点击下方按钮生成一份。</p>
+      <EmptyState
+        mood="thinking"
+        title="今天还没有测验"
+        hint="点下方按钮，搭子帮你出一份练习。"
+        action={
           <button className="btn btn-primary" onClick={handleGenerate} disabled={generating}>
             {generating ? '生成中...' : '生成测验'}
           </button>
-        </div>
-      </div>
+        }
+      />
     );
   }
 

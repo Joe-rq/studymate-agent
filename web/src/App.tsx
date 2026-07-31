@@ -1,4 +1,5 @@
-import { Routes, Route, NavLink } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Routes, Route, NavLink, useLocation } from 'react-router-dom';
 import Dashboard from './pages/Dashboard';
 import TodayTasks from './pages/TodayTasks';
 import QuizPage from './pages/QuizPage';
@@ -8,7 +9,8 @@ import BuddyChat from './pages/BuddyChat';
 import Settings from './pages/Settings';
 import Onboarding from './pages/Onboarding';
 import BuddyPanel from './components/BuddyPanel';
-import ThemeToggle from './components/ThemeToggle';
+import Topbar from './components/Topbar';
+import { ToastHost } from './components/Toast';
 
 const navItems = [
   { to: '/', label: '首页' },
@@ -20,9 +22,18 @@ const navItems = [
 ];
 
 export default function App() {
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const location = useLocation();
+
+  // Close drawer on navigation
+  useEffect(() => {
+    setDrawerOpen(false);
+  }, [location.pathname]);
+
   return (
     <div className="app-layout">
-      <nav className="sidebar">
+      {/* Desktop sidebar (also slides in as drawer on mobile) */}
+      <nav className={`sidebar${drawerOpen ? ' open' : ''}`}>
         <h1 className="logo">StudyMate</h1>
         <ul>
           {navItems.map((item) => (
@@ -33,25 +44,38 @@ export default function App() {
             </li>
           ))}
         </ul>
-        <div className="sidebar-footer">
-          <ThemeToggle />
-        </div>
       </nav>
-      <main className="main-content">
-        <Routes>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/onboarding" element={<Onboarding />} />
-          <Route path="/tasks" element={<TodayTasks />} />
-          <Route path="/quiz" element={<QuizPage />} />
-          <Route path="/grade" element={<GradeReport />} />
-          <Route path="/plan" element={<PlanView />} />
-          <Route path="/chat" element={<BuddyChat />} />
-          <Route path="/settings" element={<Settings />} />
-        </Routes>
-      </main>
+
+      {/* Click-away backdrop for mobile drawer */}
+      {drawerOpen && (
+        <div
+          className="drawer-backdrop"
+          onClick={() => setDrawerOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
+      <div className="main-area">
+        <Topbar onMenuClick={() => setDrawerOpen((v) => !v)} />
+        <main className="main-content">
+          <Routes>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/onboarding" element={<Onboarding />} />
+            <Route path="/tasks" element={<TodayTasks />} />
+            <Route path="/quiz" element={<QuizPage />} />
+            <Route path="/grade" element={<GradeReport />} />
+            <Route path="/plan" element={<PlanView />} />
+            <Route path="/chat" element={<BuddyChat />} />
+            <Route path="/settings" element={<Settings />} />
+          </Routes>
+        </main>
+      </div>
+
       <aside className="buddy-sidebar">
         <BuddyPanel />
       </aside>
+
+      <ToastHost />
     </div>
   );
 }

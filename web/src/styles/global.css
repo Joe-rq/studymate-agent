@@ -86,6 +86,64 @@ body {
   min-height: 100vh;
 }
 
+.main-area {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 100vh;
+}
+
+/* ── Topbar ──────────────────────────────────────────────────────── */
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 28px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+
+.topbar-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  flex: 1;
+  margin: 0;
+}
+
+.topbar-right {
+  flex-shrink: 0;
+}
+
+/* Hamburger button — hidden on desktop, shown on mobile */
+.menu-btn {
+  display: none;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  width: 36px;
+  height: 36px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  cursor: pointer;
+}
+
+.menu-btn span {
+  display: block;
+  height: 2px;
+  width: 100%;
+  background: var(--text);
+  border-radius: 1px;
+}
+
+.drawer-backdrop {
+  display: none;
+}
+
 /* ── Sidebar Nav ─────────────────────────────────────────────────── */
 .sidebar {
   background: var(--surface);
@@ -98,11 +156,6 @@ body {
 .sidebar ul {
   list-style: none;
   flex: 1;
-}
-
-.sidebar-footer {
-  padding-top: 16px;
-  border-top: 1px solid var(--border);
 }
 
 .logo {
@@ -142,9 +195,9 @@ body {
 
 /* ── Main Content ────────────────────────────────────────────────── */
 .main-content {
-  padding: 32px;
+  padding: 28px 32px 48px;
+  flex: 1;
   overflow-y: auto;
-  max-height: 100vh;
 }
 
 .page-title {
@@ -825,16 +878,292 @@ body {
   background: var(--danger-light);
 }
 
+/* ── Toast ───────────────────────────────────────────────────────── */
+.toast-host {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+  pointer-events: none;
+}
+
+.toast {
+  pointer-events: auto;
+  padding: 12px 18px;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  font-size: 0.88rem;
+  color: var(--text);
+  cursor: pointer;
+  animation: toast-in 0.3s ease;
+  max-width: min(90vw, 420px);
+}
+
+.toast-success { border-color: var(--success); }
+.toast-encourage { border-color: var(--accent); background: var(--accent-light); }
+.toast-info { border-color: var(--primary); }
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ── List entrance animation ─────────────────────────────────────── */
+.fade-in-up {
+  animation: fade-in-up 0.35s ease both;
+}
+
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Staggered list items: set --i inline per item */
+.stagger {
+  animation: fade-in-up 0.35s ease both;
+  animation-delay: calc(var(--i, 0) * 50ms);
+}
+
+/* Task completion pop */
+@keyframes task-done-pop {
+  0% { transform: scale(1); }
+  50% { transform: scale(0.97); }
+  100% { transform: scale(1); opacity: 0.5; }
+}
+
+.done-anim {
+  animation: task-done-pop 0.4s ease;
+}
+
+/* Sidebar active indicator slide */
+.sidebar a.active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 60%;
+  background: var(--primary);
+  border-radius: 0 3px 3px 0;
+}
+
+.sidebar a {
+  position: relative;
+}
+
+/* ── Progress Ring ───────────────────────────────────────────────── */
+.progress-ring {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.progress-ring-svg {
+  position: absolute;
+  inset: 0;
+}
+
+.progress-ring-text {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1.1;
+}
+
+.progress-ring-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.progress-ring-suffix {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-left: 1px;
+  display: inline;
+}
+
+.progress-ring-label {
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  margin-top: 4px;
+}
+
+/* Horizontal ring + caption layout (e.g. score summary) */
+.ring-row {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+/* ── Feedback: Spinner / Skeleton / State ────────────────────────── */
+.spinner-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid var(--surface-2);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spinner-rotate 0.8s linear infinite;
+}
+
+.spinner-label {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+@keyframes spinner-rotate {
+  to { transform: rotate(360deg); }
+}
+
+/* Skeleton shimmer */
+.skeleton-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px 16px;
+  box-shadow: var(--shadow-soft);
+}
+
+.skeleton-line {
+  height: 12px;
+  border-radius: 6px;
+  background: linear-gradient(
+    90deg,
+    var(--surface-2) 25%,
+    var(--surface-hover) 50%,
+    var(--surface-2) 75%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.4s ease-in-out infinite;
+}
+
+.skeleton-line-lg {
+  width: 50%;
+  height: 28px;
+  margin: 0 auto 8px;
+}
+
+.skeleton-line-sm {
+  width: 70%;
+  height: 10px;
+  margin: 0 auto;
+}
+
+@keyframes skeleton-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* Centered empty / error / loading block */
+.state-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 48px 24px;
+  gap: 10px;
+}
+
+.state-mascot {
+  width: 104px;
+  height: 104px;
+  border-radius: 50%;
+  background: var(--mascot-glow);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 8px;
+}
+
+.state-title {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.state-hint {
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+  max-width: 360px;
+}
+
+.state-action {
+  margin-top: 12px;
+}
+
 /* ── Responsive ──────────────────────────────────────────────────── */
+
+/* Tablet: hide buddy sidebar, keep nav as drawer */
 @media (max-width: 1024px) {
   .app-layout {
     grid-template-columns: 1fr;
   }
-  .sidebar {
-    display: none;
-  }
   .buddy-sidebar {
     display: none;
+  }
+  .menu-btn {
+    display: flex;
+  }
+  /* Sidebar becomes an off-canvas drawer */
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 240px;
+    z-index: 40;
+    transform: translateX(-100%);
+    transition: transform 0.25s ease;
+    box-shadow: var(--shadow);
+  }
+  .sidebar.open {
+    transform: translateX(0);
+  }
+  .drawer-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.35);
+    z-index: 30;
+  }
+  .main-content {
+    padding: 20px;
+  }
+}
+
+/* Phone: tighten spacing */
+@media (max-width: 600px) {
+  .topbar {
+    padding: 12px 16px;
+  }
+  .stat-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .action-row {
+    flex-direction: column;
+  }
+  .action-row .btn {
+    width: 100%;
+    justify-content: center;
   }
 }
 

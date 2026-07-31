@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api, type ConceptMap } from '../api';
 import MasteryBar from '../components/MasteryBar';
+import { Loading, EmptyState, ErrorState } from '../components/Feedback';
 
 interface PlanTask {
   type: string;
@@ -63,7 +64,7 @@ export default function PlanView() {
     });
   }, []);
 
-  if (loading) return <p className="muted">加载中...</p>;
+  if (loading) return <Loading />;
 
   // Defensive: never let a malformed payload blank the whole page.
   const phases = (plan?.phases ?? []).filter(
@@ -72,13 +73,27 @@ export default function PlanView() {
   const schedule = Array.isArray(plan?.schedule) ? plan!.schedule : [];
   const conceptList = concepts?.concepts ?? [];
 
+  if (error && !plan && conceptList.length === 0) {
+    return <ErrorState message={error} onRetry={() => window.location.reload()} />;
+  }
+
+  if (!plan && conceptList.length === 0 && !error) {
+    return (
+      <EmptyState
+        mood="waiting"
+        title="暂无学习计划"
+        hint="先创建考试项目并生成计划，搭子会帮你排好每天的内容。"
+      />
+    );
+  }
+
   return (
     <div>
       <h2 className="page-title">学习计划</h2>
 
       {error && (
         <div className="card error-text">
-          加载失败：{error}
+          部分数据加载失败：{error}
         </div>
       )}
 
@@ -135,18 +150,12 @@ export default function PlanView() {
       {conceptList.length > 0 && (
         <>
           <h3 className="section-title">知识点掌握度</h3>
-          {conceptList.map((node) => (
-            <div key={node.id} className="mastery-row">
+          {conceptList.map((node, i) => (
+            <div key={node.id} className="mastery-row stagger" style={{ ['--i' as string]: i }}>
               <MasteryBar value={node.mastery} label={node.name} />
             </div>
           ))}
         </>
-      )}
-
-      {!plan && conceptList.length === 0 && !error && (
-        <div className="card">
-          <p className="muted">暂无学习计划，请先创建考试项目并生成计划。</p>
-        </div>
       )}
     </div>
   );

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { api, type BuddyStateResponse } from '../api';
 import Mascot from '../components/Mascot';
+import { EmptyState, ErrorState } from '../components/Feedback';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -13,6 +14,8 @@ export default function BuddyChat() {
   const [sending, setSending] = useState(false);
   const [characterName, setCharacterName] = useState('搭子');
   const [characterId, setCharacterId] = useState<string | undefined>(undefined);
+  const [loadError, setLoadError] = useState('');
+  const [loaded, setLoaded] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -24,7 +27,8 @@ export default function BuddyChat() {
         content: h.content,
       }));
       setMessages(history);
-    }).catch(() => {});
+    }).catch((e) => setLoadError(e.message))
+    .finally(() => setLoaded(true));
   }, []);
 
   useEffect(() => {
@@ -43,7 +47,7 @@ export default function BuddyChat() {
       const { reply } = await api.post<{ reply: string }>('/buddy/chat', { message: text });
       setMessages((prev) => [...prev, { role: 'assistant', content: reply || '...' }]);
     } catch {
-      setMessages((prev) => [...prev, { role: 'assistant', content: '（网络错误，请重试）' }]);
+      setMessages((prev) => [...prev, { role: 'assistant', content: '（网络开小差了，稍后再试～）' }]);
     }
     setSending(false);
   };
@@ -55,16 +59,25 @@ export default function BuddyChat() {
     }
   };
 
+  if (loadError) {
+    return <ErrorState message={loadError} onRetry={() => window.location.reload()} />;
+  }
+
   return (
     <div className="chat-page">
       <h2 className="page-title">和{characterName}聊天</h2>
 
       <div className="chat-messages">
-        {messages.length === 0 && !sending && (
-          <p className="chat-empty">开始和{characterName}聊天吧！</p>
+        {messages.length === 0 && !sending && loaded && (
+          <EmptyState
+            characterId={characterId}
+            mood="thinking"
+            title={`和${characterName}聊点什么吧`}
+            hint="可以聊聊今天的复习、遇到的难题，或者只是吐槽一下。"
+          />
         )}
         {messages.map((msg, i) => (
-          <div key={i} className={`chat-row ${msg.role}`}>
+          <div key={i} className={`chat-row ${msg.role} fade-in-up`}>
             {msg.role === 'assistant' && (
               <div className="chat-avatar">
                 <Mascot characterId={characterId} mood="default" size={34} />
