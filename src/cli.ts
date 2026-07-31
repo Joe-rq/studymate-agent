@@ -1,7 +1,16 @@
 #!/usr/bin/env node
+import { config } from 'dotenv';
+import { existsSync } from 'fs';
+import path from 'path';
+
+// Load environment variables from .env.local if it exists
+const envLocalPath = path.join(process.cwd(), '.env.local');
+if (existsSync(envLocalPath)) {
+  config({ path: envLocalPath });
+}
+
 import { program } from 'commander';
 import fs from 'fs/promises';
-import path from 'path';
 import readline from 'readline';
 import { initWorkspace } from './core/workspace.js';
 import { Paths } from './core/paths.js';
