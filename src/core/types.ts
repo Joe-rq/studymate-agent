@@ -5,6 +5,12 @@ export interface Event {
   action: string;
   input: Record<string, unknown>;
   output: Record<string, unknown>;
+  /** Schema version for forward compatibility. Defaults to 1. */
+  schemaVersion?: number;
+  /** Correlation ID linking related events (e.g. all events from one grade session). */
+  correlationId?: string;
+  /** Exam project ID for multi-project support. */
+  examProjectId?: string;
 }
 
 export interface AppState {

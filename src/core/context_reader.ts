@@ -89,13 +89,24 @@ export async function gatherStudyContext(
     ctx.tasksToday = dailyPlan.tasks.length;
   }
 
-  // 3. 薄弱知识点
-  const weakness = await readJSON<{ weakNodes: string[] } & { concepts?: never }>(
-    path.join(mistakesDir, 'weakness_profile.json')
-  );
-  if (weakness?.weakNodes?.length && conceptMap?.concepts) {
+  // 3. 薄弱知识点 (supports both new cumulative schema and legacy format)
+  const weakness = await readJSON<
+    | { nodes: Record<string, { mistakeCount: number }> }
+    | { weakNodes: string[] }
+  >(path.join(mistakesDir, 'weakness_profile.json'));
+  if (weakness && conceptMap?.concepts) {
     const nameById = new Map(conceptMap.concepts.map((c) => [c.id, c.name]));
-    ctx.weakNodeNames = weakness.weakNodes
+    let weakIds: string[] = [];
+    if ('nodes' in weakness && weakness.nodes) {
+      // New cumulative schema: sort by mistakeCount descending
+      weakIds = Object.entries(weakness.nodes)
+        .sort((a, b) => b[1].mistakeCount - a[1].mistakeCount)
+        .map(([id]) => id);
+    } else if ('weakNodes' in weakness && Array.isArray(weakness.weakNodes)) {
+      // Legacy schema
+      weakIds = weakness.weakNodes;
+    }
+    ctx.weakNodeNames = weakIds
       .map((id) => nameById.get(id))
       .filter((n): n is string => Boolean(n));
   }

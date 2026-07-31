@@ -50,10 +50,15 @@ export function gradeQuiz(quiz: Quiz, answers: UserAnswer[]): QuizResult {
   };
 }
 
-export async function saveResult(result: QuizResult, eventLogFile: string): Promise<void> {
-  await fs.mkdir(Paths.results, { recursive: true });
+export async function saveResult(
+  result: QuizResult,
+  eventLogFile: string,
+  workspaceRoot?: string
+): Promise<void> {
+  const resultsDir = workspaceRoot ? path.join(workspaceRoot, 'results') : Paths.results;
+  await fs.mkdir(resultsDir, { recursive: true });
   await fs.writeFile(
-    path.join(Paths.results, `${result.date}_result.json`),
+    path.join(resultsDir, `${result.date}_result.json`),
     JSON.stringify(result, null, 2),
     'utf-8'
   );
@@ -65,7 +70,7 @@ export async function saveResult(result: QuizResult, eventLogFile: string): Prom
     lines.push(`  解析：${m.question.explanation}`);
   }
 
-  await fs.writeFile(path.join(Paths.results, `${result.date}_report.md`), lines.join('\n'), 'utf-8');
+  await fs.writeFile(path.join(resultsDir, `${result.date}_report.md`), lines.join('\n'), 'utf-8');
 
   const event: Event = {
     id: createEventId(),

@@ -7,7 +7,7 @@ import { Paths } from '../core/paths.js';
 
 export interface TodoTask {
   id: string;
-  type: 'learn' | 'review';
+  type: 'learn' | 'review' | 'sprint';
   nodeId: string;
   duration: number;
   status: 'pending' | 'done' | 'skipped';
@@ -28,7 +28,10 @@ export async function dispatchToday(plan: DailyPlan, eventLogFile: string): Prom
     `---\ndate: ${plan.date}\ntags: ${allTags}\n---\n\n` +
     `# ${plan.date} 学习任务\n\n` +
     tasks
-      .map((t) => `- [ ] **${t.type === 'learn' ? '学习' : '复习'}** ${t.nodeId}（${t.duration} 分钟）`)
+      .map((t) => {
+        const typeLabel = t.type === 'learn' ? '学习' : t.type === 'review' ? '复习' : '冲刺';
+        return `- [ ] **${typeLabel}** ${t.nodeId}（${t.duration} 分钟）`;
+      })
       .join('\n');
 
   await fs.mkdir(Paths.tasks, { recursive: true });

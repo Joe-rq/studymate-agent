@@ -107,11 +107,13 @@ export function updateMastery(
  */
 export async function saveMastery(
   update: MasteryUpdate,
-  eventLogFile: string
+  eventLogFile: string,
+  workspaceRoot?: string
 ): Promise<void> {
-  await fs.mkdir(Paths.graph, { recursive: true });
+  const graphDir = workspaceRoot ? path.join(workspaceRoot, 'graph') : Paths.graph;
+  await fs.mkdir(graphDir, { recursive: true });
   await fs.writeFile(
-    path.join(Paths.graph, 'concepts.json'),
+    path.join(graphDir, 'concepts.json'),
     JSON.stringify(update.conceptMap, null, 2),
     'utf-8'
   );
