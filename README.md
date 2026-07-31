@@ -16,7 +16,7 @@ studymate exam create --name "2026年初级会计资格考试" --date 2026-09-15
 studymate ingest ./materials/micro-economics.md
 
 # Generate a study plan
-studymate plan --exam 2026-09-15 --daily 60
+studymate plan --exam 2026-09-15 --daily 60 --unavailable "2026-08-01,2026-08-08"
 
 # Daily study loop
 studymate today          # See today's tasks
@@ -36,6 +36,8 @@ npm run web      # Start Vite dev server for web UI (development)
 ```
 
 The server exposes a REST API at `/api/*` and serves the static web app at `/`.
+The onboarding flow keeps a generated plan in `planned` state until the user
+explicitly confirms it.
 
 ## Metrics
 
@@ -95,6 +97,8 @@ All state is stored locally in the `workspace/` directory.
 - **No voice or animation**: Text-only interaction; no TTS/STT or animated avatars yet
 - **Mock LLM**: Without an API key, the mock LLM returns fixed responses for demo purposes
 - **Search**: Requires `SERP_API_KEY` for real search; falls back to mock data otherwise
+- **Real-world validation pending**: The automated suite uses mock search/LLM;
+  a three-day run with real search and a real model is still a release gate
 
 ## Docs
 

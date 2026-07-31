@@ -19,6 +19,8 @@ import {
   createLearnerModel,
 } from '../domain/learner.js';
 import type { LearnerBaseline } from '../domain/exam.js';
+import { addDaysToDateKey } from '../core/date.js';
+import { atomicWriteJSON } from '../core/atomic_file.js';
 
 // ── Constants ──────────────────────────────────────────────────────
 
@@ -58,7 +60,7 @@ export async function loadLearnerModel(workspaceRoot?: string): Promise<LearnerM
 export async function saveLearnerModel(model: LearnerModel, workspaceRoot?: string): Promise<void> {
   const filePath = learnerFilePath(workspaceRoot);
   await fs.mkdir(path.dirname(filePath), { recursive: true });
-  await fs.writeFile(filePath, JSON.stringify(model, null, 2), 'utf-8');
+  await atomicWriteJSON(filePath, model);
 }
 
 /**
@@ -130,9 +132,7 @@ export function updateFromQuizResult(
   let bestStreak = model.performance.bestStreak;
 
   if (lastDate !== today) {
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    const yesterdayStr = yesterday.toISOString().split('T')[0];
+    const yesterdayStr = addDaysToDateKey(today, -1);
 
     if (lastDate === yesterdayStr) {
       currentStreak += 1;

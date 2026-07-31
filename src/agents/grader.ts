@@ -4,6 +4,7 @@ import type { Quiz, Question } from './quiz_generator.js';
 import type { Event } from '../core/types.js';
 import { createEventId, appendEvent } from '../core/event_log.js';
 import { Paths } from '../core/paths.js';
+import { atomicWriteFile, atomicWriteJSON } from '../core/atomic_file.js';
 
 export interface UserAnswer {
   questionId: string;
@@ -108,11 +109,7 @@ export async function saveResult(
 ): Promise<void> {
   const resultsDir = workspaceRoot ? path.join(workspaceRoot, 'results') : Paths.results;
   await fs.mkdir(resultsDir, { recursive: true });
-  await fs.writeFile(
-    path.join(resultsDir, `${result.date}_result.json`),
-    JSON.stringify(result, null, 2),
-    'utf-8'
-  );
+  await atomicWriteJSON(path.join(resultsDir, `${result.date}_result.json`), result);
 
   const lines: string[] = [`# ${result.date} 测验报告`, '', `**总分：${result.totalScore}**`, '', '## 错题'];
   for (const m of result.mistakes) {
@@ -126,7 +123,11 @@ export async function saveResult(
     if (m.score === 50) lines.push(`  （部分正确 +50分）`);
   }
 
-  await fs.writeFile(path.join(resultsDir, `${result.date}_report.md`), lines.join('\n'), 'utf-8');
+  await atomicWriteFile(
+    path.join(resultsDir, `${result.date}_report.md`),
+    lines.join('\n'),
+    'utf-8'
+  );
 
   const event: Event = {
     id: createEventId(),

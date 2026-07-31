@@ -128,4 +128,40 @@ describe('grade_and_adapt workflow', () => {
     expect(result.adjustments).toHaveLength(0);
     expect(result.result.totalScore).toBe(100);
   });
+
+  it('should reject a second submission with different answers for the same quiz', async () => {
+    const conceptMap = {
+      concepts: [
+        { id: 'n1', name: 'A', definition: '', prerequisiteIds: [], relatedChunks: [], mastery: 0.5 },
+      ],
+      learningOrder: ['n1'],
+    };
+    const conceptsPath = path.join(TEST_DIR, 'graph', 'concepts.json');
+    await fs.writeFile(conceptsPath, JSON.stringify(conceptMap), 'utf-8');
+    const quiz = {
+      id: 'quiz_conflict',
+      date: '2026-07-10',
+      questions: [
+        { id: 'q_1', type: 'single_choice' as const, stem: 'Q', options: ['A', 'B'], answer: 0, explanation: '', nodeId: 'n1' },
+      ],
+    };
+
+    await gradeAndAdapt({
+      quiz,
+      answers: [{ questionId: 'q_1', answer: 0 }],
+      conceptsPath,
+      eventLogFile: TEST_LOG,
+      workspaceRoot: TEST_DIR,
+    });
+
+    await expect(
+      gradeAndAdapt({
+        quiz,
+        answers: [{ questionId: 'q_1', answer: 1 }],
+        conceptsPath,
+        eventLogFile: TEST_LOG,
+        workspaceRoot: TEST_DIR,
+      })
+    ).rejects.toThrow('already been graded with different answers');
+  });
 });

@@ -7,6 +7,7 @@ import type { WeaknessProfile } from './mistake_analyzer.js';
 import type { Event } from '../core/types.js';
 import { createEventId, appendEvent } from '../core/event_log.js';
 import { Paths, PROMPTS_SOURCE } from '../core/paths.js';
+import { atomicWriteFile, atomicWriteJSON } from '../core/atomic_file.js';
 
 export const PROMPT_VERSION = 'quiz_v2';
 
@@ -242,10 +243,14 @@ export async function generateQuiz(
   // Link source chunks from concept's relatedChunks
   const questions: Question[] = raw.questions.map((q, idx) => {
     const concept = conceptById.get(q.nodeId);
+    const sourceChunkId = q.sourceChunkId ?? concept?.relatedChunks[0];
+    if (!sourceChunkId || !concept?.relatedChunks.includes(sourceChunkId)) {
+      throw new Error(`Question for concept ${q.nodeId} has no valid source chunk`);
+    }
     return {
       ...q,
       id: `q_${date}_${idx}`,
-      sourceChunkId: q.sourceChunkId ?? concept?.relatedChunks[0],
+      sourceChunkId,
     };
   });
 
@@ -253,7 +258,7 @@ export async function generateQuiz(
 
   const quizzesDir = workspaceRoot ? path.join(workspaceRoot, 'quizzes') : Paths.quizzes;
   await fs.mkdir(quizzesDir, { recursive: true });
-  await fs.writeFile(path.join(quizzesDir, `${date}_quiz.json`), JSON.stringify(quiz, null, 2), 'utf-8');
+  await atomicWriteJSON(path.join(quizzesDir, `${date}_quiz.json`), quiz);
 
   // Markdown output
   const lines: string[] = ['---', `date: ${date}`, 'tags: #studymate #quiz #daily-quiz', '---', '', `# ${date} 每日测验\n`];
@@ -266,7 +271,7 @@ export async function generateQuiz(
     }
   }
   const markdown = lines.join('\n');
-  await fs.writeFile(path.join(quizzesDir, `${date}_quiz.md`), markdown, 'utf-8');
+  await atomicWriteFile(path.join(quizzesDir, `${date}_quiz.md`), markdown, 'utf-8');
 
   const event: Event = {
     id: createEventId(),
@@ -297,7 +302,12 @@ export async function generateScopedQuiz(
   eventLogFile: string,
   workspaceRoot?: string
 ): Promise<Quiz> {
-  const concepts = mergeScopeToConcepts(scope, config);
+  const concepts = mergeScopeToConcepts(scope, config).filter(
+    (concept) => !concept.unverified && concept.relatedChunks.length > 0
+  );
+  if (concepts.length === 0) {
+    throw new Error('No source-backed concepts available for quiz generation');
+  }
   const weakIds = scope.weakConcepts.map((c) => c.id);
   return generateQuiz(concepts, llm, date, eventLogFile, weakIds, config, workspaceRoot);
 }

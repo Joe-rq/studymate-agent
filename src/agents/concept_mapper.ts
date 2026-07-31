@@ -5,6 +5,7 @@ import type { LLMClient } from '../core/llm.js';
 import type { Event } from '../core/types.js';
 import { createEventId, appendEvent } from '../core/event_log.js';
 import { Paths, PROMPTS_SOURCE } from '../core/paths.js';
+import { atomicWriteJSON } from '../core/atomic_file.js';
 import type { SRState } from './spaced_repetition.js';
 
 export const PROMPT_VERSION = 'concept_map_v1';
@@ -219,11 +220,7 @@ export async function mapConcepts(
   const conceptMap: ConceptMap = { concepts, learningOrder: order };
 
   await fs.mkdir(graphDir, { recursive: true });
-  await fs.writeFile(
-    path.join(graphDir, 'concepts.json'),
-    JSON.stringify(conceptMap, null, 2),
-    'utf-8'
-  );
+  await atomicWriteJSON(path.join(graphDir, 'concepts.json'), conceptMap);
 
   const event: Event = {
     id: createEventId(),

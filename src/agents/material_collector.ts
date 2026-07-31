@@ -7,6 +7,8 @@ import { createEventId, appendEvent } from '../core/event_log.js';
 import { Paths } from '../core/paths.js';
 import type { FetchedContent } from '../application/ports/content_fetcher.js';
 import type { SourceRecord } from '../domain/source.js';
+import { atomicWriteFile, atomicWriteJSON } from '../core/atomic_file.js';
+import { todayDateKey } from '../core/date.js';
 
 export interface Material {
   id: string;
@@ -34,6 +36,11 @@ function contentHash(content: string): string {
   return crypto.createHash('sha256').update(content, 'utf-8').digest('hex').slice(0, 8);
 }
 
+function materialFileName(title: string, hash: string): string {
+  const safeTitle = title.replace(/[^\w\u4e00-\u9fff-]/g, '_').slice(0, 60) || 'material';
+  return `${todayDateKey()}_${safeTitle}_${hash}.md`;
+}
+
 async function updateMaterialIndex(material: Material, materialsDir?: string): Promise<void> {
   const dir = materialsDir ?? Paths.materials;
   const indexPath = path.join(dir, 'index.json');
@@ -50,7 +57,7 @@ async function updateMaterialIndex(material: Material, materialsDir?: string): P
   } else {
     index.push(material);
   }
-  await fs.writeFile(indexPath, JSON.stringify(index, null, 2), 'utf-8');
+  await atomicWriteJSON(indexPath, index);
 }
 
 /** Load the material index. Returns empty array if not found. */
@@ -90,11 +97,11 @@ export async function importPDF(
   const parsed = await pdfParse(buffer);
   const title = path.basename(pdfPath, path.extname(pdfPath));
   const hash = contentHash(parsed.text);
-  const safeTitle = `${new Date().toISOString().split('T')[0]}_${title}.md`;
+  const safeTitle = materialFileName(title, hash);
   const contentPath = path.join(materialsDir, safeTitle);
 
   await fs.mkdir(materialsDir, { recursive: true });
-  await fs.writeFile(contentPath, `# ${title}\n\n${parsed.text}`, 'utf-8');
+  await atomicWriteFile(contentPath, `# ${title}\n\n${parsed.text}`, 'utf-8');
 
   const material: Material = {
     id: `mat_${hash}`,
@@ -124,11 +131,11 @@ export async function importMarkdown(
   const content = await fs.readFile(mdPath, 'utf-8');
   const title = path.basename(mdPath, path.extname(mdPath));
   const hash = contentHash(content);
-  const safeTitle = `${new Date().toISOString().split('T')[0]}_${title}.md`;
+  const safeTitle = materialFileName(title, hash);
   const contentPath = path.join(materialsDir, safeTitle);
 
   await fs.mkdir(materialsDir, { recursive: true });
-  await fs.writeFile(contentPath, content, 'utf-8');
+  await atomicWriteFile(contentPath, content, 'utf-8');
 
   const material: Material = {
     id: `mat_${hash}`,
@@ -181,12 +188,12 @@ export async function importFromContent(
   }
 
   const title = content.title || sourceRecord.title;
-  const safeTitle = `${new Date().toISOString().split('T')[0]}_${title.replace(/[^\w\u4e00-\u9fff-]/g, '_').slice(0, 60)}.md`;
+  const safeTitle = materialFileName(title, content.contentHash);
   const contentPath = path.join(materialsDir, safeTitle);
 
   // Write content as markdown
   const mdContent = `# ${title}\n\n> Source: ${content.url}\n> Fetched: ${content.fetchedAt}\n\n${content.body}`;
-  await fs.writeFile(contentPath, mdContent, 'utf-8');
+  await atomicWriteFile(contentPath, mdContent, 'utf-8');
 
   const material: Material = {
     id: `mat_${content.contentHash}`,

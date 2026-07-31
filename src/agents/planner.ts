@@ -9,6 +9,13 @@ import {
   isDue,
   type SRState,
 } from './spaced_repetition.js';
+import {
+  addDaysToDateKey,
+  daysBetweenDateKeys,
+  isDateKey,
+  todayDateKey,
+} from '../core/date.js';
+import { atomicWriteJSON } from '../core/atomic_file.js';
 
 export const PROMPT_VERSION = 'plan_v1';
 
@@ -25,6 +32,8 @@ export interface DailyTask {
   type: TaskType;
   nodeId: string;
   duration: number;
+  /** Original task ID when this task was migrated from a missed day. */
+  rolloverFrom?: string;
 }
 
 export interface DailyPlan {
@@ -79,13 +88,10 @@ export function estimateDuration(concept: Concept, taskType: TaskType): number {
 
 /** Validate plan config before generating. */
 function validateConfig(config: PlanConfig): void {
-  const examDate = new Date(config.examDate);
-  if (isNaN(examDate.getTime())) {
+  if (!isDateKey(config.examDate)) {
     throw new Error(`Invalid exam date: ${config.examDate}`);
   }
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  if (examDate <= today) {
+  if (daysBetweenDateKeys(todayDateKey(), config.examDate) <= 0) {
     throw new Error(`Exam date must be in the future: ${config.examDate}`);
   }
   if (!Number.isFinite(config.dailyMinutes) || config.dailyMinutes <= 0) {
@@ -93,6 +99,11 @@ function validateConfig(config: PlanConfig): void {
   }
   if (config.dailyMinutes > 480) {
     throw new Error(`dailyMinutes must be <= 480 (8h), got: ${config.dailyMinutes}`);
+  }
+  for (const date of config.unavailableDates ?? []) {
+    if (!isDateKey(date)) {
+      throw new Error(`Invalid unavailable date: ${date}`);
+    }
   }
 }
 
@@ -112,11 +123,9 @@ export function generatePlan(conceptMap: ConceptMap, config: PlanConfig): StudyP
 
   const { concepts, learningOrder } = conceptMap;
   const conceptById = new Map(concepts.map((c) => [c.id, c]));
-  const examDate = new Date(config.examDate);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const today = todayDateKey();
 
-  const totalDays = Math.max(1, Math.ceil((examDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)));
+  const totalDays = Math.max(1, daysBetweenDateKeys(today, config.examDate));
   const unavailableSet = new Set(config.unavailableDates ?? []);
 
   // Phase boundaries
@@ -252,10 +261,8 @@ export function generatePlan(conceptMap: ConceptMap, config: PlanConfig): StudyP
 
 // ── Helpers ─────────────────────────────────────────────────────────
 
-function getDateStr(base: Date, offsetDays: number): string {
-  const d = new Date(base);
-  d.setDate(base.getDate() + offsetDays);
-  return d.toISOString().split('T')[0];
+function getDateStr(base: string, offsetDays: number): string {
+  return addDaysToDateKey(base, offsetDays);
 }
 
 function taskPriority(type: TaskType): number {
@@ -381,14 +388,10 @@ export async function savePlan(plan: StudyPlan, eventLogFile: string, workspaceR
   await fs.mkdir(planDir, { recursive: true });
   await fs.mkdir(path.join(planDir, 'plan_daily'), { recursive: true });
 
-  await fs.writeFile(path.join(planDir, 'plan_master.json'), JSON.stringify(plan, null, 2), 'utf-8');
+  await atomicWriteJSON(path.join(planDir, 'plan_master.json'), plan);
 
   for (const day of plan.schedule) {
-    await fs.writeFile(
-      path.join(planDir, 'plan_daily', `${day.date}.json`),
-      JSON.stringify(day, null, 2),
-      'utf-8'
-    );
+    await atomicWriteJSON(path.join(planDir, 'plan_daily', `${day.date}.json`), day);
   }
 
   const event: Event = {

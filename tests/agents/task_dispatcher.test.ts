@@ -1,7 +1,13 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import fs from 'fs/promises';
 import path from 'path';
-import { dispatchToday, completeTask, rolloverIncomplete } from '../../src/agents/task_dispatcher.js';
+import {
+  dispatchToday,
+  completeTask,
+  loadTasksForDate,
+  migrateIncompleteTasks,
+  rolloverIncomplete,
+} from '../../src/agents/task_dispatcher.js';
 import type { DailyPlan } from '../../src/agents/planner.js';
 
 const TEST_ROOT = 'workspace_test_dispatcher';
@@ -88,6 +94,70 @@ describe('task_dispatcher', () => {
       );
       expect(progress.completions).toHaveLength(1);
       expect(progress.completions[0].status).toBe('skipped');
+    });
+
+    it('should not append a duplicate event when the status is unchanged', async () => {
+      await completeTask('2026-07-22', 'task_2026-07-22_0', 'done', EVENT_LOG, TEST_ROOT);
+      await completeTask('2026-07-22', 'task_2026-07-22_0', 'done', EVENT_LOG, TEST_ROOT);
+
+      const events = (await fs.readFile(EVENT_LOG, 'utf-8'))
+        .trim()
+        .split('\n')
+        .map((line) => JSON.parse(line));
+      const matching = events.filter(
+        (event) => event.action === 'task_completed' && event.input.taskId === 'task_2026-07-22_0'
+      );
+      expect(matching).toHaveLength(1);
+    });
+  });
+
+  describe('loadTasksForDate', () => {
+    it('should return stable task IDs, concept names, and persisted statuses', async () => {
+      const date = '2026-07-22';
+      const plan: DailyPlan = {
+        date,
+        tasks: [
+          { type: 'learn', nodeId: 'node_1', duration: 30 },
+          { type: 'review', nodeId: 'node_2', duration: 15 },
+        ],
+      };
+      await fs.writeFile(
+        path.join(TEST_ROOT, 'plan', 'plan_daily', `${date}.json`),
+        JSON.stringify(plan)
+      );
+      await fs.mkdir(path.join(TEST_ROOT, 'graph'), { recursive: true });
+      await fs.writeFile(
+        path.join(TEST_ROOT, 'graph', 'concepts.json'),
+        JSON.stringify({
+          concepts: [
+            { id: 'node_1', name: '供给' },
+            { id: 'node_2', name: '需求' },
+          ],
+        })
+      );
+      await completeTask(date, `task_${date}_0`, 'done', EVENT_LOG, TEST_ROOT);
+
+      const loaded = await loadTasksForDate(date, TEST_ROOT);
+
+      expect(loaded.date).toBe(date);
+      expect(loaded.tasks).toEqual([
+        {
+          id: `task_${date}_0`,
+          type: 'learn',
+          nodeId: 'node_1',
+          nodeName: '供给',
+          duration: 30,
+          status: 'done',
+        },
+        {
+          id: `task_${date}_1`,
+          type: 'review',
+          nodeId: 'node_2',
+          nodeName: '需求',
+          duration: 15,
+          status: 'pending',
+        },
+      ]);
     });
   });
 
@@ -176,6 +246,58 @@ describe('task_dispatcher', () => {
       const todayPlan: DailyPlan = { date: '2026-07-22', tasks: [] };
       const rollover = await rolloverIncomplete(todayPlan, 60, TEST_ROOT);
       expect(rollover).toHaveLength(0);
+    });
+
+    it('should persist a rollover once and record its source task', async () => {
+      const pastPlan: DailyPlan = {
+        date: '2026-07-20',
+        tasks: [{ type: 'learn', nodeId: 'node_1', duration: 30 }],
+      };
+      const todayPlan: DailyPlan = {
+        date: '2026-07-22',
+        tasks: [{ type: 'learn', nodeId: 'node_2', duration: 30 }],
+      };
+      await fs.writeFile(
+        path.join(TEST_ROOT, 'plan', 'plan_daily', '2026-07-20.json'),
+        JSON.stringify(pastPlan)
+      );
+      await fs.writeFile(
+        path.join(TEST_ROOT, 'plan', 'plan_daily', '2026-07-22.json'),
+        JSON.stringify(todayPlan)
+      );
+      await fs.writeFile(
+        path.join(TEST_ROOT, 'plan', 'plan_master.json'),
+        JSON.stringify({
+          id: 'plan_1',
+          dailyMinutes: 60,
+          schedule: [pastPlan, todayPlan],
+        })
+      );
+
+      const first = await migrateIncompleteTasks(todayPlan, 60, EVENT_LOG, TEST_ROOT);
+      const second = await migrateIncompleteTasks(first, 60, EVENT_LOG, TEST_ROOT);
+
+      expect(first.tasks).toHaveLength(2);
+      expect(first.tasks[1]).toMatchObject({
+        type: 'review',
+        nodeId: 'node_1',
+        rolloverFrom: 'task_2026-07-20_0',
+      });
+      expect(second.tasks).toHaveLength(2);
+
+      const persisted = JSON.parse(
+        await fs.readFile(
+          path.join(TEST_ROOT, 'plan', 'plan_daily', '2026-07-22.json'),
+          'utf-8'
+        )
+      );
+      expect(persisted.tasks).toHaveLength(2);
+
+      const events = (await fs.readFile(EVENT_LOG, 'utf-8'))
+        .trim()
+        .split('\n')
+        .map((line) => JSON.parse(line));
+      expect(events.filter((event) => event.action === 'tasks_rolled_over')).toHaveLength(1);
     });
   });
 });

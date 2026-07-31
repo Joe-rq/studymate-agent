@@ -45,12 +45,12 @@ describe('Idempotency e2e', () => {
     await fs.writeFile(fixturePath, MATERIAL, 'utf-8');
 
     // First ingest
-    const mat1 = await importMarkdown(fixturePath, eventLog);
-    const chunks1 = await chunkMaterial(mat1, eventLog);
+    const mat1 = await importMarkdown(fixturePath, eventLog, ws(''));
+    const chunks1 = await chunkMaterial(mat1, eventLog, ws(''));
 
     // Second ingest (same file)
-    const mat2 = await importMarkdown(fixturePath, eventLog);
-    const chunks2 = await chunkMaterial(mat2, eventLog);
+    const mat2 = await importMarkdown(fixturePath, eventLog, ws(''));
+    const chunks2 = await chunkMaterial(mat2, eventLog, ws(''));
 
     // Chunk counts should be the same (not doubled)
     expect(chunks2.length).toBe(chunks1.length);
@@ -62,8 +62,8 @@ describe('Idempotency e2e', () => {
     // Set up concepts
     const conceptMap = {
       concepts: [
-        { id: 'node_1', name: 'A', definition: '', prerequisiteIds: [], relatedChunks: [], mastery: 0.5 },
-        { id: 'node_2', name: 'B', definition: '', prerequisiteIds: [], relatedChunks: [], mastery: 0.5 },
+        { id: 'node_1', name: 'A', definition: '', prerequisiteIds: [], relatedChunks: ['chunk_1'], mastery: 0.5 },
+        { id: 'node_2', name: 'B', definition: '', prerequisiteIds: [], relatedChunks: ['chunk_2'], mastery: 0.5 },
       ],
       learningOrder: ['node_1', 'node_2'],
     };
@@ -135,10 +135,12 @@ describe('Idempotency e2e', () => {
     });
     const mastery2 = JSON.parse(await fs.readFile(ws('graph/concepts.json'), 'utf-8'));
 
-    // Mastery after second grade should not differ drastically
-    // (the second grade reads already-decreased mastery and applies again)
-    expect(mastery2.concepts[0].mastery).toBeDefined();
-    expect(typeof mastery2.concepts[0].mastery).toBe('number');
+    expect(mastery2).toEqual(mastery1);
+    expect(r2).toEqual(r1);
+
+    const events = await loadEvents(eventLog);
+    expect(events.filter((event) => event.action === 'quiz_graded')).toHaveLength(1);
+    expect(events.filter((event) => event.action === 'mastery_updated')).toHaveLength(1);
   });
 
   it('task done twice does not create duplicate event entries', async () => {
@@ -155,15 +157,14 @@ describe('Idempotency e2e', () => {
     await fs.writeFile(ws(`plan/plan_daily/${today}.json`), JSON.stringify(plan), 'utf-8');
 
     // Mark done twice
-    await completeTask(today, taskId, 'done', eventLog);
-    await completeTask(today, taskId, 'done', eventLog);
+    await completeTask(today, taskId, 'done', eventLog, ws(''));
+    await completeTask(today, taskId, 'done', eventLog, ws(''));
 
     // Count events — should not have more than expected
     const events = await loadEvents(eventLog);
     const taskDoneEvents = events.filter(
-      (e) => e.action === 'task_completed' && (e.output as Record<string, unknown>).taskId === taskId
+      (e) => e.action === 'task_completed' && (e.input as Record<string, unknown>).taskId === taskId
     );
-    // Should have at most 2 (not corrupted)
-    expect(taskDoneEvents.length).toBeLessThanOrEqual(2);
+    expect(taskDoneEvents).toHaveLength(1);
   });
 });

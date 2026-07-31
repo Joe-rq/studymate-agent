@@ -1,6 +1,12 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { onboarding, type SourceRecord, type ResearchResult, type KnowledgeStatus } from '../api';
+import {
+  onboarding,
+  type SourceRecord,
+  type ResearchResult,
+  type KnowledgeStatus,
+  type StudyPlan,
+} from '../api';
 
 type Step = 1 | 2 | 3 | 4;
 
@@ -16,6 +22,7 @@ export default function Onboarding() {
   const [subjects, setSubjects] = useState('');
   const [dailyMinutes, setDailyMinutes] = useState(60);
   const [baseline, setBaseline] = useState('beginner');
+  const [unavailableDates, setUnavailableDates] = useState('');
 
   // Step 2: Research
   const [research, setResearch] = useState<ResearchResult | null>(null);
@@ -25,6 +32,12 @@ export default function Onboarding() {
 
   // Step 4: Knowledge + Plan
   const [knowledge, setKnowledge] = useState<KnowledgeStatus | null>(null);
+  const [planProposal, setPlanProposal] = useState<StudyPlan | null>(null);
+
+  const parsedUnavailableDates = unavailableDates
+    .split(/[\s,，]+/)
+    .map((date) => date.trim())
+    .filter(Boolean);
 
   const handleCreateExam = async () => {
     if (!name || !examDate || !subjects) {
@@ -34,7 +47,14 @@ export default function Onboarding() {
     setLoading(true);
     setError('');
     try {
-      await onboarding.createExam({ name, examDate, subjects, dailyMinutes, baseline });
+      await onboarding.createExam({
+        name,
+        examDate,
+        subjects,
+        dailyMinutes,
+        baseline,
+        unavailableDates: parsedUnavailableDates,
+      });
       setStep(2);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -89,15 +109,30 @@ export default function Onboarding() {
     setLoading(true);
     setError('');
     try {
-      // Build knowledge from approved sources
-      await onboarding.buildKnowledge();
-      const status = await onboarding.getKnowledgeStatus();
-      setKnowledge(status);
+      if (!knowledge) {
+        await onboarding.buildKnowledge();
+        const status = await onboarding.getKnowledgeStatus();
+        setKnowledge(status);
+      }
 
-      // Generate plan
-      await onboarding.generatePlan(examDate, dailyMinutes);
+      const plan = await onboarding.generatePlan(
+        examDate,
+        dailyMinutes,
+        parsedUnavailableDates
+      );
+      setPlanProposal(plan);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setLoading(false);
+    }
+  };
 
-      // Done — go to dashboard
+  const handleApprovePlan = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      await onboarding.approvePlan();
       navigate('/');
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -193,6 +228,15 @@ export default function Onboarding() {
               <option value="advanced">基础扎实</option>
             </select>
           </label>
+          <label>
+            不可学习日期（可选，逗号分隔）
+            <input
+              value={unavailableDates}
+              onChange={(e) => setUnavailableDates(e.target.value)}
+              placeholder="例如：2026-08-01, 2026-08-08"
+              style={{ display: 'block', width: '100%', padding: 8, marginTop: 4 }}
+            />
+          </label>
           <button className="btn btn-primary" onClick={handleCreateExam} disabled={loading}>
             {loading ? '创建中...' : '创建考试项目'}
           </button>
@@ -213,6 +257,12 @@ export default function Onboarding() {
                 <div style={{ padding: 12, background: '#f9fafb', borderRadius: 6 }}>
                   <strong>考试事实：</strong>
                   <p style={{ margin: '4px 0 0' }}>{research.summary.examFacts}</p>
+                  <small>
+                    来源：
+                    {research.summary.citations?.examFacts.length
+                      ? research.summary.citations.examFacts.join(', ')
+                      : '无有效引用'}
+                  </small>
                 </div>
               )}
             </>
@@ -310,9 +360,24 @@ export default function Onboarding() {
           ) : (
             <p>系统将抓取已确认来源的内容，提取概念，然后生成学习计划。</p>
           )}
-          <button className="btn btn-primary" onClick={handleBuildAndPlan} disabled={loading}>
-            {loading ? '构建中（可能需要 30-60 秒）...' : knowledge ? '生成计划并开始学习' : '构建知识 & 生成计划'}
-          </button>
+          {planProposal ? (
+            <>
+              <div style={{ padding: 12, background: '#eef2ff', borderRadius: 6 }}>
+                <strong>计划待确认</strong>
+                <p style={{ margin: '6px 0 0' }}>
+                  共 {planProposal.schedule.length} 天，每日上限 {planProposal.dailyMinutes} 分钟，
+                  休息/不可用日期 {planProposal.schedule.filter((day) => day.isRest).length} 天。
+                </p>
+              </div>
+              <button className="btn btn-primary" onClick={handleApprovePlan} disabled={loading}>
+                {loading ? '确认中...' : '确认计划并开始学习'}
+              </button>
+            </>
+          ) : (
+            <button className="btn btn-primary" onClick={handleBuildAndPlan} disabled={loading}>
+              {loading ? '构建中（可能需要 30-60 秒）...' : knowledge ? '生成计划供确认' : '构建知识 & 生成计划'}
+            </button>
+          )}
         </div>
       )}
     </div>

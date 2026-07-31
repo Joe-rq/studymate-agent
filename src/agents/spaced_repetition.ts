@@ -6,6 +6,7 @@
  *
  * @see https://www.supermemo.com/en/archives1990-2015/english/ol/sm2
  */
+import { addDaysToDateKey, daysBetweenDateKeys } from '../core/date.js';
 
 /** SM-2 state for a single concept. */
 export interface SRState {
@@ -173,15 +174,11 @@ export function isDue(state: SRState | undefined, date: string): boolean {
  */
 export function daysUntilDue(state: SRState | undefined, currentDate: string): number {
   if (!state) return 0;
-  const due = new Date(state.dueDate);
-  const current = new Date(currentDate);
-  return Math.ceil((due.getTime() - current.getTime()) / (1000 * 60 * 60 * 24));
+  return daysBetweenDateKeys(currentDate, state.dueDate);
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────
 
 function addDays(dateStr: string, days: number): string {
-  const date = new Date(dateStr);
-  date.setDate(date.getDate() + days);
-  return date.toISOString().split('T')[0];
+  return addDaysToDateKey(dateStr, days);
 }

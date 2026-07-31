@@ -54,6 +54,16 @@ function buildPersonaBlock(character: Character, ctx: StudyContext, history: Cha
   if (ctx.tasksToday > 0) {
     ctxLines.push(`今日任务 ${ctx.tasksToday} 项`);
   }
+  if (ctx.latestPlanAdjustment) {
+    const adjustment = ctx.latestPlanAdjustment;
+    const concepts =
+      adjustment.affectedConcepts.length > 0
+        ? `，涉及 ${adjustment.affectedConcepts.join('、')}`
+        : '';
+    ctxLines.push(
+      `最近计划调整：因为“${adjustment.reason}”，新增 ${adjustment.tasksAdded} 项任务、增加 ${adjustment.minutesAdded} 分钟，影响 ${adjustment.daysAffected} 天${concepts}`
+    );
+  }
 
   const persona = [
     `【你的角色】`,

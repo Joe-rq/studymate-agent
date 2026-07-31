@@ -6,6 +6,8 @@ import type { ConceptMap } from './concept_mapper.js';
 import type { Event } from '../core/types.js';
 import { createEventId, appendEvent } from '../core/event_log.js';
 import { Paths } from '../core/paths.js';
+import { atomicWriteJSON } from '../core/atomic_file.js';
+import { todayDateKey } from '../core/date.js';
 
 /**
  * 单次计划调整的最大额外时长（分钟）。
@@ -76,7 +78,7 @@ export function adjustPlan(
   const { fromDate, maxOverflow = DEFAULT_MAX_OVERFLOW, reason, quizNodeIds = [] } = options;
 
   // 默认从明天开始调整：今天可能已在执行，不干预
-  const today = new Date().toISOString().split('T')[0];
+  const today = todayDateKey();
   const threshold = fromDate ?? today;
 
   // 建立 nodeId → concept 的查找表
@@ -196,18 +198,10 @@ export async function saveAdjustedPlan(
   const planDir = workspaceRoot ? path.join(workspaceRoot, 'plan') : Paths.plan;
   await fs.mkdir(path.join(planDir, 'plan_daily'), { recursive: true });
 
-  await fs.writeFile(
-    path.join(planDir, 'plan_master.json'),
-    JSON.stringify(plan, null, 2),
-    'utf-8'
-  );
+  await atomicWriteJSON(path.join(planDir, 'plan_master.json'), plan);
 
   for (const day of plan.schedule) {
-    await fs.writeFile(
-      path.join(planDir, 'plan_daily', `${day.date}.json`),
-      JSON.stringify(day, null, 2),
-      'utf-8'
-    );
+    await atomicWriteJSON(path.join(planDir, 'plan_daily', `${day.date}.json`), day);
   }
 
   // Append to adjustment history log

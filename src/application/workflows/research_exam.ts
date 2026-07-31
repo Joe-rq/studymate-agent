@@ -18,6 +18,8 @@ import { Paths } from '../../core/paths.js';
 import type { SearchProvider } from '../../application/ports/search_provider.js';
 import type { ExamProject } from '../../domain/exam.js';
 import { transitionStatus } from '../../domain/exam.js';
+import { todayDateKey } from '../../core/date.js';
+import { atomicWriteFile, atomicWriteJSON } from '../../core/atomic_file.js';
 import type { SourceRecord } from '../../domain/source.js';
 import {
   researchExam,
@@ -56,11 +58,24 @@ export async function researchExamWorkflow(
 
   // Run the research agent
   const research = await researchExam(exam, searchProvider, llm, eventLogFile);
+  const citationLines = (ids: string[]): string => {
+    if (ids.length === 0) return '> 引用：无有效来源，结论标记为证据不足';
+    const byId = new Map(research.sources.map((source) => [source.id, source]));
+    return [
+      '> 引用：',
+      ...ids.map((id) => {
+        const source = byId.get(id);
+        return source
+          ? `> - [${id}] ${source.title}${source.url ? ` — ${source.url}` : ''}`
+          : `> - [${id}]`;
+      }),
+    ].join('\n');
+  };
 
   // Persist research artifacts
   const sourcesPath = path.join(researchDir, 'sources.jsonl');
   const sourcesContent = research.sources.map((s) => JSON.stringify(s)).join('\n') + '\n';
-  await fs.writeFile(sourcesPath, sourcesContent, 'utf-8');
+  await atomicWriteFile(sourcesPath, sourcesContent, 'utf-8');
 
   const profilePath = path.join(researchDir, 'exam_profile.json');
   const profile = {
@@ -69,46 +84,51 @@ export async function researchExamWorkflow(
     subjects: exam.subjects,
     researchedAt: new Date().toISOString(),
     facts: research.summary.examFacts,
+    factSourceIds: research.summary.citations.examFacts,
     sourceCount: research.sources.length,
     officialSources: research.sources.filter((s) => s.sourceType === 'official').length,
     communitySources: research.sources.filter((s) => s.sourceType === 'community').length,
     commercialSources: research.sources.filter((s) => s.sourceType === 'commercial').length,
   };
-  await fs.writeFile(profilePath, JSON.stringify(profile, null, 2), 'utf-8');
+  await atomicWriteJSON(profilePath, profile);
 
   const insightsPath = path.join(researchDir, 'experience_insights.md');
   const insights = [
     `# ${exam.name} 备考经验洞察`,
     '',
-    `> 调研时间：${new Date().toISOString().split('T')[0]}`,
+    `> 调研时间：${todayDateKey()}`,
     `> 来源数量：${research.sources.length}`,
     '',
     '## 考试事实（官方来源）',
     '',
     research.summary.examFacts,
+    citationLines(research.summary.citations.examFacts),
     '',
     '## 备考经验共识',
     '',
     research.summary.experienceConsensus,
+    citationLines(research.summary.citations.experienceConsensus),
     '',
     '## 存在争议的建议',
     '',
     research.summary.disputedAdvice,
+    citationLines(research.summary.citations.disputedAdvice),
     '',
     '## 证据不足的问题',
     '',
     research.summary.gapsInEvidence,
     '',
   ].join('\n');
-  await fs.writeFile(insightsPath, insights, 'utf-8');
+  await atomicWriteFile(insightsPath, insights, 'utf-8');
 
   const materialsPath = path.join(researchDir, 'material_recommendations.md');
   const materials = [
     `# ${exam.name} 资料推荐`,
     '',
-    `> 调研时间：${new Date().toISOString().split('T')[0]}`,
+    `> 调研时间：${todayDateKey()}`,
     '',
     research.summary.materialRecommendations,
+    citationLines(research.summary.citations.materialRecommendations),
     '',
     '## 候选资料清单',
     '',
@@ -120,7 +140,7 @@ export async function researchExamWorkflow(
       ),
     '',
   ].join('\n');
-  await fs.writeFile(materialsPath, materials, 'utf-8');
+  await atomicWriteFile(materialsPath, materials, 'utf-8');
 
   // Update exam project status to 'researched'
   const updatedExam = transitionStatus(exam, 'researched');
@@ -188,12 +208,12 @@ export async function approveSources(
 
   // Write back
   const updatedContent = sources.map((s) => JSON.stringify(s)).join('\n') + '\n';
-  await fs.writeFile(sourcesPath, updatedContent, 'utf-8');
+  await atomicWriteFile(sourcesPath, updatedContent, 'utf-8');
 
   // Also write approved_sources.json for quick lookup
   const approvedPath = path.join(researchDir, 'approved_sources.json');
   const approved = sources.filter((s) => s.approved);
-  await fs.writeFile(approvedPath, JSON.stringify(approved, null, 2), 'utf-8');
+  await atomicWriteJSON(approvedPath, approved);
 
   // Update exam status if transitioning
   if (exam.status === 'researched') {

@@ -15,6 +15,8 @@ import {
 import type { Event } from '../../core/types.js';
 import { createEventId, appendEvent } from '../../core/event_log.js';
 import { Paths } from '../../core/paths.js';
+import { daysBetweenDateKeys, isDateKey, todayDateKey } from '../../core/date.js';
+import { atomicWriteJSON } from '../../core/atomic_file.js';
 
 export interface BootstrapExamConfig {
   name: string;
@@ -40,19 +42,21 @@ export async function bootstrapExam(
   workspaceRoot?: string
 ): Promise<ExamProject> {
   // Validate exam date is in the future
-  const examDate = new Date(config.examDate);
-  if (isNaN(examDate.getTime())) {
+  if (!isDateKey(config.examDate)) {
     throw new Error(`Invalid exam date: ${config.examDate}`);
   }
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  if (examDate <= today) {
+  if (daysBetweenDateKeys(todayDateKey(), config.examDate) <= 0) {
     throw new Error(`Exam date must be in the future: ${config.examDate}`);
   }
 
   // Validate daily minutes
   if (config.dailyMinutes <= 0 || config.dailyMinutes > 480) {
     throw new Error(`dailyMinutes must be between 1 and 480, got: ${config.dailyMinutes}`);
+  }
+  for (const date of config.unavailableDates ?? []) {
+    if (!isDateKey(date)) {
+      throw new Error(`Invalid unavailable date: ${date}`);
+    }
   }
 
   const project = createExamProject(config);
@@ -63,7 +67,7 @@ export async function bootstrapExam(
     : Paths.examConfig;
   const dir = path.dirname(configPath);
   await fs.mkdir(dir, { recursive: true });
-  await fs.writeFile(configPath, JSON.stringify(project, null, 2), 'utf-8');
+  await atomicWriteJSON(configPath, project);
 
   // Log event
   const event: Event = {
@@ -118,5 +122,5 @@ export async function saveExamProject(
     : Paths.examConfig;
   const dir = path.dirname(configPath);
   await fs.mkdir(dir, { recursive: true });
-  await fs.writeFile(configPath, JSON.stringify(project, null, 2), 'utf-8');
+  await atomicWriteJSON(configPath, project);
 }

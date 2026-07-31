@@ -147,6 +147,30 @@ describe('generateScopedQuiz', () => {
       expect(q.sourceChunkId).toBe('chunk_abc');
     }
   });
+
+  it('should reject concepts that have no evidence chunk', async () => {
+    await fs.rm(TEST_DIR, { recursive: true, force: true });
+    await fs.mkdir(TEST_DIR, { recursive: true });
+    const concept = makeConcept('c1');
+    concept.relatedChunks = [];
+    const llm = createMockLLMClient();
+    llm.completeJSON = async () => ({
+      questions: [
+        { id: 'q_1', type: 'single_choice', stem: 'Q?', options: ['A', 'B'], answer: 0, explanation: 'exp', nodeId: 'c1', difficulty: 'easy' },
+      ],
+    });
+
+    await expect(
+      generateScopedQuiz(
+        { todayConcepts: [concept], dueReviewConcepts: [], weakConcepts: [] },
+        { questionCount: 1 },
+        llm,
+        '2026-07-11',
+        TEST_LOG,
+        TEST_DIR
+      )
+    ).rejects.toThrow('source-backed');
+  });
 });
 
 describe('multi-choice validation', () => {

@@ -7,6 +7,8 @@ import {
   createDefaultBuddyState,
 } from '../domain/buddy.js';
 import { getSelectedCharacterId, DEFAULT_CHARACTER_ID } from '../core/character.js';
+import { addDaysToDateKey } from '../core/date.js';
+import { atomicWriteJSON } from '../core/atomic_file.js';
 
 const MAX_MEMORIES = 20;
 
@@ -51,7 +53,7 @@ export async function loadBuddyState(workspaceRoot?: string): Promise<BuddyState
 export async function saveBuddyState(state: BuddyState, workspaceRoot?: string): Promise<void> {
   const filePath = stateFilePath(workspaceRoot);
   await fs.mkdir(path.dirname(filePath), { recursive: true });
-  await fs.writeFile(filePath, JSON.stringify(state, null, 2), 'utf-8');
+  await atomicWriteJSON(filePath, state);
 }
 
 /**
@@ -78,9 +80,7 @@ export function updateStreak(state: BuddyState, today: string): BuddyState {
     return state; // Already active today
   }
 
-  const yesterday = new Date(today);
-  yesterday.setDate(yesterday.getDate() - 1);
-  const yesterdayStr = yesterday.toISOString().split('T')[0];
+  const yesterdayStr = addDaysToDateKey(today, -1);
 
   let streakDays: number;
   if (state.lastActiveDate === yesterdayStr) {

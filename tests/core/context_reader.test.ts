@@ -90,4 +90,44 @@ describe('gatherStudyContext', () => {
     const ctx = await gatherStudyContext(TEST_DIR);
     expect(ctx.masteryTrend).toBe('down');
   });
+
+  it('reads the latest plan adjustment with affected concept names', async () => {
+    await writeJSON(path.join(TEST_DIR, 'graph', 'concepts.json'), {
+      concepts: [
+        { id: 'node_1', name: '需求曲线', definition: 'd', prerequisiteIds: [], relatedChunks: [], mastery: 0.2 },
+      ],
+      learningOrder: ['node_1'],
+    });
+    const logFile = path.join(TEST_DIR, 'plan', 'adjustment_log.jsonl');
+    await fs.mkdir(path.dirname(logFile), { recursive: true });
+    await fs.writeFile(
+      logFile,
+      [
+        JSON.stringify({
+          adjustedAt: '2026-07-10T00:00:00.000Z',
+          reason: 'older',
+          summary: { tasksAdded: 1, minutesAdded: 10, daysAffected: 1 },
+          changes: [{ nodeId: 'node_1' }],
+        }),
+        JSON.stringify({
+          adjustedAt: '2026-07-11T00:00:00.000Z',
+          reason: '连续答错后加强复习',
+          summary: { tasksAdded: 2, minutesAdded: 25, daysAffected: 2 },
+          changes: [{ nodeId: 'node_1' }],
+        }),
+      ].join('\n') + '\n',
+      'utf-8'
+    );
+
+    const ctx = await gatherStudyContext(TEST_DIR);
+
+    expect(ctx.latestPlanAdjustment).toEqual({
+      adjustedAt: '2026-07-11T00:00:00.000Z',
+      reason: '连续答错后加强复习',
+      tasksAdded: 2,
+      minutesAdded: 25,
+      daysAffected: 2,
+      affectedConcepts: ['需求曲线'],
+    });
+  });
 });

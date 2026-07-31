@@ -1,6 +1,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { Paths, WORKSPACE_ROOT } from './paths.js';
+import { atomicWriteJSON } from './atomic_file.js';
 
 /** 内置角色 JSON 的源目录（与 PROMPTS_SOURCE 同样的源码目录约定）。 */
 export const CHARACTERS_SOURCE = path.join(process.cwd(), 'src', 'characters');
@@ -115,7 +116,7 @@ export async function saveSelectedCharacter(
     // 首次写入，existing 为空对象
   }
   existing.selectedCharacterId = id;
-  await fs.writeFile(configFile, JSON.stringify(existing, null, 2), 'utf-8');
+  await atomicWriteJSON(configFile, existing);
 }
 
 /** 仅供测试：将工作区根目录重定向到临时目录。 */

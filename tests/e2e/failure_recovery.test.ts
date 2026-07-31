@@ -27,8 +27,8 @@ describe('Failure recovery e2e', () => {
   function setupConcepts() {
     const conceptMap = {
       concepts: [
-        { id: 'node_1', name: 'A', definition: '', prerequisiteIds: [], relatedChunks: [], mastery: 0.5 },
-        { id: 'node_2', name: 'B', definition: '', prerequisiteIds: [], relatedChunks: [], mastery: 0.5 },
+        { id: 'node_1', name: 'A', definition: '', prerequisiteIds: [], relatedChunks: ['chunk_1'], mastery: 0.5 },
+        { id: 'node_2', name: 'B', definition: '', prerequisiteIds: [], relatedChunks: ['chunk_2'], mastery: 0.5 },
       ],
       learningOrder: ['node_1', 'node_2'],
     };
@@ -64,7 +64,7 @@ describe('Failure recovery e2e', () => {
     expect(conceptsAfter.concepts[0].mastery).toBe(0.5);
   });
 
-  it('concepts.json is not truncated on disk write failure', async () => {
+  it('concepts.json remains valid after a successful grade write', async () => {
     const eventLog = ws('event_log/events.jsonl');
     await setupConcepts();
 
