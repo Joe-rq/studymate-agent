@@ -46,7 +46,14 @@ The project follows a 12-Factor Agents style: LLMs produce structured JSON decis
 │   │   ├── workspace.ts          # initWorkspace()
 │   │   ├── event_log.ts          # appendEvent(), loadEvents()
 │   │   ├── llm.ts                # OpenAI-compatible LLM client
-│   │   └── mock_llm.ts           # Mock LLM client for demo without API key
+│   │   ├── mock_llm.ts           # Mock LLM client for demo without API key
+│   │   ├── character.ts          # Study buddy character schema + load/select/persist
+│   │   └── context_reader.ts     # gatherStudyContext(): aggregates mastery/score/weakness
+│   ├── characters/               # Built-in buddy personas (JSON)
+│   │   ├── lu_xingye.json        # 温柔阳光学长
+│   │   ├── shen_ye.json          # 高冷学霸
+│   │   ├── su_nian.json          # 元气少女
+│   │   └── tuanzi.json           # 治愈萌系吉祥物
 │   ├── agents/                   # Domain agents
 │   │   ├── material_collector.ts # PDF / Markdown import
 │   │   ├── chunker.ts            # Header-based chunking
@@ -56,13 +63,33 @@ The project follows a 12-Factor Agents style: LLMs produce structured JSON decis
 │   │   ├── quiz_generator.ts     # LLM quiz generation
 │   │   ├── grader.ts             # Quiz grading
 │   │   ├── mistake_analyzer.ts   # Mistake extraction
-│   │   └── plan_adjuster.ts      # Plan adjustment based on mistakes
-│   └── prompts/                  # LLM system prompts
+│   │   ├── mastery_tracker.ts    # EMA mastery update from quiz results
+│   │   ├── plan_adjuster.ts      # Plan adjustment based on mistakes
+│   │   ├── buddy_state.ts          # Buddy persistent state: memories, commitments, streak, relationship
+│   │   ├── buddy_interventions.ts  # Rule-based buddy interventions at key moments
+│   │   └── metrics.ts              # Strategy metrics computation
+│   ├── application/               # Workflow orchestrations
+│   │   └── workflows/
+│   │       ├── grade_and_adapt.ts  # Post-quiz pipeline: grade → mistakes → mastery → plan adjust
+│   │       ├── bootstrap_exam.ts   # Exam project creation and loading
+│   │       ├── research_exam.ts    # Web research workflow
+│   │       └── build_knowledge.ts  # Knowledge base construction
+│   ├── server/                    # REST API server
+│   │   ├── index.ts               # Server entry point (Express 5)
+│   │   └── app.ts                 # Route definitions
+│   ├── infrastructure/            # External service adapters
+│   │   └── fetch/
+│   │       └── web_fetcher.ts     # Web content fetcher
+│   └── prompts/                   # LLM system prompts
 │       ├── concept_mapper.txt
-│       └── quiz_generator.txt
+│       ├── quiz_generator.txt
+│       └── buddy_dialogue.txt    # Study buddy persona/conversation prompt
 ├── tests/                        # Vitest tests mirroring src/ structure
 │   ├── core/
-│   └── agents/
+│   ├── agents/
+│   ├── server/
+│   └── e2e/                      # End-to-end workflow tests
+├── web/                          # React 18 + Vite 5 web UI (separate package)
 ├── workspace/                    # Default runtime data directory (gitignored)
 ├── docs/                         # Project documentation
 │   └── plans/
@@ -87,8 +114,18 @@ All commands run from the project root.
 | `npm run test`       | Run all tests once (`vitest run`)                 |
 | `npm run test:watch` | Run tests in watch mode                           |
 | `npm run smoke`      | Build CLI and print help (`node dist/cli.js --help`) |
+| `npm run serve`      | Build + start API server and serve web UI         |
+| `npm run web`        | Start Vite dev server for web UI (development)    |
 
 The CLI binary is emitted at `dist/cli.js` and declared in `package.json` as the `studymate` command.
+
+The web UI has its own package under `web/`:
+
+| Command              | Description                                       |
+|----------------------|---------------------------------------------------|
+| `cd web && npm install` | Install web UI dependencies                     |
+| `cd web && npm run dev` | Start Vite dev server (HMR)                     |
+| `cd web && npm run build` | Build production bundle to `web/dist/`        |
 
 ---
 
@@ -114,6 +151,9 @@ workspace/
 │   ├── mistake_log.jsonl
 │   └── weakness_profile.json
 ├── progress/
+├── buddy/
+│   └── chat_history.jsonl  # Study buddy conversation history (JSONL)
+├── config.json         # User config (selected buddy character id)
 ├── prompts/            # Copied/used prompt templates (reserved)
 └── event_log/
     └── events.jsonl    # Append-only event log
@@ -153,6 +193,29 @@ init → ingest (pdf|md) → plan --exam YYYY-MM-DD --daily N → today → quiz
 - `today` reads today’s daily plan, dispatches tasks, and writes a Markdown todo file.
 - `quiz` reads `workspace/graph/concepts.json`, generates questions with the LLM, and writes quiz files.
 - `grade` compares user answers against today’s quiz, writes results, and updates the weakness profile.
+
+### Personified Study Buddy (备考搭子)
+
+A persistent companion layered on top of the study loop:
+
+```
+character list → character select <id> → chat          # one-time selection + ongoing chat
+today / quiz / grade → buddy interjects a one-liner    # automatic, at command end
+```
+
+- `character list` scans `src/characters/*.json` and prints each buddy's name, tagline, and form of address.
+- `character select <id>` persists the choice to `workspace/config.json` (`selectedCharacterId`); defaults to `lu_xingye`.
+- `chat` opens a REPL that calls `buddyChat()` — each turn reads the persona + `StudyContext` + recent history and appends to `workspace/buddy/chat_history.jsonl`.
+- The `today`/`quiz`/`grade` commands call `buddyInterject()` at their end; the one-liner adapts to score, mastery trend, and days-to-exam. Interjections fail silently (never block the main command).
+- `src/core/context_reader.ts` (`gatherStudyContext()`) aggregates `concepts.json` (avg mastery), `weakness_profile.json` (weak nodes), `plan_master.json` (days-to-exam), and the latest `results/*_result.json` (score). Every field degrades gracefully to empty/null when files are missing, so the buddy works even on a fresh workspace.
+- **Buddy State** (`src/agents/buddy_state.ts`): Persistent state per character including memories (cap 20, FIFO), commitments (cap 10), streak days, relationship level (0–100), and last interaction timestamp. Saved to `workspace/buddy/state.json`.
+- **Buddy Interventions** (`src/agents/buddy_interventions.ts`): 8 rule-based trigger moments (exam_created, plan_confirmed, quiz_completed, grade_completed, streak_milestone, weakness_detected, chat_initiated, study_session_end) that produce in-character one-liners via the LLM.
+
+### API Server and Web UI
+
+- **Server** (`src/server/index.ts`): Express 5 server that mounts REST API routes at `/api/*` and serves the built web UI at `/`. Start with `npm run serve`.
+- **API routes** (`src/server/app.ts`): REST endpoints for exam project, quiz, grade, buddy state, metrics, and knowledge base.
+- **Web UI** (`web/`): React 18 + Vite 5 SPA with `react-router-dom` 6. Pages: Dashboard, Quiz, Grade, Buddy, Metrics, Knowledge. Dev mode: `npm run web`.
 
 ---
 
@@ -207,18 +270,20 @@ No `.env` file is loaded automatically. Set environment variables before running
   ```bash
   npm run build
   node dist/cli.js init
-  node dist/cli.js ingest ./demo/materials/sample.pdf
+  node dist/cli.js ingest ./materials/sample.md
   node dist/cli.js plan --exam 2026-09-15 --daily 60
   node dist/cli.js today
   node dist/cli.js quiz
-  node dist/cli.js grade --answers ./demo/answers/answers.json
+  node dist/cli.js grade --answers answers.json
   ```
 
 ---
 
 ## Notes for AI Agents
 
-- This is a hackathon MVP. Scope is intentionally narrow: the six CLI commands above form the complete user loop.
+- This is a hackathon MVP. The complete user loop includes: exam create, ingest, plan, today, quiz, grade, metrics, knowledge, and buddy chat.
 - Avoid speculative abstractions. Prefer small, focused changes that match the existing agent pattern.
 - Keep LLM prompts as plain text files under `src/prompts/` when they need to be editable; otherwise use a hard-coded fallback inside the agent.
-- When modifying event logging, maintain the existing `Event` schema so downstream event consumers remain compatible.
+- When modifying event logging, maintain the existing `Event` schema so downstream event consumers remain compatible. Event schema version 2 adds optional `model`, `promptVersion`, `durationMs`, and `tokenUsage` fields.
+- Each agent file that builds prompts exports a `PROMPT_VERSION` constant for tracking.
+- All e2e tests use `workspaceRoot?` pattern for isolation — never pollute the real workspace.

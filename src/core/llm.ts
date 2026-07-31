@@ -5,9 +5,24 @@ export interface LLMOptions {
   retries?: number;
 }
 
+export interface TokenUsage {
+  prompt: number;
+  completion: number;
+  total: number;
+}
+
+export interface LLMResult {
+  content: string;
+  model: string;
+  usage?: TokenUsage;
+  durationMs: number;
+}
+
 export interface LLMClient {
   complete(system: string, user: string, options?: LLMOptions): Promise<string>;
   completeJSON<T>(system: string, user: string, options?: LLMOptions): Promise<T>;
+  /** Optional: complete with metadata (model, usage, duration). */
+  completeWithMeta?(system: string, user: string, options?: LLMOptions): Promise<LLMResult>;
 }
 
 function sleep(ms: number): Promise<void> {
@@ -69,7 +84,8 @@ export function createLLMClient(): LLMClient {
     throw new Error('OPENAI_API_KEY environment variable is required');
   }
 
-  const complete = async (system: string, user: string, options: LLMOptions = {}): Promise<string> => {
+  const completeWithMeta = async (system: string, user: string, options: LLMOptions = {}): Promise<LLMResult> => {
+    const start = Date.now();
     const res = await fetch(`${baseURL}/chat/completions`, {
       method: 'POST',
       headers: {
@@ -93,11 +109,26 @@ export function createLLMClient(): LLMClient {
     }
 
     const data = await res.json();
-    return data.choices[0].message.content;
+    const durationMs = Date.now() - start;
+    const usage = data.usage
+      ? { prompt: data.usage.prompt_tokens, completion: data.usage.completion_tokens, total: data.usage.total_tokens }
+      : undefined;
+    return {
+      content: data.choices[0].message.content,
+      model: data.model ?? options.model ?? model,
+      usage,
+      durationMs,
+    };
+  };
+
+  const complete = async (system: string, user: string, options: LLMOptions = {}): Promise<string> => {
+    const result = await completeWithMeta(system, user, options);
+    return result.content;
   };
 
   return {
     complete,
+    completeWithMeta,
     async completeJSON<T>(system: string, user: string, options: LLMOptions = {}) {
       const maxRetries = options.retries ?? 3;
       let lastError: Error | undefined;
