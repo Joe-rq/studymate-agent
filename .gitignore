@@ -38,6 +38,23 @@ Thumbs.db
 *.swp
 *.swo
 
+# Agent tooling
+.zcode/
+.qoder/
+
 # Test coverage
 coverage/
 .nyc_output/
+
+# Local-only design reference assets (not project deliverables)
+/UI-light.png
+/UI-dark.png
+/image1.png
+/image2.png
+/image3.png
+/image4.png
+/web/preview/
+
+# Local-only docs drafts
+/docs/CHATGPT_PROMPTS.md
+/docs/PROJECT_OVERVIEW.md

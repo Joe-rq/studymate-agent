@@ -4,5 +4,11 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
+    poolOptions: {
+      threads: {
+        minThreads: 1,
+        maxThreads: 4,
+      },
+    },
   },
 });
