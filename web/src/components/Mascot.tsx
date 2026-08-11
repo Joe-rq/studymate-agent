@@ -75,7 +75,7 @@ export default function Mascot({
   // `.mascot.idle` rule in global.css for the loop.
   return (
     <div
-      className={`mascot-sprite${isIdle ? ' idle' : ''}${className ? ' ' + className : ''}`}
+      className={`mascot-sprite${isIdle ? ' mascot-breath' : ''}${className ? ' ' + className : ''}`}
       role="img"
       aria-label="study buddy"
       style={{

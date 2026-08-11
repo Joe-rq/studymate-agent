@@ -409,25 +409,40 @@ body {
 }
 
 .pet-fab {
-  width: 72px;
-  height: 72px;
+  width: 104px;
+  height: 104px;
   padding: 0;
   border: none;
   border-radius: 50%;
   /* 透明背景：角色精灵本身是透明 PNG，直接以贴纸形式浮在页面上 */
   background: transparent;
-  cursor: pointer;
+  cursor: grab;
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
   filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.18));
   transition: transform 0.15s ease, filter 0.15s ease;
+  touch-action: none;
 }
 
 .pet-fab:hover {
   transform: scale(1.06);
   filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.24));
+}
+
+.pet-fab:active {
+  cursor: grabbing;
+}
+
+/* 拖动中：暂停呼吸微动与过渡，避免位置抖动 */
+.pet-layer.pet-dragging {
+  animation: none;
+}
+
+.pet-layer.pet-dragging .pet-fab {
+  transition: none;
+  transform: none;
 }
 
 /* idle 呼吸微动：静态帧 + 轻微缩放/位移，替代精灵帧循环的跳变 */
@@ -459,6 +474,44 @@ body {
 @keyframes pet-bubble-in {
   from { opacity: 0; transform: translateY(6px); }
   to   { opacity: 1; transform: translateY(0); }
+}
+
+/* 桌宠状态标签（角色 · 陪伴中 / 安静模式） */
+.pet-status {
+  position: absolute;
+  right: 116px;
+  bottom: 40px;
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  padding: 6px 9px;
+  border-radius: 999px;
+}
+
+/* 桌宠就地控制（说一句 / 安静模式） */
+.pet-controls {
+  position: absolute;
+  right: 0;
+  bottom: -8px;
+  display: flex;
+  gap: 6px;
+}
+
+.pet-controls button {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  cursor: pointer;
+  box-shadow: var(--shadow-soft);
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
 }
 
 /* ── Buddy summary (chat page) ───────────────────────────────────── */
@@ -1192,11 +1245,18 @@ body {
     bottom: 12px;
   }
   .pet-fab {
-    width: 56px;
-    height: 56px;
+    width: 76px;
+    height: 76px;
   }
   .pet-bubble {
     max-width: 200px;
+  }
+  .pet-status {
+    display: none;
+  }
+  .pet-controls button {
+    width: 26px;
+    height: 26px;
   }
 }
 
@@ -1206,23 +1266,19 @@ body {
   background-repeat: no-repeat;
 }
 
-/* Idle breathing loop: cycle through all 8 frames.
-   background-position percentage positions point P% of the image over point P%
-   of the container. With background-size 800% the image is 8×container wide
-   (overflow = 7×container), so shift = position * 7W. To land exactly on each
-   frame (kW for k=0..7) we need stops at k/7 = 0,1/7,...,1. steps(8,end) spaces
-   stops by (range)/8, so range = 8/7 ≈ 114.286% gives stops 0,1/7,...,7/7. */
-@keyframes mascot-idle-loop {
-  from { background-position-x: 0%; }
-  to   { background-position-x: 114.2857%; }
+/* Idle 呼吸微动：静态帧 + 轻微缩放/位移。
+   不再循环播放精灵动作合集（帧间跳变生硬），只用 CSS 微动表达「活着」。 */
+.mascot-sprite.mascot-breath {
+  animation: mascot-breath 2.8s ease-in-out infinite;
 }
 
-.mascot-sprite.idle {
-  animation: mascot-idle-loop 2.4s steps(8, end) infinite;
+@keyframes mascot-breath {
+  0%, 100% { transform: scale(1) translateY(0); }
+  50%      { transform: scale(1.03) translateY(-1px); }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .mascot-sprite.idle {
+  .mascot-sprite.mascot-breath {
     animation: none;
   }
   .pet-bubble {
