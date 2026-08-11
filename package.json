@@ -13,6 +13,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "smoke": "npm run build && node dist/cli.js --help",
+    "demo": "node scripts/seed-demo.mjs",
     "serve": "npm run build && node dist/server/index.js",
     "web": "cd web && npm run dev"
   },
@@ -28,6 +29,7 @@
     "@types/express": "^5.0.6",
     "@types/node": "^20.14.0",
     "@types/pdf-parse": "^1.1.4",
+    "@vitest/coverage-v8": "^1.6.0",
     "typescript": "^5.5.0",
     "vitest": "^1.6.0"
   },

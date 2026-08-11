@@ -10,5 +10,10 @@ export default defineConfig({
         maxThreads: 4,
       },
     },
+    coverage: {
+      include: ['src/**'],
+      reporter: ['text', 'json', 'html'],
+      reportsDirectory: './coverage',
+    },
   },
 });
