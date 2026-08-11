@@ -61,7 +61,7 @@ npm run serve                 # 启动 http://localhost:3456
 
 ## 二·5、Demo 视频（含中文配音）
 
-**成片**：[`demo_v2/studymate_demo.mp4`](demo_v2/studymate_demo.mp4)（1280×720 · 30fps · 78.6 秒 · 带旁白）
+**成片**：[B 站在线观看](https://www.bilibili.com/video/BV1gduB6QEMD/)（「你的备考搭子」）｜[本地文件](demo_v2/studymate_demo.mp4)（1280×720 · 30fps · 78.6 秒 · 带旁白）
 
 一段覆盖全部页面的产品演示视频，**画面纯净**（只有 StudyMate 界面，无任何 IDE 边框），配晓伊女声中文旁白，底部同步字幕。
 

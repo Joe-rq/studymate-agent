@@ -1,6 +1,6 @@
 # StudyMate Agent — Demo 视频（v2，纯净画面版）
 
-> **成片**：`studymate_demo.mp4`（1280×720 · 30fps · 78.6 秒 · H.264+AAC · 4.2MB）
+> **成片**：[B 站在线观看](https://www.bilibili.com/video/BV1gduB6QEMD/)（「你的备考搭子」）｜`studymate_demo.mp4`（1280×720 · 30fps · 78.6 秒 · H.264+AAC · 4.2MB）
 > 内容宽度收窄至 1080（高度 720 不压缩），两侧浅灰（#EDEDF0）填充
 > **中文配音**（晓伊女声 XiaoyiNeural），各段旁白与画面同步
 
