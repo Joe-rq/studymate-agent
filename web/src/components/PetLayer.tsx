@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { api, type BuddyStateResponse } from '../api';
 import Mascot, { type Mood } from './Mascot';
@@ -9,11 +9,11 @@ export type CompanionMode = 'companion' | 'quiet' | 'off';
 /**
  * 浮动陪伴层：右下角常驻的桌宠 + 一句陪伴气泡。
  *
- * 替代被移除的右侧常驻 BuddyPanel，只承担「陪伴感」这一层：
- * - 桌宠状态由真实请求生命周期驱动：请求进行中 → thinking，完成 → happy，
- *   失败（网络 / LLM）→ concern，短暂展示后回到 idle，不制造虚假的「正在学习」状态。
+ * - 桌宠状态由真实请求生命周期驱动：请求中 → thinking，完成 → happy，
+ *   失败（网络 / LLM）→ concern，短暂展示后回到 idle。
+ * - idle 时用静态帧 + CSS 呼吸微动（pet-alive），避免精灵帧循环的跳变生硬感。
  * - 三模式：陪伴（默认，气泡 + 动态）、安静（静止帧、不弹气泡）、关闭（不渲染）。
- * - 点击桌宠进入 /chat 完整搭子页（关系、记忆、聊天都在那里）。
+ * - 角色与偏好随路由变化 / 设置页切换搭子事件即时刷新。
  */
 export default function PetLayer() {
   const navigate = useNavigate();
@@ -26,23 +26,30 @@ export default function PetLayer() {
   const [mood, setMood] = useState<Mood>('idle');
   const resultTimer = useRef<number | null>(null);
 
-  // 角色 + 桌宠模式：路由变化时重新同步，设置页改完回来即生效
-  useEffect(() => {
-    let cancelled = false;
+  // 加载角色 + 桌宠模式
+  const loadBuddy = useCallback(() => {
     api
       .get<BuddyStateResponse>('/buddy/state')
       .then((data) => {
-        if (cancelled) return;
         setCharacterId(data.character?.id);
         setCharacterName(data.character?.name ?? '搭子');
         setCompanionMode(data.state.preferences.companionMode ?? 'companion');
-        setBubble((prev) => prev || data.character?.tagline || '');
+        setBubble(data.character?.tagline ?? '');
       })
       .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, [location.pathname]);
+  }, []);
+
+  // 路由变化时重新同步（含设置页切到其他页）
+  useEffect(() => {
+    loadBuddy();
+  }, [loadBuddy, location.pathname]);
+
+  // 设置页切换搭子后（studymate:buddy-changed）即时同步
+  useEffect(() => {
+    const onBuddyChanged = () => loadBuddy();
+    window.addEventListener('studymate:buddy-changed', onBuddyChanged);
+    return () => window.removeEventListener('studymate:buddy-changed', onBuddyChanged);
+  }, [loadBuddy]);
 
   // 首句陪伴干预（仅挂载时一次）
   useEffect(() => {
@@ -85,11 +92,14 @@ export default function PetLayer() {
 
   if (companionMode === 'off') return null;
 
-  const showBubble = visible && bubble && companionMode === 'companion';
-  const displayMood = companionMode === 'quiet' ? 'default' : mood;
+  const isCompanion = companionMode === 'companion';
+  const showBubble = visible && bubble && isCompanion;
+  // idle 用静态帧 + CSS 呼吸微动；有请求/结果时用对应状态帧
+  const mascotMood = isCompanion ? (mood === 'idle' ? 'default' : mood) : 'default';
+  const alive = isCompanion && mood === 'idle';
 
   return (
-    <div className="pet-layer">
+    <div className={`pet-layer${alive ? ' pet-alive' : ''}`}>
       {showBubble && (
         <button
           className="pet-bubble"
@@ -105,7 +115,7 @@ export default function PetLayer() {
         aria-label={`和${characterName}聊天`}
         title={`和${characterName}聊天`}
       >
-        <Mascot characterId={characterId} mood={displayMood} size={60} />
+        <Mascot characterId={characterId} mood={mascotMood} size={60} />
       </button>
     </div>
   );

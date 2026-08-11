@@ -414,18 +414,30 @@ body {
   padding: 0;
   border: none;
   border-radius: 50%;
-  background: var(--surface);
-  box-shadow: var(--shadow);
+  /* 透明背景：角色精灵本身是透明 PNG，直接以贴纸形式浮在页面上 */
+  background: transparent;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  transition: transform 0.15s ease;
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.18));
+  transition: transform 0.15s ease, filter 0.15s ease;
 }
 
 .pet-fab:hover {
   transform: scale(1.06);
+  filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.24));
+}
+
+/* idle 呼吸微动：静态帧 + 轻微缩放/位移，替代精灵帧循环的跳变 */
+.pet-layer.pet-alive {
+  animation: pet-breathe 2.8s ease-in-out infinite;
+}
+
+@keyframes pet-breathe {
+  0%, 100% { transform: scale(1) translateY(0); }
+  50%      { transform: scale(1.03) translateY(-2px); }
 }
 
 .pet-bubble {
@@ -1214,6 +1226,9 @@ body {
     animation: none;
   }
   .pet-bubble {
+    animation: none;
+  }
+  .pet-layer.pet-alive {
     animation: none;
   }
 }

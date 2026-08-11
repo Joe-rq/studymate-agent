@@ -41,6 +41,8 @@ export default function Settings() {
   const handleSelectCharacter = async (id: string) => {
     setSelectedId(id);
     await api.post('/characters/select', { characterId: id });
+    // 通知全局桌宠层即时刷新角色（PetLayer 监听该事件）
+    window.dispatchEvent(new CustomEvent('studymate:buddy-changed'));
     toast.push('已切换搭子', 'success');
   };
 
