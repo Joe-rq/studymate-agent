@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { api, type BuddyStateResponse } from '../api';
 import Mascot, { type Mood } from './Mascot';
 import { subscribeRequestState } from '../lib/requestState';
+import { ROLE_LINES, sceneFromPath } from '../lib/roleLines';
 
 export type CompanionMode = 'companion' | 'quiet' | 'off';
 
@@ -18,49 +19,6 @@ const STATUS_TEXT: Record<string, string> = {
   happy: '完成啦！',
   concern: '网络开小差了…',
 };
-
-/** 角色专属的场景台词（参考桌面宠物设计：ready/focus/reflect 三态）。 */
-interface RoleLines {
-  label: string;
-  ready: string;
-  focus: string;
-  reflect: string;
-}
-
-const ROLE_LINES: Record<string, RoleLines> = {
-  tuanzi: {
-    label: '林间书桌 · 芽团',
-    ready: '先把这一小节做完，其他的晚点再管。',
-    focus: '芽团在旁边。你学你的。',
-    reflect: '今天又多记住了一点。',
-  },
-  lu_xingye: {
-    label: '午后图书馆 · 晴川',
-    ready: '别急，先把眼前这节吃透。',
-    focus: '这部分慢一点没关系。',
-    reflect: '今天推进得很稳。',
-  },
-  shen_ye: {
-    label: '午夜自习室 · 凛川',
-    ready: '别切页面。先把这题弄懂。',
-    focus: '这题上次也错过。再来。',
-    reflect: '这次记住了。',
-  },
-  su_nian: {
-    label: '清晨校园 · 柚宁',
-    ready: '搭档，先搞定第一项！',
-    focus: '稳住稳住，马上就过这节！',
-    reflect: '搞定！今天进度漂亮。',
-  },
-};
-
-/** 按路由推断当前学习场景。 */
-function sceneFromPath(path: string): keyof Omit<RoleLines, 'label'> {
-  if (path.startsWith('/tasks') || path.startsWith('/quiz') || path.startsWith('/grade')) {
-    return 'focus';
-  }
-  return 'ready';
-}
 
 /**
  * 浮动陪伴层：右下角常驻的桌宠 + 状态气泡 + 就地控制。

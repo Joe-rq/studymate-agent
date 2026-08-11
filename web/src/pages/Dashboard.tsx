@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api, type StatusResponse, type BuddyStateResponse, type TodayPlan } from '../api';
-import Mascot, { deriveMood } from '../components/Mascot';
-import ProgressRing from '../components/ProgressRing';
+import { ROLE_LINES } from '../lib/roleLines';
 import { SkeletonGrid, EmptyState, ErrorState } from '../components/Feedback';
 
 interface LearnerInsightsResponse {
@@ -53,6 +52,15 @@ function pickFocus(today: TodayPlan) {
   return { learnReview, quizOnly, pendingCount: pending.length };
 }
 
+/** 按时段生成大字问候。 */
+function greeting(hasFocus: boolean): string {
+  const h = new Date().getHours();
+  const part = h < 6 ? '夜深了' : h < 12 ? '早上好' : h < 18 ? '下午好' : '晚上好';
+  return hasFocus
+    ? `${part}，先把今天最重要的一节学完。`
+    : `${part}，今天任务都完成了，做套测验巩固吧。`;
+}
+
 export default function Dashboard() {
   const [status, setStatus] = useState<StatusResponse | null>(null);
   const [buddy, setBuddy] = useState<BuddyStateResponse | null>(null);
@@ -86,18 +94,11 @@ export default function Dashboard() {
   if (error) return <ErrorState message={error} onRetry={load} />;
   if (!status) return <SkeletonGrid count={3} />;
 
-  const character = buddy?.character;
-  const mood = deriveMood({
-    streakDays: status.streakDays,
-    recentScore: status.recentScore,
-    hasExam: !!status.exam,
-  });
-
   // No exam project — show onboarding prompt
   if (!status.exam) {
     return (
       <EmptyState
-        characterId={character?.id}
+        characterId={buddy?.character?.id}
         mood="waiting"
         title="还没有考试项目"
         hint="创建你的第一个考试项目，搭子会陪你一起备考。"
@@ -110,14 +111,16 @@ export default function Dashboard() {
     );
   }
 
+  const roleLines = ROLE_LINES[buddy?.character?.id ?? ''] ?? ROLE_LINES.tuanzi;
   const focus = today ? pickFocus(today) : null;
   const doneCount = today ? today.tasks.filter((t) => t.status === 'done').length : 0;
   const totalTasks = today?.tasks.length ?? 0;
   const allDone = totalTasks > 0 && doneCount >= totalTasks;
+  const totalMinutes = today?.tasks.reduce((s, t) => s + t.duration, 0) ?? 0;
 
   // 主 CTA：有 learn/review 任务 → 去今日任务；只剩测验或全完成 → 去测验；无任务 → 去计划
   let ctaTo = '/tasks';
-  let ctaLabel = '开始今日学习';
+  let ctaLabel = '继续学习';
   if (focus && !focus.learnReview) {
     if (allDone) {
       ctaTo = '/quiz';
@@ -131,78 +134,100 @@ export default function Dashboard() {
     }
   }
 
-  let focusText: string | null = null;
-  if (focus?.learnReview) {
-    focusText = null; // 用结构化块展示
-  } else if (allDone) {
-    focusText = '今日任务已完成，来做一套测验巩固一下吧。';
-  } else if (focus?.quizOnly) {
-    focusText = '今天的重点只剩测验了，直接开测。';
-  } else if (today && today.tasks.length === 0) {
-    focusText = '今天还没有安排任务，去看看学习计划。';
-  }
+  const progressPct = totalTasks > 0 ? Math.round((doneCount / totalTasks) * 100) : 0;
+  const focusTitle = focus?.learnReview?.nodeName
+    ?? (allDone ? '今日任务已完成' : focus?.quizOnly ? '只剩一套测验' : '今天还没有安排任务');
+  const focusSub = focus?.learnReview
+    ? `预计 ${focus.learnReview.duration} 分钟 · 今天还有 ${focus.pendingCount} 项待完成`
+    : allDone
+      ? '来做套测验，把今天的掌握度巩固下来。'
+      : focus?.quizOnly
+        ? '直接开测，测完搭子帮你复盘。'
+        : '去生成学习计划，搭子会帮你排好每天的内容。';
 
   return (
     <div>
-      <div className="dashboard-head fade-in-up">
-        <div className="dashboard-mascot">
-          <Mascot characterId={character?.id} mood={mood} size={88} />
-        </div>
+      {/* 顶部：空间名 + 大字问候 + 考试标签 */}
+      <div className="lobby-header fade-in-up">
         <div>
-          <h2 className="page-title">{status.exam.name}</h2>
-          <p className="muted">
-            {character
-              ? `${character.name} 陪你一起备考 · ${character.tagline ?? character.personality}`
-              : '加油，今天也是元气满满的一天！'}
-          </p>
+          <div className="eyebrow">{roleLines.label}</div>
+          <h1 className="lobby-title">{greeting(!!focus?.learnReview)}</h1>
+          <p className="muted">今日约 {totalMinutes} 分钟 · 距离考试还有 {status.daysToExam} 天</p>
+        </div>
+        <div className="exam-chip">{status.exam.name}</div>
+      </div>
+
+      {/* Today Focus 大卡 */}
+      <section className="card lobby-hero fade-in-up">
+        <div className="kicker">TODAY FOCUS</div>
+        <h2>{focusTitle}</h2>
+        <p className="sub">{focusSub}</p>
+        <div className="hero-actions">
+          <div className="progress">
+            <i style={{ width: `${progressPct}%` }} />
+          </div>
+          <strong>{doneCount} / {totalTasks}</strong>
+          <button className="btn btn-primary btn-lg" onClick={() => navigate(ctaTo)}>
+            {ctaLabel} →
+          </button>
+        </div>
+      </section>
+
+      {/* 紧凑统计 */}
+      <div className="lobby-stats fade-in-up">
+        <div className="stat">
+          <b>{Math.round(status.avgMastery * 100)}%</b>
+          <span>平均掌握度</span>
+        </div>
+        <div className="stat">
+          <b>{status.streakDays} 天</b>
+          <span>连续学习</span>
+        </div>
+        <div className="stat">
+          <b>{status.recentScore ?? '--'}</b>
+          <span>最近测验</span>
+        </div>
+        <div className="stat">
+          <b>{status.daysToExam} 天</b>
+          <span>距离考试</span>
         </div>
       </div>
 
-      {/* Today Focus */}
-      <section className="card today-focus fade-in-up">
-        <p className="card-title">今日 Focus</p>
-        {focus?.learnReview ? (
-          <div className="focus-task">
-            <div className="focus-task-name">
-              <span className={`badge ${focus.learnReview.type === 'learn' ? 'badge-new' : 'badge-review'}`}>
-                {focus.learnReview.type === 'learn' ? '学习' : '复习'}
-              </span>
-              <span>{focus.learnReview.nodeName}</span>
-            </div>
-            <p className="focus-task-detail">
-              预计 {focus.learnReview.duration} 分钟 · 今天还有 {focus.pendingCount} 项待完成
-            </p>
+      {/* 下方：今日任务 + 搭子观察 */}
+      <div className="lobby-lower fade-in-up">
+        <section className="card lobby-tasks">
+          <div className="card-head">
+            <h3>今天</h3>
+            <span>{allDone ? '全部完成' : `剩余 ${totalTasks - doneCount} 项`}</span>
           </div>
-        ) : (
-          <p className="muted" style={{ margin: 0 }}>{focusText}</p>
-        )}
-      </section>
-
-      {/* 轻量学习进度 */}
-      <section className="today-progress fade-in-up">
-        <ProgressRing value={status.avgMastery} size={64} stroke={6} />
-        <div className="today-progress-text">
-          <p className="progress-main">
-            今日完成 {doneCount}/{totalTasks} 项
-          </p>
-          <p className="muted">平均掌握度 {Math.round(status.avgMastery * 100)}%</p>
-        </div>
-      </section>
-
-      {/* 可解释的 Agent Insight */}
-      {insight && (
-        <section className="card insight-card fade-in-up">
-          <p className="card-title">搭子的观察</p>
-          <p className="insight-text">{insight.text}</p>
-          <p className="insight-source">{insight.source}</p>
+          {today && today.tasks.length > 0 ? (
+            today.tasks.slice(0, 4).map((task) => (
+              <div key={task.id} className="task">
+                <span className={`check${task.status === 'done' ? ' done' : ''}`}>
+                  {task.status === 'done' ? '✓' : ''}
+                </span>
+                <div>
+                  <strong>{task.nodeName}</strong>
+                  <small>
+                    {task.status === 'done' ? '已完成' : task.status === 'skipped' ? '已跳过' : '待完成'}
+                  </small>
+                </div>
+                <em>{task.duration}m</em>
+              </div>
+            ))
+          ) : (
+            <p className="muted" style={{ margin: 0 }}>今天还没有安排任务。</p>
+          )}
         </section>
-      )}
 
-      {/* 主要 CTA */}
-      <div className="action-row fade-in-up">
-        <button className="btn btn-primary btn-lg" onClick={() => navigate(ctaTo)}>
-          {ctaLabel}
-        </button>
+        {insight && (
+          <section className="card lobby-insight">
+            <div className="insight-icon">✦</div>
+            <h3>搭子的观察</h3>
+            <p>{insight.text}</p>
+            <div className="link">{insight.source}</div>
+          </section>
+        )}
       </div>
     </div>
   );
