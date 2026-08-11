@@ -419,7 +419,18 @@ export function createApp(options: AppOptions = {}) {
         planPath: path.join(Paths.plan, 'plan_master.json'),
         eventLogFile: Paths.eventLog,
       });
-      res.json(result);
+      res.json({
+        ...result,
+        score: result.result.totalScore,
+        total: result.result.details.length,
+        correct: result.result.details.filter((d) => d.isCorrect).length,
+        results: result.result.details.map((d) => ({
+          questionId: d.question.id,
+          correct: d.isCorrect,
+          score: d.score,
+          errorType: result.mistakes.find((m) => m.questionId === d.question.id)?.errorType,
+        })),
+      });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       const status = message.includes('already been graded') ? 409 : 500;

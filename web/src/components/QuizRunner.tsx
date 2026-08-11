@@ -62,7 +62,7 @@ export default function QuizRunner({ onGraded }: Props) {
     setSubmitting(true);
     const userAnswers = quiz.questions.map((q) => ({
       questionId: q.id,
-      selected: answers[q.id] ?? [],
+      answer: answers[q.id] ?? [],
     }));
     try {
       const result = await api.post<GradeResult>('/grade', { answers: userAnswers });

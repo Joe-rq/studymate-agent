@@ -98,7 +98,7 @@ async function loadWeaknessProfile(mistakesDir: string): Promise<WeaknessProfile
         if (!node.reason) node.reason = `累计错误 ${node.mistakeCount} 次`;
       }
     }
-    return raw;
+    return { lastUpdated: raw.lastUpdated ?? '', nodes: raw.nodes ?? {} };
   } catch {
     return { lastUpdated: '', nodes: {} };
   }
@@ -110,6 +110,7 @@ function mergeWeaknesses(
   mistakes: Mistake[],
   date: string
 ): WeaknessProfile {
+  if (!profile.nodes) profile.nodes = {};
   for (const m of mistakes) {
     const existing = profile.nodes[m.nodeId];
     if (existing) {
