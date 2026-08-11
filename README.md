@@ -179,6 +179,7 @@ npm run web        # 前端开发服务器 5173（Vite proxy /api → 3456）
 - [`docs/plans/`](docs/plans/) — 分阶段实施计划（P0a/P0b/P1/P2 已完成）
 - [`docs/character-asset-spec.md`](docs/character-asset-spec.md) — 角色状态资产规范
 - [`docs/windows-desktop-companion-evaluation.md`](docs/windows-desktop-companion-evaluation.md) — Windows 常驻桌宠评估
+- [`PRIVACY.md`](PRIVACY.md) — 隐私声明（数据本地优先）
 - [`AGENTS.md`](AGENTS.md) — AI 贡献者指南
 
 ## License
