@@ -1217,3 +1217,65 @@ body {
     animation: none;
   }
 }
+
+/* ── Today Lobby (Dashboard) ─────────────────────────────────────── */
+.today-focus .focus-task {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.focus-task-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.focus-task-detail {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.today-progress {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-soft);
+  padding: 16px 20px;
+  margin-bottom: 16px;
+}
+
+.today-progress-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.progress-main {
+  font-size: 1.05rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.insight-card .insight-text {
+  margin: 0 0 6px;
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+
+.insight-source {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+
+.btn-lg {
+  padding: 12px 28px;
+  font-size: 1rem;
+}
