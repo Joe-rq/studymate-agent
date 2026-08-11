@@ -20,11 +20,21 @@ const INSIGHT_SOURCE: Record<string, string> = {
   recommendation: '行动建议',
 };
 
-/** 选一条可解释的 Agent Insight：优先最新学习洞察，其次最近测验得分，最后通用文案。 */
+/** 选一条可解释的 Agent Insight：计划调整 > 学习洞察 > 最近测验（含薄弱点）> 通用。 */
 function pickInsight(
   insights: LearnerInsightsResponse['insights'],
   status: StatusResponse
 ): Insight {
+  if (status.latestPlanAdjustment) {
+    const a = status.latestPlanAdjustment;
+    const concepts = a.affectedConcepts?.join('、') ?? '';
+    return {
+      text: `搭子刚调整了学习计划：${a.reason}${concepts ? `，涉及「${concepts}」` : ''}${
+        a.tasksAdded > 0 ? `，新增 ${a.tasksAdded} 项任务` : ''
+      }。`,
+      source: '计划调整',
+    };
+  }
   if (insights.length > 0) {
     const latest = insights[insights.length - 1];
     return {
@@ -33,8 +43,11 @@ function pickInsight(
     };
   }
   if (status.recentScore !== null) {
+    const weak = status.topWeakNode
+      ? ` 搭子注意到「${status.topWeakNode}」是薄弱点，建议优先复习。`
+      : '';
     return {
-      text: `最近一次测验得分 ${status.recentScore}/100。`,
+      text: `最近一次测验得分 ${status.recentScore}/100。${weak}`,
       source: '最近测验',
     };
   }

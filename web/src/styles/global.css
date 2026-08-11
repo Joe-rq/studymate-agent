@@ -75,9 +75,14 @@
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
     'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
-  background: var(--bg);
+  /* 整页环境光：角色 Ambient 覆盖 --ambient/--ambient-soft，无角色时回落 var(--bg) */
+  background:
+    radial-gradient(1100px 600px at 82% -10%, var(--ambient, transparent) 0%, transparent 62%),
+    radial-gradient(800px 500px at -8% 108%, var(--ambient-soft, transparent) 0%, transparent 55%),
+    var(--bg);
   color: var(--text);
   line-height: 1.6;
+  transition: background-color 0.3s ease;
 }
 
 .app-layout {
@@ -457,7 +462,7 @@ body {
   right: 116px;
   bottom: 40px;
   font-size: 11px;
-  color: var(--muted);
+  color: var(--text-secondary);
   white-space: nowrap;
   background: var(--surface-2);
   border: 1px solid var(--border);
@@ -1556,4 +1561,152 @@ body {
   .stats-grid-2 {
     grid-template-columns: 1fr 1fr;
   }
+}
+
+/* ── Ambient Theme: 角色空间氛围（4×2）──────────────────────────── */
+/* 浅色 · 芽团 林间书桌 */
+[data-theme='light'][data-pet='tuanzi'] {
+  --bg: #f3f2e7;
+  --surface: #fbfaf3;
+  --surface-2: #eae7d5;
+  --primary: #4a7c57;
+  --primary-hover: #3e6b4a;
+  --primary-light: #e0ece1;
+  --accent: #c98a4b;
+  --accent-light: #f3e6d5;
+  --success: #4a7c57;
+  --success-light: #e0ece1;
+  --warning: #c98a4b;
+  --warning-light: #f3e6d5;
+  --border: #e3ddc8;
+  --mascot-glow: radial-gradient(circle at 50% 45%, #eef3e7 0%, #e6e7d3 70%);
+  --ambient: rgba(122, 168, 106, 0.22);
+  --ambient-soft: rgba(201, 138, 75, 0.10);
+}
+/* 浅色 · 晴川 午后图书馆 */
+[data-theme='light'][data-pet='lu_xingye'] {
+  --bg: #f8f1e3;
+  --surface: #fffaf1;
+  --surface-2: #f0e5cf;
+  --primary: #7a4e23;
+  --primary-hover: #6d421f;
+  --primary-light: #f2e5cf;
+  --accent: #a4783f;
+  --accent-light: #f3e3c8;
+  --success: #7a4e23;
+  --success-light: #f2e5cf;
+  --warning: #a4783f;
+  --warning-light: #f3e3c8;
+  --border: #e9dcc2;
+  --mascot-glow: radial-gradient(circle at 50% 45%, #f8f0df 0%, #efe2c8 70%);
+  --ambient: rgba(214, 178, 112, 0.22);
+  --ambient-soft: rgba(164, 120, 63, 0.10);
+}
+/* 浅色 · 凛川 午夜自习室 */
+[data-theme='light'][data-pet='shen_ye'] {
+  --bg: #eef0f6;
+  --surface: #f7f8fc;
+  --surface-2: #e5e9f2;
+  --primary: #3f5f9e;
+  --primary-hover: #354f85;
+  --primary-light: #e2e8f4;
+  --accent: #7a5fb0;
+  --accent-light: #ece6f6;
+  --success: #3f5f9e;
+  --success-light: #e2e8f4;
+  --warning: #7a5fb0;
+  --warning-light: #ece6f6;
+  --border: #dde3ee;
+  --mascot-glow: radial-gradient(circle at 50% 45%, #eef1f8 0%, #e2e7f0 70%);
+  --ambient: rgba(96, 128, 184, 0.20);
+  --ambient-soft: rgba(122, 95, 176, 0.10);
+}
+/* 浅色 · 柚宁 清晨校园 */
+[data-theme='light'][data-pet='su_nian'] {
+  --bg: #faf0f3;
+  --surface: #fffafc;
+  --surface-2: #f2e3e9;
+  --primary: #b05f7d;
+  --primary-hover: #9c506d;
+  --primary-light: #f6e3ea;
+  --accent: #d4896a;
+  --accent-light: #f8e6dc;
+  --success: #b05f7d;
+  --success-light: #f6e3ea;
+  --warning: #d4896a;
+  --warning-light: #f8e6dc;
+  --border: #eedde3;
+  --mascot-glow: radial-gradient(circle at 50% 45%, #f9edf1 0%, #f0e0e6 70%);
+  --ambient: rgba(224, 143, 128, 0.18);
+  --ambient-soft: rgba(176, 95, 125, 0.10);
+}
+
+/* 深色 · 角色（只覆盖强调色 + 环境光，保持墨灰基底） */
+[data-theme='dark'][data-pet='tuanzi'] {
+  --primary: #7fb893;
+  --primary-hover: #8fc4a1;
+  --primary-light: #2a3a30;
+  --accent: #d49b6e;
+  --accent-light: #3a3026;
+  --success: #7fb893;
+  --success-light: #2a3a30;
+  --warning: #d49b6e;
+  --warning-light: #3a3026;
+  --mascot-glow: radial-gradient(circle at 50% 45%, #2c3a30 0%, #26292e 70%);
+  --ambient: rgba(127, 184, 147, 0.14);
+  --ambient-soft: rgba(212, 155, 110, 0.08);
+}
+[data-theme='dark'][data-pet='lu_xingye'] {
+  --primary: #c99a5a;
+  --primary-hover: #d4a76b;
+  --primary-light: #3a2f1f;
+  --accent: #e0b87f;
+  --accent-light: #3a3124;
+  --success: #c99a5a;
+  --success-light: #3a2f1f;
+  --warning: #e0b87f;
+  --warning-light: #3a3124;
+  --mascot-glow: radial-gradient(circle at 50% 45%, #3a2f1f 0%, #26292e 70%);
+  --ambient: rgba(201, 154, 90, 0.14);
+  --ambient-soft: rgba(224, 184, 127, 0.08);
+}
+[data-theme='dark'][data-pet='shen_ye'] {
+  --primary: #6f8fd0;
+  --primary-hover: #7fa0db;
+  --primary-light: #232c40;
+  --accent: #a98bd0;
+  --accent-light: #2e2a3a;
+  --success: #6f8fd0;
+  --success-light: #232c40;
+  --warning: #a98bd0;
+  --warning-light: #2e2a3a;
+  --mascot-glow: radial-gradient(circle at 50% 45%, #232c40 0%, #26292e 70%);
+  --ambient: rgba(111, 143, 208, 0.16);
+  --ambient-soft: rgba(169, 139, 208, 0.08);
+}
+[data-theme='dark'][data-pet='su_nian'] {
+  --primary: #d98aa6;
+  --primary-hover: #e09bb3;
+  --primary-light: #3a2730;
+  --accent: #e8a08a;
+  --accent-light: #3a2a30;
+  --success: #d98aa6;
+  --success-light: #3a2730;
+  --warning: #e8a08a;
+  --warning-light: #3a2a30;
+  --mascot-glow: radial-gradient(circle at 50% 45%, #3a2730 0%, #26292e 70%);
+  --ambient: rgba(217, 138, 166, 0.14);
+  --ambient-soft: rgba(232, 160, 138, 0.08);
+}
+
+/* 掌握度变化正负色 */
+.delta-up { color: var(--success); font-style: normal; }
+.delta-down { color: var(--danger); font-style: normal; }
+
+.chart-block {
+  margin-bottom: 20px;
+}
+
+.chart-block:last-child {
+  margin-bottom: 0;
 }

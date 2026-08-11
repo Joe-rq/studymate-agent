@@ -107,6 +107,14 @@ describe('Study Studio API', () => {
     expect(data.nextStage).toBe('focus');
   });
 
+  it('GET /api/sessions 初始为空', async () => {
+    const res = await get('/api/sessions');
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    expect(data.sessions).toEqual([]);
+    expect(data.totals.sessionCount).toBe(0);
+  });
+
   it('POST /api/studio/start 创建 focus 会话，chunk 无 sourceLink', async () => {
     const res = await post('/api/studio/start', {});
     expect(res.status).toBe(200);
@@ -165,6 +173,13 @@ describe('Study Studio API', () => {
     expect(actions).toContain('study_session_started');
     expect(actions).toContain('study_stage_completed');
     expect(actions).toContain('study_session_completed');
+
+    // session_history 有 1 条记录，GET /api/sessions 返回
+    const sr = await get('/api/sessions');
+    const sdata = await sr.json();
+    expect(sdata.sessions).toHaveLength(1);
+    expect(sdata.totals.sessionCount).toBe(1);
+    expect(sdata.sessions[0].nodeName).toBe('需求曲线');
   });
 
   it('无 pending 任务时 start 返回 400', async () => {

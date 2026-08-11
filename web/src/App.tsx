@@ -9,6 +9,7 @@ import BuddyChat from './pages/BuddyChat';
 import Settings from './pages/Settings';
 import Onboarding from './pages/Onboarding';
 import StudioPage from './pages/StudioPage';
+import GrowthPage from './pages/GrowthPage';
 import PetLayer from './components/PetLayer';
 import Topbar from './components/Topbar';
 import { ToastHost } from './components/Toast';
@@ -19,6 +20,7 @@ const navItems = [
   { to: '/studio', label: '学习' },
   { to: '/quiz', label: '测验' },
   { to: '/plan', label: '计划' },
+  { to: '/growth', label: '成长' },
   { to: '/chat', label: '搭子' },
   { to: '/settings', label: '设置' },
 ];
@@ -67,6 +69,7 @@ export default function App() {
             <Route path="/studio" element={<StudioPage />} />
             <Route path="/quiz" element={<QuizPage />} />
             <Route path="/grade" element={<GradeReport />} />
+            <Route path="/growth" element={<GrowthPage />} />
             <Route path="/plan" element={<PlanView />} />
             <Route path="/chat" element={<BuddyChat />} />
             <Route path="/settings" element={<Settings />} />

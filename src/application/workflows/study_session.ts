@@ -18,6 +18,7 @@ import type { Event } from '../../core/types.js';
 import type { LLMClient } from '../../core/llm.js';
 import { atomicWriteJSON } from '../../core/atomic_file.js';
 import { addDaysToDateKey } from '../../core/date.js';
+import { appendSessionHistory } from './session_history.js';
 
 export type StudyStage = 'focus' | 'recall' | 'quiz' | 'feedback' | 'reflect' | 'completed';
 
@@ -532,6 +533,27 @@ export async function completeSession(opts: BuildAggregateOpts): Promise<StudioA
   await saveSession(session, workspaceRoot);
 
   const summary = computeReflect(session);
+  await appendSessionHistory(
+    {
+      sessionId: session.id,
+      date: session.date,
+      startedAt: session.startedAt,
+      endedAt: session.endedAt!,
+      taskType: session.currentTask?.type ?? 'learn',
+      nodeId: session.currentTask?.nodeId ?? '',
+      nodeName: session.currentTask?.nodeName ?? '',
+      durationSeconds: summary.durationSeconds,
+      knowledgePoints: summary.knowledgePoints,
+      answeredQuestions: summary.answeredQuestions,
+      correct: summary.correct,
+      accuracy: summary.accuracy,
+      score: summary.score,
+      masteryDeltaSum: summary.masteryDeltaSum,
+      masteryChanges: summary.masteryChanges,
+    },
+    workspaceRoot
+  );
+
   const event: Event = {
     id: createEventId(),
     timestamp: session.endedAt,

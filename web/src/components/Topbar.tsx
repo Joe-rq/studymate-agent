@@ -7,6 +7,7 @@ const TITLES: Record<string, string> = {
   '/studio': '学习闭环',
   '/quiz': '测验',
   '/plan': '学习计划',
+  '/growth': '成长数据',
   '/chat': '和搭子聊天',
   '/settings': '设置',
   '/onboarding': '建档向导',

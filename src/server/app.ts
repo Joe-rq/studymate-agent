@@ -27,6 +27,7 @@ import type { LearnerBaseline } from '../domain/exam.js';
 import type { SourceRecord } from '../domain/source.js';
 import { addDaysToDateKey, todayDateKey } from '../core/date.js';
 import { approvePlan } from '../application/workflows/approve_plan.js';
+import { loadSessionHistory, buildTrend, buildTotals } from '../application/workflows/session_history.js';
 
 import {
   buildAggregate,
@@ -72,6 +73,8 @@ export function createApp(options: AppOptions = {}) {
         streakDays: buddyState.streakDays,
         tasksToday: ctx.tasksToday,
         recentScore: ctx.recentScore,
+        latestPlanAdjustment: ctx.latestPlanAdjustment,
+        topWeakNode: ctx.weakNodeNames[0] ?? null,
       });
     } catch (err) {
       res.status(500).json({ error: String(err) });
@@ -467,6 +470,20 @@ export function createApp(options: AppOptions = {}) {
       if (!dateMatch) return res.status(400).json({ error: 'Invalid task ID format' });
       await completeTask(dateMatch[1], taskId, 'skipped', taskEventLog, options.workspaceRoot);
       res.json({ ok: true, taskId, status: 'skipped' });
+    } catch (err) {
+      res.status(500).json({ error: String(err) });
+    }
+  });
+
+  // ── Session History ────────────────────────────────────────────
+  app.get('/api/sessions', async (_req, res) => {
+    try {
+      const history = await loadSessionHistory(options.workspaceRoot);
+      res.json({
+        sessions: history.slice().reverse(),
+        trend: buildTrend(history),
+        totals: buildTotals(history),
+      });
     } catch (err) {
       res.status(500).json({ error: String(err) });
     }

@@ -11,6 +11,7 @@ import {
 } from '../../../src/application/workflows/study_session.js';
 import { createMockLLMClient } from '../../../src/core/mock_llm.js';
 import { loadEvents } from '../../../src/core/event_log.js';
+import { loadSessionHistory } from '../../../src/application/workflows/session_history.js';
 
 const TODAY = '2026-08-11';
 const TEST_DIR = path.join(process.cwd(), 'workspace_test_study');
@@ -202,6 +203,11 @@ describe('study_session: 会话操作与幂等', () => {
     expect(b.session?.status).toBe('completed');
     const events = await loadEvents(path.join(TEST_DIR, 'event_log', 'events.jsonl'));
     expect(events.filter((e) => e.action === 'study_session_completed')).toHaveLength(1);
+
+    // session_history 应只有一条记录（幂等只写一次）
+    const history = await loadSessionHistory(TEST_DIR);
+    expect(history).toHaveLength(1);
+    expect(history[0].nodeName).toBe('需求曲线');
   });
 });
 

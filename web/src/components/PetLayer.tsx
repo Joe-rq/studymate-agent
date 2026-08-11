@@ -12,6 +12,7 @@ const PET_SIZE = 84;
 /** 可点击/拖拽热区尺寸。 */
 const PET_HOTZONE = 104;
 const STORAGE_KEY = 'studymate-pet-pos';
+const STORAGE_PET_KEY = 'studymate-pet-id';
 
 /** 各请求状态下桌宠的气泡提示文字。 */
 const STATUS_TEXT: Record<string, string> = {
@@ -32,7 +33,14 @@ const STATUS_TEXT: Record<string, string> = {
 export default function PetLayer() {
   const navigate = useNavigate();
   const location = useLocation();
-  const [characterId, setCharacterId] = useState<string | undefined>(undefined);
+  const [characterId, setCharacterId] = useState<string | undefined>(() => {
+    // 从 localStorage 恢复角色 id，避免首帧闪默认主题
+    try {
+      return window.localStorage.getItem(STORAGE_PET_KEY) ?? undefined;
+    } catch {
+      return undefined;
+    }
+  });
   const [characterName, setCharacterName] = useState('搭子');
   const [companionMode, setCompanionMode] = useState<CompanionMode>('companion');
   const [bubble, setBubble] = useState('');
@@ -86,6 +94,9 @@ export default function PetLayer() {
         setCharacterName(data.character?.name ?? '搭子');
         setCompanionMode(data.state.preferences.companionMode ?? 'companion');
         if (data.character?.tagline) showBubbleText(data.character.tagline, 6000);
+        try {
+          window.localStorage.setItem(STORAGE_PET_KEY, data.character?.id ?? '');
+        } catch { /* ignore */ }
       })
       .catch(() => {});
   }, [showBubbleText]);
@@ -137,6 +148,15 @@ export default function PetLayer() {
       if (bubbleTimerRef.current) window.clearTimeout(bubbleTimerRef.current);
     };
   }, [showBubbleText]);
+
+  // 角色 → 整页 Ambient 主题注入（<html data-pet>，与 data-theme 正交）
+  useEffect(() => {
+    if (characterId) {
+      document.documentElement.dataset.pet = characterId;
+    } else {
+      delete document.documentElement.dataset.pet;
+    }
+  }, [characterId]);
 
   if (companionMode === 'off') return null;
 

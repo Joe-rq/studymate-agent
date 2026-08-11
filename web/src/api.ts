@@ -36,6 +36,15 @@ export interface StatusResponse {
   streakDays: number;
   tasksToday: number;
   recentScore: number | null;
+  latestPlanAdjustment?: {
+    adjustedAt: string;
+    reason: string;
+    tasksAdded: number;
+    minutesAdded: number;
+    daysAffected: number;
+    affectedConcepts: string[];
+  } | null;
+  topWeakNode?: string | null;
 }
 
 export interface Task {
@@ -314,4 +323,30 @@ export interface ExplainResult {
   explanation: string | null;
   refChunkIds: string[];
   degraded: boolean;
+}
+
+// ── Session history (Growth) types ─────────────────────────────
+
+export interface SessionHistoryItem {
+  sessionId: string;
+  date: string;
+  startedAt: string;
+  endedAt: string;
+  taskType: 'learn' | 'review' | 'quiz';
+  nodeId: string;
+  nodeName: string;
+  durationSeconds: number;
+  knowledgePoints: number;
+  answeredQuestions: number;
+  correct: number;
+  accuracy: number;
+  score: number;
+  masteryDeltaSum: number;
+  masteryChanges: MasteryChange[];
+}
+
+export interface SessionsResponse {
+  sessions: SessionHistoryItem[];
+  trend: Array<{ date: string; sessions: number; avgAccuracy: number; avgScore: number; totalMinutes: number }>;
+  totals: { sessionCount: number; totalMinutes: number; avgAccuracy: number; avgScore: number };
 }

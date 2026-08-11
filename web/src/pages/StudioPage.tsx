@@ -276,6 +276,26 @@ export default function StudioPage() {
             <div><b>{accuracy}%</b><span>正确率</span></div>
           </div>
         </div>
+        {summary?.masteryChanges && summary.masteryChanges.length > 0 && (
+          <div className="card fade-in-up">
+            <p className="card-title">掌握度变化</p>
+            {summary.masteryChanges.map((m) => {
+              const delta = m.newMastery - m.oldMastery;
+              return (
+                <div key={m.nodeId} className="row-between" style={{ padding: '8px 0' }}>
+                  <span className="row-title">{m.nodeName ?? m.nodeId}</span>
+                  <span className="row-detail">
+                    {Math.round(m.oldMastery * 100)}% → {Math.round(m.newMastery * 100)}%{' '}
+                    <em className={delta >= 0 ? 'delta-up' : 'delta-down'}>
+                      {delta >= 0 ? '+' : ''}
+                      {Math.round(delta * 100)}%
+                    </em>
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        )}
         {data.reflect?.nextFirstTask && (
           <div className="card fade-in-up">
             <p className="card-title">明天从这里开始</p>
