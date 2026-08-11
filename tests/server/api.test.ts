@@ -74,6 +74,7 @@ describe('API server', () => {
     expect(data).toHaveProperty('state');
     expect(data.state).toHaveProperty('characterId');
     expect(data.state).toHaveProperty('streakDays');
+    expect(data).toHaveProperty('activity');
   });
 
   it('GET /api/characters returns character list', async () => {

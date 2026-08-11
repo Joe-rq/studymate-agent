@@ -180,6 +180,11 @@ describe('Study Studio API', () => {
     expect(sdata.sessions).toHaveLength(1);
     expect(sdata.totals.sessionCount).toBe(1);
     expect(sdata.sessions[0].nodeName).toBe('需求曲线');
+
+    // complete 联动 streak：连续 1 天、未到里程碑、companion 档
+    expect(done.buddy?.streakDays).toBe(1);
+    expect(done.buddy?.milestoneHit).toBe(false);
+    expect(done.buddy?.activity).toBe('companion');
   });
 
   it('无 pending 任务时 start 返回 400', async () => {

@@ -9,7 +9,8 @@ import { gatherStudyContext } from '../core/context_reader.js';
 import { loadCharacter, listCharacters, getSelectedCharacter } from '../core/character.js';
 import { loadBuddyState, saveBuddyState, updateStreak, increaseRelationship } from '../agents/buddy_state.js';
 import { buddyChat, loadChatHistory } from '../agents/study_buddy.js';
-import { shouldIntervene, generateIntervention, type InterventionMoment } from '../agents/buddy_interventions.js';
+import { shouldIntervene, generateIntervention, type InterventionMoment, STREAK_MILESTONES } from '../agents/buddy_interventions.js';
+import { deriveCompanionActivity } from '../domain/buddy.js';
 import { selectQuizScope, generateScopedQuiz, type QuizConfig } from '../agents/quiz_generator.js';
 import { gradeAndAdapt } from '../application/workflows/grade_and_adapt.js';
 import { computeMetrics } from '../agents/metrics.js';
@@ -542,7 +543,17 @@ export function createApp(options: AppOptions = {}) {
         taskEventLog,
         workspaceRoot: options.workspaceRoot,
       });
-      res.json(aggregate);
+      // 完成学习 → 更新连续学习与关系（updateStreak 同天 no-op，幂等）
+      const buddyState = await loadBuddyState();
+      let updated = updateStreak(buddyState, todayProvider());
+      updated = increaseRelationship(updated, 2);
+      await saveBuddyState(updated, options.workspaceRoot);
+      const activity = deriveCompanionActivity(
+        updated.preferences.companionMode ?? 'companion',
+        updated.streakDays
+      );
+      const milestoneHit = STREAK_MILESTONES.includes(updated.streakDays);
+      res.json({ ...aggregate, buddy: { streakDays: updated.streakDays, activity, milestoneHit } });
     } catch (err) {
       res.status(400).json({ error: err instanceof Error ? err.message : String(err) });
     }
@@ -570,7 +581,12 @@ export function createApp(options: AppOptions = {}) {
       const state = await loadBuddyState();
       const character = await loadCharacter(state.characterId).catch(() => getSelectedCharacter());
       const history = await loadChatHistory();
-      res.json({ state, character, recentHistory: history.slice(-20) });
+      res.json({
+      state,
+      character,
+      recentHistory: history.slice(-20),
+      activity: deriveCompanionActivity(state.preferences.companionMode ?? 'companion', state.streakDays),
+    });
     } catch (err) {
       res.status(500).json({ error: String(err) });
     }

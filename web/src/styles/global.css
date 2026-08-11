@@ -456,6 +456,19 @@ body {
   to   { opacity: 1; transform: translateY(0); }
 }
 
+/* 里程碑/完成庆祝：弹跳放大（不新增插画，用现有精灵帧 + 动效） */
+@keyframes pet-celebrate {
+  0%   { transform: scale(1); }
+  25%  { transform: scale(1.18) rotate(-4deg); }
+  50%  { transform: scale(1.10) translateY(-8px); }
+  75%  { transform: scale(1.15) rotate(3deg); }
+  100% { transform: scale(1); }
+}
+
+.pet-fab.pet-celebrate {
+  animation: pet-celebrate 0.9s ease;
+}
+
 /* 桌宠状态标签（角色 · 陪伴中 / 安静模式） */
 .pet-status {
   position: absolute;
@@ -1265,6 +1278,9 @@ body {
     animation: none;
   }
   .pet-layer.pet-alive {
+    animation: none;
+  }
+  .pet-fab.pet-celebrate {
     animation: none;
   }
 }

@@ -29,7 +29,7 @@ export interface InterventionContext {
 
 // ── Trigger Rules ────────────────────────────────────────────────────
 
-const STREAK_MILESTONES = [3, 7, 14, 30];
+export const STREAK_MILESTONES = [3, 7, 14, 30];
 
 /**
  * Rule-based trigger: should the buddy intervene at this moment?

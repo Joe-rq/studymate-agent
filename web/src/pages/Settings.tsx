@@ -16,7 +16,7 @@ export default function Settings() {
     reminderIntensity: 'normal',
     emotionalStyle: 'warm',
     formOfAddress: '',
-    companionMode: 'companion' as 'companion' | 'quiet' | 'off',
+    companionMode: 'companion' as 'companion' | 'quiet' | 'off' | 'active',
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -123,13 +123,20 @@ export default function Settings() {
           <select
             value={prefs.companionMode}
             onChange={(e) =>
-              setPrefs((p) => ({ ...p, companionMode: e.target.value as 'companion' | 'quiet' | 'off' }))
+              setPrefs((p) => ({
+                ...p,
+                companionMode: e.target.value as 'companion' | 'quiet' | 'off' | 'active',
+              }))
             }
           >
             <option value="companion">陪伴（默认）</option>
+            <option value="active">活跃（陪伴 + 自动升级）</option>
             <option value="quiet">安静（不打扰）</option>
             <option value="off">关闭</option>
           </select>
+          <p className="muted" style={{ marginTop: 6, fontSize: '0.78rem' }}>
+            活跃档：连续学习满 3 天自动升级为主动陪伴，不足 3 天自动回落；安静 / 关闭始终生效。
+          </p>
         </div>
         <button className="btn btn-primary" onClick={handleSavePrefs} disabled={saving}>
           {saving ? '保存中...' : '保存偏好'}

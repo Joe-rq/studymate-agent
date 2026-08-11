@@ -102,7 +102,7 @@ export interface BuddyStateResponse {
       reminderIntensity: string;
       emotionalStyle: string;
       formOfAddress?: string;
-      companionMode?: 'companion' | 'quiet' | 'off';
+      companionMode?: 'companion' | 'quiet' | 'off' | 'active';
     };
     memories: Array<{ id: string; date: string; type: string; content: string }>;
     commitments: Array<{ date: string; text: string; fulfilled?: boolean }>;
@@ -120,6 +120,7 @@ export interface BuddyStateResponse {
     catchphrases: string[];
   } | null;
   recentHistory: Array<{ role: string; content: string; timestamp: string }>;
+  activity?: 'off' | 'quiet' | 'companion' | 'active';
 }
 
 export interface CharacterInfo {
@@ -317,6 +318,7 @@ export interface StudioResponse {
   nextStage: StudioStage | null;
   reflect: StudioReflect | null;
   message: string;
+  buddy?: { streakDays: number; activity: string; milestoneHit: boolean };
 }
 
 export interface ExplainResult {

@@ -306,7 +306,24 @@ export default function StudioPage() {
         )}
         <div style={{ marginTop: 16 }}>
           {current.stage === 'reflect' ? (
-            <button className="btn btn-primary" disabled={busy} onClick={() => act(() => api.post('/studio/complete', {}))}>
+            <button
+              className="btn btn-primary"
+              disabled={busy}
+              onClick={async () => {
+                const r = await api.post<StudioResponse>('/studio/complete', {});
+                setData(r);
+                setExplanation(null);
+                setRecallRevealed(false);
+                window.dispatchEvent(
+                  new CustomEvent('studymate:celebrate', {
+                    detail: {
+                      kind: r.buddy?.milestoneHit ? 'streak_milestone' : 'session_complete',
+                      streakDays: r.buddy?.streakDays ?? 0,
+                    },
+                  })
+                );
+              }}
+            >
               完成本次学习
             </button>
           ) : (
