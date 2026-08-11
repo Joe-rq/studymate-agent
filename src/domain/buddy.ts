@@ -26,6 +26,8 @@ export interface BuddyPreferences {
   emotionalStyle: 'warm' | 'neutral' | 'playful';
   /** Override character's default form of address. */
   formOfAddress?: string;
+  /** 桌宠呈现模式：陪伴（默认）/ 安静 / 活跃 / 关闭。 */
+  companionMode?: 'companion' | 'quiet' | 'off' | 'active';
 }
 
 export interface BuddyState {
@@ -51,10 +53,30 @@ export function createDefaultBuddyState(characterId: string): BuddyState {
     preferences: {
       reminderIntensity: 'normal',
       emotionalStyle: 'warm',
+      companionMode: 'companion',
     },
     memories: [],
     commitments: [],
     streakDays: 0,
     lastActiveDate: '',
   };
+}
+
+/** 桌宠呈现活跃度（派生）：off < quiet < companion < active。 */
+export type CompanionActivity = 'off' | 'quiet' | 'companion' | 'active';
+
+/** 连续学习达到该天数时，companion 档自动升级为 active。与 STREAK_MILESTONES[0] 对齐。 */
+export const ACTIVE_AFTER_DAYS = 3;
+
+/**
+ * 派生桌宠呈现活跃度：手动 off/quiet 覆盖自动档；
+ * companion/active 档按连续学习天数升降（达到 ACTIVE_AFTER_DAYS 即 active）。
+ */
+export function deriveCompanionActivity(
+  mode: BuddyPreferences['companionMode'] | undefined,
+  streakDays: number
+): CompanionActivity {
+  if (mode === 'off') return 'off';
+  if (mode === 'quiet') return 'quiet';
+  return streakDays >= ACTIVE_AFTER_DAYS ? 'active' : 'companion';
 }

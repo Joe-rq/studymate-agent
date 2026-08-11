@@ -62,18 +62,18 @@ const BUDDY_LINES: Record<string, Record<Moment, Partial<Record<ScoreBand, strin
   },
   tuanzi: {
     today: {
-      neutral: '主人今天也要加油哦，团子给你呼噜呼噜～',
+      neutral: '主人今天也要加油哦，芽团给你呼噜呼噜～',
     },
     quiz: {
-      neutral: '团子相信主人！做题的时候团子会在旁边陪着的！',
+      neutral: '芽团相信主人！做题的时候芽团会在旁边陪着的！',
     },
     grade: {
-      high: '主人最厉害了！团子崇拜！团子要转圈圈！',
-      mid: '主人做得不错呀，团子蹭蹭你，继续加油嘛！',
-      low: '主人别难过，团子给你抱抱。歇一会儿，团子陪你。',
+      high: '主人最厉害了！芽团崇拜！芽团要转圈圈！',
+      mid: '主人做得不错呀，芽团蹭蹭你，继续加油嘛！',
+      low: '主人别难过，芽团给你抱抱。歇一会儿，芽团陪你。',
     },
     chat: {
-      neutral: '主人跟团子说话啦，团子好开心呀～',
+      neutral: '主人跟芽团说话啦，芽团好开心呀～',
     },
   },
 };
@@ -99,13 +99,13 @@ function detectScoreBand(user: string, moment: Moment): ScoreBand {
 
 /** 从 user 消息里识别角色名。 */
 function detectCharacter(user: string): string {
-  for (const name of ['陆星野', '沈夜', '苏念', '团子']) {
+  for (const name of ['晴川', '凛川', '柚宁', '芽团']) {
     if (user.includes(`名字：${name}`)) {
       const idMap: Record<string, string> = {
-        陆星野: 'lu_xingye',
-        沈夜: 'shen_ye',
-        苏念: 'su_nian',
-        团子: 'tuanzi',
+        晴川: 'lu_xingye',
+        凛川: 'shen_ye',
+        柚宁: 'su_nian',
+        芽团: 'tuanzi',
       };
       return idMap[name];
     }
@@ -183,6 +183,16 @@ export function createMockLLMClient(): LLMClient {
             { id: 'node_3', name: '市场均衡', definition: '需求量等于供给量时的状态', prerequisiteIds: ['node_1', 'node_2'] },
             { id: 'node_4', name: '价格弹性', definition: '需求量对价格变动的敏感程度', prerequisiteIds: ['node_1'] },
           ],
+        });
+      }
+
+      // 概念讲解分支：给 /studio 的按需 AI 解释提供离线模板
+      if (system.includes('概念讲解')) {
+        const name = user.match(/## (.+?) \[/)?.[1] ?? '该概念';
+        const chunkMatches = [...user.matchAll(/\[(chk_[^\]]+)\]/g)].map((m) => m[1]);
+        return JSON.stringify({
+          explanation: `这是关于「${name}」的讲解：建议先抓住定义要点，再结合你刚才阅读的原文片段（${chunkMatches.length} 段）理解，考试常见题型围绕定义与例子展开。`,
+          refChunkIds: chunkMatches.slice(0, 3),
         });
       }
 

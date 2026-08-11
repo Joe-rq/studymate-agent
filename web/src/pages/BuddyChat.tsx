@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { api, type BuddyStateResponse } from '../api';
+import Mascot from '../components/Mascot';
+import { EmptyState, ErrorState } from '../components/Feedback';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -11,17 +13,28 @@ export default function BuddyChat() {
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
   const [characterName, setCharacterName] = useState('搭子');
+  const [stats, setStats] = useState<{ relationshipLevel: number; streakDays: number; memoryCount: number } | null>(null);
+  const [characterId, setCharacterId] = useState<string | undefined>(undefined);
+  const [loadError, setLoadError] = useState('');
+  const [loaded, setLoaded] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     api.get<BuddyStateResponse>('/buddy/state').then((data) => {
       setCharacterName(data.character?.name ?? '搭子');
+      setCharacterId(data.character?.id);
+      setStats({
+        relationshipLevel: data.state.relationshipLevel,
+        streakDays: data.state.streakDays,
+        memoryCount: data.state.memories.length,
+      });
       const history = data.recentHistory.map((h) => ({
         role: h.role as 'user' | 'assistant',
         content: h.content,
       }));
       setMessages(history);
-    }).catch(() => {});
+    }).catch((e) => setLoadError(e.message))
+    .finally(() => setLoaded(true));
   }, []);
 
   useEffect(() => {
@@ -40,7 +53,7 @@ export default function BuddyChat() {
       const { reply } = await api.post<{ reply: string }>('/buddy/chat', { message: text });
       setMessages((prev) => [...prev, { role: 'assistant', content: reply || '...' }]);
     } catch {
-      setMessages((prev) => [...prev, { role: 'assistant', content: '（网络错误，请重试）' }]);
+      setMessages((prev) => [...prev, { role: 'assistant', content: '（网络开小差了，稍后再试～）' }]);
     }
     setSending(false);
   };
@@ -52,24 +65,49 @@ export default function BuddyChat() {
     }
   };
 
+  if (loadError) {
+    return <ErrorState message={loadError} onRetry={() => window.location.reload()} />;
+  }
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 64px)' }}>
+    <div className="chat-page">
       <h2 className="page-title">和{characterName}聊天</h2>
 
-      <div className="chat-messages" style={{ flex: 1 }}>
-        {messages.length === 0 && (
-          <p style={{ textAlign: 'center', color: 'var(--text-secondary)', marginTop: 40 }}>
-            开始和{characterName}聊天吧！
-          </p>
+      {stats && (
+        <div className="buddy-summary">
+          <span>关系等级 {stats.relationshipLevel}/100</span>
+          <span>连续学习 {stats.streakDays} 天</span>
+          <span>记忆 {stats.memoryCount} 条</span>
+        </div>
+      )}
+
+      <div className="chat-messages">
+        {messages.length === 0 && !sending && loaded && (
+          <EmptyState
+            characterId={characterId}
+            mood="thinking"
+            title={`和${characterName}聊点什么吧`}
+            hint="可以聊聊今天的复习、遇到的难题，或者只是吐槽一下。"
+          />
         )}
         {messages.map((msg, i) => (
-          <div key={i} className={`chat-bubble ${msg.role}`}>
-            {msg.content}
+          <div key={i} className={`chat-row ${msg.role} fade-in-up`}>
+            {msg.role === 'assistant' && (
+              <div className="chat-avatar">
+                <Mascot characterId={characterId} mood="default" size={34} />
+              </div>
+            )}
+            <div className={`chat-bubble ${msg.role}`}>{msg.content}</div>
           </div>
         ))}
         {sending && (
-          <div className="chat-bubble assistant" style={{ opacity: 0.6 }}>
-            {characterName}正在思考...
+          <div className="chat-row assistant">
+            <div className="chat-avatar">
+              <Mascot characterId={characterId} mood="thinking" size={34} />
+            </div>
+            <div className="chat-bubble assistant" style={{ opacity: 0.7 }}>
+              {characterName}正在思考...
+            </div>
           </div>
         )}
         <div ref={bottomRef} />

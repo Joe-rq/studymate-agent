@@ -1,15 +1,24 @@
+import { beginRequest, endRequest } from './lib/requestState';
+
 const BASE = '/api';
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, {
-    headers: { 'Content-Type': 'application/json' },
-    ...options,
-  });
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({ error: res.statusText }));
-    throw new Error(body.error ?? `HTTP ${res.status}`);
+  beginRequest();
+  try {
+    const res = await fetch(`${BASE}${path}`, {
+      headers: { 'Content-Type': 'application/json' },
+      ...options,
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({ error: res.statusText }));
+      throw new Error(body.error ?? `HTTP ${res.status}`);
+    }
+    endRequest(true);
+    return res.json();
+  } catch (err) {
+    endRequest(false);
+    throw err;
   }
-  return res.json();
 }
 
 export const api = {
@@ -27,6 +36,15 @@ export interface StatusResponse {
   streakDays: number;
   tasksToday: number;
   recentScore: number | null;
+  latestPlanAdjustment?: {
+    adjustedAt: string;
+    reason: string;
+    tasksAdded: number;
+    minutesAdded: number;
+    daysAffected: number;
+    affectedConcepts: string[];
+  } | null;
+  topWeakNode?: string | null;
 }
 
 export interface Task {
@@ -70,6 +88,10 @@ export interface GradeResult {
   }>;
   mistakes?: unknown[];
   weaknessExplanations?: Record<string, string>;
+  correlationId?: string;
+  masteryChanges?: MasteryChange[];
+  adjustments?: unknown[];
+  latestInsight?: string;
 }
 
 export interface BuddyStateResponse {
@@ -80,6 +102,7 @@ export interface BuddyStateResponse {
       reminderIntensity: string;
       emotionalStyle: string;
       formOfAddress?: string;
+      companionMode?: 'companion' | 'quiet' | 'off' | 'active';
     };
     memories: Array<{ id: string; date: string; type: string; content: string }>;
     commitments: Array<{ date: string; text: string; fulfilled?: boolean }>;
@@ -89,6 +112,7 @@ export interface BuddyStateResponse {
   character: {
     id: string;
     name: string;
+    tagline?: string;
     personality: string;
     speechStyle: string;
     formOfAddress: string;
@@ -96,11 +120,13 @@ export interface BuddyStateResponse {
     catchphrases: string[];
   } | null;
   recentHistory: Array<{ role: string; content: string; timestamp: string }>;
+  activity?: 'off' | 'quiet' | 'companion' | 'active';
 }
 
 export interface CharacterInfo {
   id: string;
   name: string;
+  tagline?: string;
   personality: string;
   speechStyle: string;
   formOfAddress: string;
@@ -221,3 +247,108 @@ export const onboarding = {
   approvePlan: () =>
     api.post<{ ok: true; exam: ExamProject }>('/plan/approve'),
 };
+
+// ── Study Studio types ─────────────────────────────────────────
+
+export interface MasteryChange {
+  nodeId: string;
+  nodeName?: string;
+  oldMastery: number;
+  newMastery: number;
+}
+
+export interface StudioTaskRef {
+  id: string;
+  type: 'learn' | 'review' | 'quiz';
+  nodeId: string;
+  nodeName: string;
+  duration: number;
+}
+
+export type StudioStage = 'focus' | 'recall' | 'quiz' | 'feedback' | 'reflect' | 'completed';
+
+export interface StudioFocusChunk {
+  id: string;
+  title: string;
+  content: string;
+  chapterPath: string;
+}
+
+export interface StudioFocus {
+  concept: {
+    id: string;
+    name: string;
+    definition: string;
+    mastery: number;
+    unverified?: boolean;
+  } | null;
+  chunks: StudioFocusChunk[];
+}
+
+export interface StudioSession {
+  id: string;
+  date: string;
+  status: 'active' | 'completed';
+  stage: StudioStage;
+  startedAt: string;
+  updatedAt: string;
+  endedAt?: string;
+}
+
+export interface StudioReflect {
+  summary: {
+    durationSeconds: number;
+    knowledgePoints: number;
+    answeredQuestions: number;
+    correct: number;
+    accuracy: number;
+    score: number;
+    masteryDeltaSum: number;
+    masteryChanges: MasteryChange[];
+  };
+  nextFirstTask: StudioTaskRef | null;
+}
+
+export interface StudioResponse {
+  session: StudioSession | null;
+  candidates: StudioTaskRef[];
+  quizOnly: boolean;
+  currentTask: StudioTaskRef | null;
+  focus: StudioFocus | null;
+  nextStage: StudioStage | null;
+  reflect: StudioReflect | null;
+  message: string;
+  buddy?: { streakDays: number; activity: string; milestoneHit: boolean };
+}
+
+export interface ExplainResult {
+  explanation: string | null;
+  refChunkIds: string[];
+  degraded: boolean;
+}
+
+// ── Session history (Growth) types ─────────────────────────────
+
+export interface SessionHistoryItem {
+  sessionId: string;
+  date: string;
+  startedAt: string;
+  endedAt: string;
+  taskType: 'learn' | 'review' | 'quiz';
+  nodeId: string;
+  nodeName: string;
+  durationSeconds: number;
+  knowledgePoints: number;
+  answeredQuestions: number;
+  correct: number;
+  accuracy: number;
+  score: number;
+  masteryDeltaSum: number;
+  masteryChanges: MasteryChange[];
+}
+
+export interface SessionsResponse {
+  sessions: SessionHistoryItem[];
+  trend: Array<{ date: string; sessions: number; avgAccuracy: number; avgScore: number; totalMinutes: number }>;
+  totals: { sessionCount: number; totalMinutes: number; avgAccuracy: number; avgScore: number };
+}

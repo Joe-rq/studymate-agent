@@ -21,7 +21,7 @@ describe('loadCharacter', () => {
   it('loads a built-in character with all fields', async () => {
     const c = await loadCharacter('lu_xingye');
     expect(c.id).toBe('lu_xingye');
-    expect(c.name).toBe('陆星野');
+    expect(c.name).toBe('晴川');
     expect(c.gender).toBe('male');
     expect(c.personality).toBeTruthy();
     expect(c.formOfAddress).toBeTruthy();
@@ -57,7 +57,7 @@ describe('character selection persistence', () => {
     await saveSelectedCharacter('su_nian', TEST_CONFIG);
     const c = await getSelectedCharacter(TEST_CONFIG);
     expect(c.id).toBe('su_nian');
-    expect(c.name).toBe('苏念');
+    expect(c.name).toBe('柚宁');
   });
 
   it('falls back to default when selected id is invalid', async () => {

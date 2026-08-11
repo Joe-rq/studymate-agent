@@ -9,7 +9,8 @@ import { gatherStudyContext } from '../core/context_reader.js';
 import { loadCharacter, listCharacters, getSelectedCharacter } from '../core/character.js';
 import { loadBuddyState, saveBuddyState, updateStreak, increaseRelationship } from '../agents/buddy_state.js';
 import { buddyChat, loadChatHistory } from '../agents/study_buddy.js';
-import { shouldIntervene, generateIntervention, type InterventionMoment } from '../agents/buddy_interventions.js';
+import { shouldIntervene, generateIntervention, type InterventionMoment, STREAK_MILESTONES } from '../agents/buddy_interventions.js';
+import { deriveCompanionActivity } from '../domain/buddy.js';
 import { selectQuizScope, generateScopedQuiz, type QuizConfig } from '../agents/quiz_generator.js';
 import { gradeAndAdapt } from '../application/workflows/grade_and_adapt.js';
 import { computeMetrics } from '../agents/metrics.js';
@@ -27,6 +28,15 @@ import type { LearnerBaseline } from '../domain/exam.js';
 import type { SourceRecord } from '../domain/source.js';
 import { addDaysToDateKey, todayDateKey } from '../core/date.js';
 import { approvePlan } from '../application/workflows/approve_plan.js';
+import { loadSessionHistory, buildTrend, buildTotals } from '../application/workflows/session_history.js';
+
+import {
+  buildAggregate,
+  startSession,
+  advanceSession,
+  completeSession,
+  explainConcept,
+} from '../application/workflows/study_session.js';
 
 function createLLM() {
   if (process.env.OPENAI_API_KEY) {
@@ -64,6 +74,8 @@ export function createApp(options: AppOptions = {}) {
         streakDays: buddyState.streakDays,
         tasksToday: ctx.tasksToday,
         recentScore: ctx.recentScore,
+        latestPlanAdjustment: ctx.latestPlanAdjustment,
+        topWeakNode: ctx.weakNodeNames[0] ?? null,
       });
     } catch (err) {
       res.status(500).json({ error: String(err) });
@@ -407,7 +419,18 @@ export function createApp(options: AppOptions = {}) {
         planPath: path.join(Paths.plan, 'plan_master.json'),
         eventLogFile: Paths.eventLog,
       });
-      res.json(result);
+      res.json({
+        ...result,
+        score: result.result.totalScore,
+        total: result.result.details.length,
+        correct: result.result.details.filter((d) => d.isCorrect).length,
+        results: result.result.details.map((d) => ({
+          questionId: d.question.id,
+          correct: d.isCorrect,
+          score: d.score,
+          errorType: result.mistakes.find((m) => m.questionId === d.question.id)?.errorType,
+        })),
+      });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       const status = message.includes('already been graded') ? 409 : 500;
@@ -464,13 +487,117 @@ export function createApp(options: AppOptions = {}) {
     }
   });
 
+  // ── Session History ────────────────────────────────────────────
+  app.get('/api/sessions', async (_req, res) => {
+    try {
+      const history = await loadSessionHistory(options.workspaceRoot);
+      res.json({
+        sessions: history.slice().reverse(),
+        trend: buildTrend(history),
+        totals: buildTotals(history),
+      });
+    } catch (err) {
+      res.status(500).json({ error: String(err) });
+    }
+  });
+
+  // ── Study Studio ───────────────────────────────────────────────
+  app.get('/api/studio', async (_req, res) => {
+    try {
+      const aggregate = await buildAggregate({
+        today: todayProvider(),
+        taskEventLog,
+        workspaceRoot: options.workspaceRoot,
+      });
+      res.json(aggregate);
+    } catch (err) {
+      res.status(500).json({ error: String(err) });
+    }
+  });
+
+  app.post('/api/studio/start', async (req, res) => {
+    try {
+      const { taskId } = req.body ?? {};
+      const aggregate = await startSession({
+        today: todayProvider(),
+        taskEventLog,
+        workspaceRoot: options.workspaceRoot,
+        taskId,
+      });
+      res.json(aggregate);
+    } catch (err) {
+      res.status(400).json({ error: err instanceof Error ? err.message : String(err) });
+    }
+  });
+
+  app.post('/api/studio/advance', async (req, res) => {
+    try {
+      const { fromStage, grade, masteryChanges } = req.body ?? {};
+      const aggregate = await advanceSession({
+        today: todayProvider(),
+        taskEventLog,
+        workspaceRoot: options.workspaceRoot,
+        fromStage,
+        grade,
+        masteryChanges,
+      });
+      res.json(aggregate);
+    } catch (err) {
+      res.status(400).json({ error: err instanceof Error ? err.message : String(err) });
+    }
+  });
+
+  app.post('/api/studio/complete', async (_req, res) => {
+    try {
+      const aggregate = await completeSession({
+        today: todayProvider(),
+        taskEventLog,
+        workspaceRoot: options.workspaceRoot,
+      });
+      // 完成学习 → 更新连续学习与关系（updateStreak 同天 no-op，幂等）
+      const buddyState = await loadBuddyState();
+      let updated = updateStreak(buddyState, todayProvider());
+      updated = increaseRelationship(updated, 2);
+      await saveBuddyState(updated, options.workspaceRoot);
+      const activity = deriveCompanionActivity(
+        updated.preferences.companionMode ?? 'companion',
+        updated.streakDays
+      );
+      const milestoneHit = STREAK_MILESTONES.includes(updated.streakDays);
+      res.json({ ...aggregate, buddy: { streakDays: updated.streakDays, activity, milestoneHit } });
+    } catch (err) {
+      res.status(400).json({ error: err instanceof Error ? err.message : String(err) });
+    }
+  });
+
+  app.post('/api/studio/explain', async (req, res) => {
+    try {
+      const { conceptId, chunkIds } = req.body ?? {};
+      if (!conceptId) return res.status(400).json({ error: 'conceptId is required' });
+      const result = await explainConcept({
+        conceptId,
+        chunkIds: Array.isArray(chunkIds) ? chunkIds : undefined,
+        llm: createLLM(),
+        workspaceRoot: options.workspaceRoot,
+      });
+      res.json(result);
+    } catch (err) {
+      res.status(500).json({ error: String(err) });
+    }
+  });
+
   // ── Buddy ───────────────────────────────────────────────────────────
   app.get('/api/buddy/state', async (_req, res) => {
     try {
       const state = await loadBuddyState();
       const character = await loadCharacter(state.characterId).catch(() => getSelectedCharacter());
       const history = await loadChatHistory();
-      res.json({ state, character, recentHistory: history.slice(-20) });
+      res.json({
+      state,
+      character,
+      recentHistory: history.slice(-20),
+      activity: deriveCompanionActivity(state.preferences.companionMode ?? 'companion', state.streakDays),
+    });
     } catch (err) {
       res.status(500).json({ error: String(err) });
     }
@@ -551,11 +678,12 @@ export function createApp(options: AppOptions = {}) {
 
   app.post('/api/buddy/preferences', async (req, res) => {
     try {
-      const { reminderIntensity, emotionalStyle, formOfAddress } = req.body;
+      const { reminderIntensity, emotionalStyle, formOfAddress, companionMode } = req.body;
       const state = await loadBuddyState();
       if (reminderIntensity) state.preferences.reminderIntensity = reminderIntensity;
       if (emotionalStyle) state.preferences.emotionalStyle = emotionalStyle;
       if (formOfAddress !== undefined) state.preferences.formOfAddress = formOfAddress;
+      if (companionMode) state.preferences.companionMode = companionMode;
       await saveBuddyState(state);
       res.json({ ok: true, preferences: state.preferences });
     } catch (err) {

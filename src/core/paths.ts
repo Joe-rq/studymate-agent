@@ -16,6 +16,8 @@ export const Paths = {
   mistakes: path.join(WORKSPACE_ROOT, 'mistakes'),
   progress: path.join(WORKSPACE_ROOT, 'progress'),
   eventLog: path.join(WORKSPACE_ROOT, 'event_log', 'events.jsonl'),
+  /** 学习会话状态。文件，非目录。 */
+  studySession: path.join(WORKSPACE_ROOT, 'progress', 'study_session.json'),
   prompts: path.join(WORKSPACE_ROOT, 'prompts'),
   /** 用户级配置（当前选中的备考搭子等）。文件，非目录。 */
   config: path.join(WORKSPACE_ROOT, 'config.json'),
