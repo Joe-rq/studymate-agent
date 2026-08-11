@@ -58,7 +58,7 @@ export default function GradeSummary({ result, quiz, answers }: Props) {
               </span>
             </div>
             <p className="row-detail" style={{ marginBottom: 4 }}>
-              你的答案：{userSelected.map((s) => String.fromCharCode(65 + s)).join(', ')} | 正确答案：{q.answer.map((a) => String.fromCharCode(65 + a)).join(', ')}
+              你的答案：{userSelected.map((s) => String.fromCharCode(65 + s)).join(', ')} | 正确答案：{(Array.isArray(q.answer) ? q.answer : [q.answer]).map((a) => String.fromCharCode(65 + a)).join(', ')}
             </p>
             {r?.errorType && (
               <p className="row-detail warning-text">
