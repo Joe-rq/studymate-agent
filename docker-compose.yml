@@ -1,0 +1,16 @@
+services:
+  studymate:
+    build: .
+    image: studymate-agent:latest
+    ports:
+      - "3456:3456"
+    volumes:
+      # workspace 持久化（你的考试项目、资料、学习记录都在这里）
+      - ./workspace:/app/workspace
+    environment:
+      # 可选：配置后走真实 LLM；不配置则 Mock 模式
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - OPENAI_BASE_URL=${OPENAI_BASE_URL:-https://api.openai.com/v1}
+      - LLM_MODEL=${LLM_MODEL:-gpt-4o-mini}
+      - SERP_API_KEY=${SERP_API_KEY:-}
+    restart: unless-stopped
