@@ -62,18 +62,18 @@ const BUDDY_LINES: Record<string, Record<Moment, Partial<Record<ScoreBand, strin
   },
   tuanzi: {
     today: {
-      neutral: '主人今天也要加油哦，团子给你呼噜呼噜～',
+      neutral: '主人今天也要加油哦，芽团给你呼噜呼噜～',
     },
     quiz: {
-      neutral: '团子相信主人！做题的时候团子会在旁边陪着的！',
+      neutral: '芽团相信主人！做题的时候芽团会在旁边陪着的！',
     },
     grade: {
-      high: '主人最厉害了！团子崇拜！团子要转圈圈！',
-      mid: '主人做得不错呀，团子蹭蹭你，继续加油嘛！',
-      low: '主人别难过，团子给你抱抱。歇一会儿，团子陪你。',
+      high: '主人最厉害了！芽团崇拜！芽团要转圈圈！',
+      mid: '主人做得不错呀，芽团蹭蹭你，继续加油嘛！',
+      low: '主人别难过，芽团给你抱抱。歇一会儿，芽团陪你。',
     },
     chat: {
-      neutral: '主人跟团子说话啦，团子好开心呀～',
+      neutral: '主人跟芽团说话啦，芽团好开心呀～',
     },
   },
 };
@@ -99,13 +99,13 @@ function detectScoreBand(user: string, moment: Moment): ScoreBand {
 
 /** 从 user 消息里识别角色名。 */
 function detectCharacter(user: string): string {
-  for (const name of ['陆星野', '沈夜', '苏念', '团子']) {
+  for (const name of ['晴川', '凛川', '柚宁', '芽团']) {
     if (user.includes(`名字：${name}`)) {
       const idMap: Record<string, string> = {
-        陆星野: 'lu_xingye',
-        沈夜: 'shen_ye',
-        苏念: 'su_nian',
-        团子: 'tuanzi',
+        晴川: 'lu_xingye',
+        凛川: 'shen_ye',
+        柚宁: 'su_nian',
+        芽团: 'tuanzi',
       };
       return idMap[name];
     }

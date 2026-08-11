@@ -36,17 +36,17 @@ function makeUserMessage(opts: {
 describe('mock buddy: situational lines by character × moment × score', () => {
   const mock = createMockLLMClient();
 
-  it('grade 场景：高分与低分返回不同台词（沈夜）', async () => {
+  it('grade 场景：高分与低分返回不同台词（凛川）', async () => {
     const high = await mock.completeJSON<{ reply: string }>(
       BUDDY_SYSTEM,
-      makeUserMessage({ name: '沈夜', moment: 'grade', score: 95 })
+      makeUserMessage({ name: '凛川', moment: 'grade', score: 95 })
     );
     const low = await mock.completeJSON<{ reply: string }>(
       BUDDY_SYSTEM,
-      makeUserMessage({ name: '沈夜', moment: 'grade', score: 20 })
+      makeUserMessage({ name: '凛川', moment: 'grade', score: 20 })
     );
     expect(high.reply).not.toBe(low.reply);
-    // 高分应有肯定意味（沈夜的傲娇式认可）
+    // 高分应有肯定意味（凛川的傲娇式认可）
     expect(high.reply).toContain('没我想的那么笨');
     // 低分应有严厉但关心的意味
     expect(low.reply).toContain('笨蛋');
@@ -55,11 +55,11 @@ describe('mock buddy: situational lines by character × moment × score', () => 
   it('同一角色同一分数档返回稳定台词（确定性）', async () => {
     const a = await mock.completeJSON<{ reply: string }>(
       BUDDY_SYSTEM,
-      makeUserMessage({ name: '陆星野', moment: 'grade', score: 90 })
+      makeUserMessage({ name: '晴川', moment: 'grade', score: 90 })
     );
     const b = await mock.completeJSON<{ reply: string }>(
       BUDDY_SYSTEM,
-      makeUserMessage({ name: '陆星野', moment: 'grade', score: 85 })
+      makeUserMessage({ name: '晴川', moment: 'grade', score: 85 })
     );
     // 90 和 85 都属于 high 档（≥80），应返回同一句
     expect(a.reply).toBe(b.reply);
@@ -68,11 +68,11 @@ describe('mock buddy: situational lines by character × moment × score', () => 
   it('中等分数（60-79）走 mid 档', async () => {
     const mid = await mock.completeJSON<{ reply: string }>(
       BUDDY_SYSTEM,
-      makeUserMessage({ name: '苏念', moment: 'grade', score: 65 })
+      makeUserMessage({ name: '柚宁', moment: 'grade', score: 65 })
     );
     const high = await mock.completeJSON<{ reply: string }>(
       BUDDY_SYSTEM,
-      makeUserMessage({ name: '苏念', moment: 'grade', score: 95 })
+      makeUserMessage({ name: '柚宁', moment: 'grade', score: 95 })
     );
     expect(mid.reply).not.toBe(high.reply);
   });
@@ -80,11 +80,11 @@ describe('mock buddy: situational lines by character × moment × score', () => 
   it('today 和 quiz 场景不受分数影响', async () => {
     const today = await mock.completeJSON<{ reply: string }>(
       BUDDY_SYSTEM,
-      makeUserMessage({ name: '团子', moment: 'today' })
+      makeUserMessage({ name: '芽团', moment: 'today' })
     );
     const quiz = await mock.completeJSON<{ reply: string }>(
       BUDDY_SYSTEM,
-      makeUserMessage({ name: '团子', moment: 'quiz' })
+      makeUserMessage({ name: '芽团', moment: 'quiz' })
     );
     // 非 grade 场景不应包含分数相关措辞，且回复非空
     expect(today.reply).toBeTruthy();
@@ -95,15 +95,15 @@ describe('mock buddy: situational lines by character × moment × score', () => 
   it('不同角色对同一情境返回不同语气', async () => {
     const shen = await mock.completeJSON<{ reply: string }>(
       BUDDY_SYSTEM,
-      makeUserMessage({ name: '沈夜', moment: 'grade', score: 90 })
+      makeUserMessage({ name: '凛川', moment: 'grade', score: 90 })
     );
     const tuanzi = await mock.completeJSON<{ reply: string }>(
       BUDDY_SYSTEM,
-      makeUserMessage({ name: '团子', moment: 'grade', score: 90 })
+      makeUserMessage({ name: '芽团', moment: 'grade', score: 90 })
     );
     expect(shen.reply).not.toBe(tuanzi.reply);
-    // 沈夜毒舌、团子萌系，措辞风格应明显不同
+    // 凛川毒舌、芽团萌系，措辞风格应明显不同
     expect(shen.reply.length).toBeGreaterThan(0);
-    expect(tuanzi.reply).toContain('团子');
+    expect(tuanzi.reply).toContain('芽团');
   });
 });

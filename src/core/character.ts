@@ -9,7 +9,7 @@ export const CHARACTERS_SOURCE = path.join(process.cwd(), 'src', 'characters');
 export interface Character {
   /** 角色唯一标识，如 'lu_xingye'。 */
   id: string;
-  /** 显示名，如 '陆星野'。 */
+  /** 显示名，如 '晴川'。 */
   name: string;
   gender: 'male' | 'female' | 'mascot';
   /** 头像，emoji 或简短文字描述。 */

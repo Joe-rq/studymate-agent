@@ -13,7 +13,7 @@ const TEST_HISTORY = path.join(TEST_DIR, 'buddy', 'chat_history.jsonl');
 
 const mockCharacter: Character = {
   id: 'shen_ye',
-  name: '沈夜',
+  name: '凛川',
   gender: 'male',
   avatar: '🌙',
   tagline: '高冷学霸',
@@ -86,7 +86,7 @@ describe('buddyChat', () => {
     const llm = makeMockLLM('ok', (sys, user) => (capturedUser = user));
     await buddyChat('你好', mockCharacter, mockContext, llm, TEST_LOG, TEST_HISTORY);
 
-    expect(capturedUser).toContain('沈夜');
+    expect(capturedUser).toContain('凛川');
     expect(capturedUser).toContain('毒舌但用心');
     expect(capturedUser).toContain('连续答错后加强复习');
     expect(capturedUser).toContain('需求曲线');
