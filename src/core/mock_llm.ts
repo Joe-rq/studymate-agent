@@ -186,6 +186,16 @@ export function createMockLLMClient(): LLMClient {
         });
       }
 
+      // 概念讲解分支：给 /studio 的按需 AI 解释提供离线模板
+      if (system.includes('概念讲解')) {
+        const name = user.match(/## (.+?) \[/)?.[1] ?? '该概念';
+        const chunkMatches = [...user.matchAll(/\[(chk_[^\]]+)\]/g)].map((m) => m[1]);
+        return JSON.stringify({
+          explanation: `这是关于「${name}」的讲解：建议先抓住定义要点，再结合你刚才阅读的原文片段（${chunkMatches.length} 段）理解，考试常见题型围绕定义与例子展开。`,
+          refChunkIds: chunkMatches.slice(0, 3),
+        });
+      }
+
       // 备考搭子分支：根据角色 × 时刻 × 分数返回符合人设的情境台词
       if (system.includes('study companion') || system.includes('备考搭子')) {
         return JSON.stringify({ reply: pickBuddyLine(user) });

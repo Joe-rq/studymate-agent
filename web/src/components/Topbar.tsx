@@ -4,6 +4,7 @@ import ThemeToggle from './ThemeToggle';
 const TITLES: Record<string, string> = {
   '/': '备考面板',
   '/tasks': '今日任务',
+  '/studio': '学习闭环',
   '/quiz': '测验',
   '/plan': '学习计划',
   '/chat': '和搭子聊天',

@@ -79,6 +79,10 @@ export interface GradeResult {
   }>;
   mistakes?: unknown[];
   weaknessExplanations?: Record<string, string>;
+  correlationId?: string;
+  masteryChanges?: MasteryChange[];
+  adjustments?: unknown[];
+  latestInsight?: string;
 }
 
 export interface BuddyStateResponse {
@@ -233,3 +237,81 @@ export const onboarding = {
   approvePlan: () =>
     api.post<{ ok: true; exam: ExamProject }>('/plan/approve'),
 };
+
+// ── Study Studio types ─────────────────────────────────────────
+
+export interface MasteryChange {
+  nodeId: string;
+  nodeName?: string;
+  oldMastery: number;
+  newMastery: number;
+}
+
+export interface StudioTaskRef {
+  id: string;
+  type: 'learn' | 'review' | 'quiz';
+  nodeId: string;
+  nodeName: string;
+  duration: number;
+}
+
+export type StudioStage = 'focus' | 'recall' | 'quiz' | 'feedback' | 'reflect' | 'completed';
+
+export interface StudioFocusChunk {
+  id: string;
+  title: string;
+  content: string;
+  chapterPath: string;
+}
+
+export interface StudioFocus {
+  concept: {
+    id: string;
+    name: string;
+    definition: string;
+    mastery: number;
+    unverified?: boolean;
+  } | null;
+  chunks: StudioFocusChunk[];
+}
+
+export interface StudioSession {
+  id: string;
+  date: string;
+  status: 'active' | 'completed';
+  stage: StudioStage;
+  startedAt: string;
+  updatedAt: string;
+  endedAt?: string;
+}
+
+export interface StudioReflect {
+  summary: {
+    durationSeconds: number;
+    knowledgePoints: number;
+    answeredQuestions: number;
+    correct: number;
+    accuracy: number;
+    score: number;
+    masteryDeltaSum: number;
+    masteryChanges: MasteryChange[];
+  };
+  nextFirstTask: StudioTaskRef | null;
+}
+
+export interface StudioResponse {
+  session: StudioSession | null;
+  candidates: StudioTaskRef[];
+  quizOnly: boolean;
+  currentTask: StudioTaskRef | null;
+  focus: StudioFocus | null;
+  nextStage: StudioStage | null;
+  reflect: StudioReflect | null;
+  message: string;
+}
+
+export interface ExplainResult {
+  explanation: string | null;
+  refChunkIds: string[];
+  degraded: boolean;
+}

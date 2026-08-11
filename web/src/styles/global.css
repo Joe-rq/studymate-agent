@@ -1518,3 +1518,42 @@ body {
     flex-wrap: wrap;
   }
 }
+
+/* ── Study Studio ───────────────────────────────────────────────── */
+.chunk-content {
+  white-space: pre-wrap;
+  font-family: inherit;
+  font-size: 0.9rem;
+  line-height: 1.8;
+  margin: 0;
+  color: var(--text);
+}
+
+.stats-grid-2 {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+
+.stats-grid-2 div {
+  background: var(--surface-2);
+  border-radius: 15px;
+  padding: 16px 10px;
+  text-align: center;
+}
+
+.stats-grid-2 b {
+  display: block;
+  font-size: 1.3rem;
+}
+
+.stats-grid-2 span {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+@media (max-width: 640px) {
+  .stats-grid-2 {
+    grid-template-columns: 1fr 1fr;
+  }
+}

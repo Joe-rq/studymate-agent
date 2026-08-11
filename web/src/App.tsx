@@ -8,6 +8,7 @@ import PlanView from './pages/PlanView';
 import BuddyChat from './pages/BuddyChat';
 import Settings from './pages/Settings';
 import Onboarding from './pages/Onboarding';
+import StudioPage from './pages/StudioPage';
 import PetLayer from './components/PetLayer';
 import Topbar from './components/Topbar';
 import { ToastHost } from './components/Toast';
@@ -15,6 +16,7 @@ import { ToastHost } from './components/Toast';
 const navItems = [
   { to: '/', label: '首页' },
   { to: '/tasks', label: '今日任务' },
+  { to: '/studio', label: '学习' },
   { to: '/quiz', label: '测验' },
   { to: '/plan', label: '计划' },
   { to: '/chat', label: '搭子' },
@@ -62,6 +64,7 @@ export default function App() {
             <Route path="/" element={<Dashboard />} />
             <Route path="/onboarding" element={<Onboarding />} />
             <Route path="/tasks" element={<TodayTasks />} />
+            <Route path="/studio" element={<StudioPage />} />
             <Route path="/quiz" element={<QuizPage />} />
             <Route path="/grade" element={<GradeReport />} />
             <Route path="/plan" element={<PlanView />} />

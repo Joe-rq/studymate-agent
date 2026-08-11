@@ -119,14 +119,14 @@ export default function Dashboard() {
   const totalMinutes = today?.tasks.reduce((s, t) => s + t.duration, 0) ?? 0;
 
   // 主 CTA：有 learn/review 任务 → 去今日任务；只剩测验或全完成 → 去测验；无任务 → 去计划
-  let ctaTo = '/tasks';
+  let ctaTo = '/studio';
   let ctaLabel = '继续学习';
   if (focus && !focus.learnReview) {
     if (allDone) {
-      ctaTo = '/quiz';
+      ctaTo = '/studio';
       ctaLabel = '开始测验巩固';
     } else if (focus.quizOnly) {
-      ctaTo = '/quiz';
+      ctaTo = '/studio';
       ctaLabel = '开始测验';
     } else {
       ctaTo = '/plan';

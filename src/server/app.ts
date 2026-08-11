@@ -28,6 +28,14 @@ import type { SourceRecord } from '../domain/source.js';
 import { addDaysToDateKey, todayDateKey } from '../core/date.js';
 import { approvePlan } from '../application/workflows/approve_plan.js';
 
+import {
+  buildAggregate,
+  startSession,
+  advanceSession,
+  completeSession,
+  explainConcept,
+} from '../application/workflows/study_session.js';
+
 function createLLM() {
   if (process.env.OPENAI_API_KEY) {
     return createLLMClient();
@@ -459,6 +467,81 @@ export function createApp(options: AppOptions = {}) {
       if (!dateMatch) return res.status(400).json({ error: 'Invalid task ID format' });
       await completeTask(dateMatch[1], taskId, 'skipped', taskEventLog, options.workspaceRoot);
       res.json({ ok: true, taskId, status: 'skipped' });
+    } catch (err) {
+      res.status(500).json({ error: String(err) });
+    }
+  });
+
+  // ── Study Studio ───────────────────────────────────────────────
+  app.get('/api/studio', async (_req, res) => {
+    try {
+      const aggregate = await buildAggregate({
+        today: todayProvider(),
+        taskEventLog,
+        workspaceRoot: options.workspaceRoot,
+      });
+      res.json(aggregate);
+    } catch (err) {
+      res.status(500).json({ error: String(err) });
+    }
+  });
+
+  app.post('/api/studio/start', async (req, res) => {
+    try {
+      const { taskId } = req.body ?? {};
+      const aggregate = await startSession({
+        today: todayProvider(),
+        taskEventLog,
+        workspaceRoot: options.workspaceRoot,
+        taskId,
+      });
+      res.json(aggregate);
+    } catch (err) {
+      res.status(400).json({ error: err instanceof Error ? err.message : String(err) });
+    }
+  });
+
+  app.post('/api/studio/advance', async (req, res) => {
+    try {
+      const { fromStage, grade, masteryChanges } = req.body ?? {};
+      const aggregate = await advanceSession({
+        today: todayProvider(),
+        taskEventLog,
+        workspaceRoot: options.workspaceRoot,
+        fromStage,
+        grade,
+        masteryChanges,
+      });
+      res.json(aggregate);
+    } catch (err) {
+      res.status(400).json({ error: err instanceof Error ? err.message : String(err) });
+    }
+  });
+
+  app.post('/api/studio/complete', async (_req, res) => {
+    try {
+      const aggregate = await completeSession({
+        today: todayProvider(),
+        taskEventLog,
+        workspaceRoot: options.workspaceRoot,
+      });
+      res.json(aggregate);
+    } catch (err) {
+      res.status(400).json({ error: err instanceof Error ? err.message : String(err) });
+    }
+  });
+
+  app.post('/api/studio/explain', async (req, res) => {
+    try {
+      const { conceptId, chunkIds } = req.body ?? {};
+      if (!conceptId) return res.status(400).json({ error: 'conceptId is required' });
+      const result = await explainConcept({
+        conceptId,
+        chunkIds: Array.isArray(chunkIds) ? chunkIds : undefined,
+        llm: createLLM(),
+        workspaceRoot: options.workspaceRoot,
+      });
+      res.json(result);
     } catch (err) {
       res.status(500).json({ error: String(err) });
     }
