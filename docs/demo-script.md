@@ -1,5 +1,13 @@
 # Demo 脚本（逐字稿）
 
+> **📌 当前推荐**：Web UI 版 demo 视频（带中文配音）已生成在
+> [`screenshots/demo_v2/studymate_demo.mp4`](../screenshots/demo_v2/studymate_demo.mp4)（78 秒，9 个分镜覆盖全部页面）。
+> 配音文案见 [`screenshots/demo_v2/voice/script.txt`](../screenshots/demo_v2/voice/script.txt)。
+>
+> 本文档保留下方**旧版 CLI 逐字稿**，供现场命令行演示或对照参考。
+
+---
+
 ## 开场
 
 "大家好，今天我要展示的是 StudyMate Agent，一个本地文件驱动的个人备考 Agent。它的核心问题是：考证党、考研党手里有大量自己的 PDF 教材和笔记，但传统 App 只能用固定题库。我们想让 Agent 自动接管你自己的资料，生成计划、出题、批改、回流错题。"

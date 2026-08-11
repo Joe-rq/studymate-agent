@@ -47,14 +47,15 @@ coverage/
 .nyc_output/
 
 # Local-only design reference assets (not project deliverables)
-/UI-light.png
-/UI-dark.png
-/image1.png
-/image2.png
-/image3.png
-/image4.png
+# Legacy old-version UI screenshots (moved from root to screenshots/legacy/)
+/screenshots/legacy/
 /web/preview/
 
 # Local-only docs drafts
 /docs/CHATGPT_PROMPTS.md
 /docs/PROJECT_OVERVIEW.md
+
+# Demo video intermediate build artifacts (regenerable via scripts)
+/screenshots/demo_v2/merged_v2.mp4
+/screenshots/demo_v2/studymate_demo_full.mp4
+/screenshots/demo_v2/seg/

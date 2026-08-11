@@ -142,6 +142,8 @@ flowchart TB
 - **Ambient 主题**：4 角色 × 深浅双主题的整页空间氛围
 - **CLI + Web 双界面**、**全链路事件审计**（`workspace/event_log/events.jsonl`）、**本地优先 + 离线可用**
 
+> 🎬 **Demo 视频**：[`screenshots/demo_v2/studymate_demo.mp4`](screenshots/demo_v2/studymate_demo.mp4)（78 秒，覆盖全部页面 + 晓伊女声中文旁白）。界面截图见 [`screenshots/`](screenshots/)。
+
 ## 当前限制
 
 - **单用户 / 单考试项目**：workspace 同时支持一个活跃考试项目
@@ -174,6 +176,8 @@ npm run web        # 前端开发服务器 5173（Vite proxy /api → 3456）
 
 ## 文档
 
+- [`screenshots/`](screenshots/) — 界面截图（9 页 × 深浅主题）+ 项目工程体检
+- [`screenshots/demo_v2/`](screenshots/demo_v2/) — Demo 视频成片 + 配音文案 + 复现脚本
 - [`docs/PRODUCT_INTRO.md`](docs/PRODUCT_INTRO.md) — 产品介绍（当前阶段）
 - [`docs/PRD_v1.0.md`](docs/PRD_v1.0.md) — 原始 PRD
 - [`docs/plans/`](docs/plans/) — 分阶段实施计划（P0a/P0b/P1/P2 已完成）
