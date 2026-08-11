@@ -8,7 +8,7 @@ import PlanView from './pages/PlanView';
 import BuddyChat from './pages/BuddyChat';
 import Settings from './pages/Settings';
 import Onboarding from './pages/Onboarding';
-import BuddyPanel from './components/BuddyPanel';
+import PetLayer from './components/PetLayer';
 import Topbar from './components/Topbar';
 import { ToastHost } from './components/Toast';
 
@@ -71,9 +71,7 @@ export default function App() {
         </main>
       </div>
 
-      <aside className="buddy-sidebar">
-        <BuddyPanel />
-      </aside>
+      <PetLayer />
 
       <ToastHost />
     </div>

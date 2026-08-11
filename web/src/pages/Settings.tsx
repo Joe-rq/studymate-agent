@@ -12,7 +12,12 @@ interface CharactersResponse {
 export default function Settings() {
   const [characters, setCharacters] = useState<CharacterInfo[]>([]);
   const [selectedId, setSelectedId] = useState('');
-  const [prefs, setPrefs] = useState({ reminderIntensity: 'normal', emotionalStyle: 'warm', formOfAddress: '' });
+  const [prefs, setPrefs] = useState({
+    reminderIntensity: 'normal',
+    emotionalStyle: 'warm',
+    formOfAddress: '',
+    companionMode: 'companion' as 'companion' | 'quiet' | 'off',
+  });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -27,6 +32,7 @@ export default function Settings() {
         reminderIntensity: stateRes.state.preferences.reminderIntensity,
         emotionalStyle: stateRes.state.preferences.emotionalStyle,
         formOfAddress: stateRes.state.preferences.formOfAddress ?? '',
+        companionMode: stateRes.state.preferences.companionMode ?? 'companion',
       });
       setLoading(false);
     }).catch(() => setLoading(false));
@@ -109,6 +115,19 @@ export default function Settings() {
             onChange={(e) => setPrefs((p) => ({ ...p, formOfAddress: e.target.value }))}
             placeholder="留空使用角色默认称呼"
           />
+        </div>
+        <div className="form-group">
+          <label>桌宠模式</label>
+          <select
+            value={prefs.companionMode}
+            onChange={(e) =>
+              setPrefs((p) => ({ ...p, companionMode: e.target.value as 'companion' | 'quiet' | 'off' }))
+            }
+          >
+            <option value="companion">陪伴（默认）</option>
+            <option value="quiet">安静（不打扰）</option>
+            <option value="off">关闭</option>
+          </select>
         </div>
         <button className="btn btn-primary" onClick={handleSavePrefs} disabled={saving}>
           {saving ? '保存中...' : '保存偏好'}

@@ -551,11 +551,12 @@ export function createApp(options: AppOptions = {}) {
 
   app.post('/api/buddy/preferences', async (req, res) => {
     try {
-      const { reminderIntensity, emotionalStyle, formOfAddress } = req.body;
+      const { reminderIntensity, emotionalStyle, formOfAddress, companionMode } = req.body;
       const state = await loadBuddyState();
       if (reminderIntensity) state.preferences.reminderIntensity = reminderIntensity;
       if (emotionalStyle) state.preferences.emotionalStyle = emotionalStyle;
       if (formOfAddress !== undefined) state.preferences.formOfAddress = formOfAddress;
+      if (companionMode) state.preferences.companionMode = companionMode;
       await saveBuddyState(state);
       res.json({ ok: true, preferences: state.preferences });
     } catch (err) {

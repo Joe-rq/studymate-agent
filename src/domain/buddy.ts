@@ -26,6 +26,8 @@ export interface BuddyPreferences {
   emotionalStyle: 'warm' | 'neutral' | 'playful';
   /** Override character's default form of address. */
   formOfAddress?: string;
+  /** 桌宠呈现模式：陪伴（默认）/ 安静 / 关闭。 */
+  companionMode?: 'companion' | 'quiet' | 'off';
 }
 
 export interface BuddyState {
@@ -51,6 +53,7 @@ export function createDefaultBuddyState(characterId: string): BuddyState {
     preferences: {
       reminderIntensity: 'normal',
       emotionalStyle: 'warm',
+      companionMode: 'companion',
     },
     memories: [],
     commitments: [],

@@ -1,15 +1,24 @@
+import { beginRequest, endRequest } from './lib/requestState';
+
 const BASE = '/api';
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, {
-    headers: { 'Content-Type': 'application/json' },
-    ...options,
-  });
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({ error: res.statusText }));
-    throw new Error(body.error ?? `HTTP ${res.status}`);
+  beginRequest();
+  try {
+    const res = await fetch(`${BASE}${path}`, {
+      headers: { 'Content-Type': 'application/json' },
+      ...options,
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({ error: res.statusText }));
+      throw new Error(body.error ?? `HTTP ${res.status}`);
+    }
+    endRequest(true);
+    return res.json();
+  } catch (err) {
+    endRequest(false);
+    throw err;
   }
-  return res.json();
 }
 
 export const api = {
@@ -80,6 +89,7 @@ export interface BuddyStateResponse {
       reminderIntensity: string;
       emotionalStyle: string;
       formOfAddress?: string;
+      companionMode?: 'companion' | 'quiet' | 'off';
     };
     memories: Array<{ id: string; date: string; type: string; content: string }>;
     commitments: Array<{ date: string; text: string; fulfilled?: boolean }>;

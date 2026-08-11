@@ -12,7 +12,8 @@ export type Mood =
   | 'celebrating'
   | 'encouraging'
   | 'thinking'
-  | 'waiting';
+  | 'waiting'
+  | 'concern';
 
 /** Map a backend character id to its sprite sheet filename. */
 const SPRITE_BY_CHARACTER: Record<string, string> = {
@@ -36,6 +37,8 @@ const FRAME_BY_MOOD: Record<Exclude<Mood, 'idle'>, number> = {
   encouraging: 6,
   celebrating: 5,
   waiting: 7,
+  // concern 无专属帧，复用「垂落/休息」帧表达低落
+  concern: 7,
 };
 
 const FRAMES = 8;
@@ -89,7 +92,7 @@ export default function Mascot({
 }
 
 /**
- * Derive a mood from observable buddy signals. Used by BuddyPanel / BuddyChat
+ * Derive a mood from observable buddy signals. Used by PetLayer / BuddyChat
  * so they don't have to know the frame mapping.
  */
 export function deriveMood(opts: {

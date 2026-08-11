@@ -29,6 +29,7 @@ export async function loadBuddyState(workspaceRoot?: string): Promise<BuddyState
     const raw = JSON.parse(await fs.readFile(filePath, 'utf-8'));
     // Ensure required fields exist (forward compat)
     if (!raw.preferences) raw.preferences = { reminderIntensity: 'normal', emotionalStyle: 'warm' };
+    if (!raw.preferences.companionMode) raw.preferences.companionMode = 'companion';
     if (!raw.memories) raw.memories = [];
     if (!raw.commitments) raw.commitments = [];
     if (raw.streakDays === undefined) raw.streakDays = 0;

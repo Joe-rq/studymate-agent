@@ -13,6 +13,7 @@ export default function BuddyChat() {
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
   const [characterName, setCharacterName] = useState('搭子');
+  const [stats, setStats] = useState<{ relationshipLevel: number; streakDays: number; memoryCount: number } | null>(null);
   const [characterId, setCharacterId] = useState<string | undefined>(undefined);
   const [loadError, setLoadError] = useState('');
   const [loaded, setLoaded] = useState(false);
@@ -22,6 +23,11 @@ export default function BuddyChat() {
     api.get<BuddyStateResponse>('/buddy/state').then((data) => {
       setCharacterName(data.character?.name ?? '搭子');
       setCharacterId(data.character?.id);
+      setStats({
+        relationshipLevel: data.state.relationshipLevel,
+        streakDays: data.state.streakDays,
+        memoryCount: data.state.memories.length,
+      });
       const history = data.recentHistory.map((h) => ({
         role: h.role as 'user' | 'assistant',
         content: h.content,
@@ -66,6 +72,14 @@ export default function BuddyChat() {
   return (
     <div className="chat-page">
       <h2 className="page-title">和{characterName}聊天</h2>
+
+      {stats && (
+        <div className="buddy-summary">
+          <span>关系等级 {stats.relationshipLevel}/100</span>
+          <span>连续学习 {stats.streakDays} 天</span>
+          <span>记忆 {stats.memoryCount} 条</span>
+        </div>
+      )}
 
       <div className="chat-messages">
         {messages.length === 0 && !sending && loaded && (
