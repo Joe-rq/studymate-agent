@@ -1,5 +1,8 @@
-import { describe, it, expect } from 'vitest';
-import { adjustPlan } from '../../src/agents/plan_adjuster.js';
+import { describe, it, expect, beforeEach } from 'vitest';
+import fs from 'fs/promises';
+import path from 'path';
+import { adjustPlan, saveAdjustedPlan } from '../../src/agents/plan_adjuster.js';
+import { addDaysToDateKey, todayDateKey } from '../../src/core/date.js';
 import type { StudyPlan, DailyPlan } from '../../src/agents/planner.js';
 import type { ConceptMap } from '../../src/agents/concept_mapper.js';
 
@@ -257,5 +260,82 @@ describe('plan_adjuster', () => {
     const weakInserts = adjustments.filter((a) => a.type === 'insert_review' && a.nodeId === 'very_weak');
     expect(weakInserts).toHaveLength(1);
     expect(weakInserts[0].date).toBe('2026-07-12');
+  });
+});
+
+describe('saveAdjustedPlan 快照重建', () => {
+  const TEST_ROOT = 'workspace_test_plan_adjuster_snapshot';
+  const EVENT_LOG = path.join(TEST_ROOT, 'event_log', 'events.jsonl');
+
+  beforeEach(async () => {
+    await fs.rm(TEST_ROOT, { recursive: true, force: true });
+    await fs.mkdir(path.join(TEST_ROOT, 'plan', 'plan_daily'), { recursive: true });
+    await fs.mkdir(path.join(TEST_ROOT, 'tasks'), { recursive: true });
+    await fs.mkdir(path.join(TEST_ROOT, 'graph'), { recursive: true });
+    await fs.mkdir(path.dirname(EVENT_LOG), { recursive: true });
+  });
+
+  function snapshotConceptMap(): ConceptMap {
+    return {
+      concepts: [
+        { id: 'node_1', name: '供给', definition: '', prerequisiteIds: [], relatedChunks: ['chunk_1'], mastery: 0.2 },
+        { id: 'node_2', name: '需求', definition: '', prerequisiteIds: [], relatedChunks: ['chunk_1'], mastery: 0.5 },
+      ],
+      learningOrder: ['node_1', 'node_2'],
+    };
+  }
+
+  it('调整后重建受影响日期 todo，保留 done/skipped 状态', async () => {
+    const tomorrow = addDaysToDateKey(todayDateKey(), 1);
+
+    await fs.writeFile(
+      path.join(TEST_ROOT, 'graph', 'concepts.json'),
+      JSON.stringify(snapshotConceptMap())
+    );
+
+    // 明天计划：node_2 的 review（触发 extend）；node_1 低掌握度（触发插入 review）
+    const plan: StudyPlan = {
+      id: 'plan_test',
+      examDate: '2026-09-10',
+      dailyMinutes: 60,
+      version: 1,
+      schedule: [
+        { date: tomorrow, tasks: [{ type: 'review', nodeId: 'node_2', duration: 15 }] },
+      ],
+    };
+    await fs.writeFile(path.join(TEST_ROOT, 'plan', 'plan_master.json'), JSON.stringify(plan));
+    await fs.writeFile(
+      path.join(TEST_ROOT, 'plan', 'plan_daily', `${tomorrow}.json`),
+      JSON.stringify(plan.schedule[0])
+    );
+
+    // 已存在的旧 todo 快照
+    const todoPath = path.join(TEST_ROOT, 'tasks', `${tomorrow}_todo.md`);
+    await fs.writeFile(todoPath, '# 旧快照\n');
+
+    // 完成进度：node_2 已完成
+    await fs.writeFile(
+      path.join(TEST_ROOT, 'tasks', `${tomorrow}_progress.json`),
+      JSON.stringify({
+        date: tomorrow,
+        completions: [
+          { taskId: `task_${tomorrow}_0`, status: 'done', completedAt: new Date().toISOString() },
+        ],
+      })
+    );
+
+    const adjusted = adjustPlan(plan, snapshotConceptMap(), { reason: 'post-quiz adaptation' });
+    await saveAdjustedPlan(adjusted.plan, adjusted.record, EVENT_LOG, TEST_ROOT);
+
+    const md = await fs.readFile(todoPath, 'utf-8');
+    // 文件头注明 JSON 为事实源
+    expect(md).toContain('本文件由计划与任务进度生成');
+    // 概念名（nodeName 而非 nodeId）
+    expect(md).toContain('需求');
+    expect(md).toContain('供给');
+    // 已完成状态保留为 [x]，不恢复为 pending
+    expect(md).toContain('- [x]');
+    // 新插入的任务为 pending
+    expect(md).toContain('- [ ]');
   });
 });
