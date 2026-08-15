@@ -225,7 +225,7 @@ describe('Onboarding: 访问控制', () => {
     expect(post.status).toBe(401);
   });
 
-  it('携带正确 Token（Bearer / X-Access-Token / query）可访问', async () => {
+  it('携带正确 Token（Bearer / X-Access-Token）可访问', async () => {
     const byBearer = await fetch(`${baseUrl}/api/exam`, {
       headers: { Authorization: 'Bearer secret-token-123' },
     });
@@ -234,8 +234,11 @@ describe('Onboarding: 访问控制', () => {
       headers: { 'X-Access-Token': 'secret-token-123' },
     });
     expect(byHeader.status).toBe(200);
+  });
+
+  it('URL 查询参数不再作为认证方式（query 返回 401）', async () => {
     const byQuery = await fetch(`${baseUrl}/api/exam?access_token=secret-token-123`);
-    expect(byQuery.status).toBe(200);
+    expect(byQuery.status).toBe(401);
   });
 
   it('错误 Token 401', async () => {
