@@ -31,7 +31,7 @@
 | --- | --- | --- | --- |
 | `SKILL.md` | 必须 | ✅ 已创建 `skills/studymate-exam-prep/SKILL.md`，本地静态校验、项目 build 和离线 onboarding 测试已通过 | 在科学发现平台创建作品并取得分享链接；上传时保持 Skill 目录名与 frontmatter `name` 一致 |
 | 完整项目源码 | 必须 | ⚠️ 本地仓库存在，但工作区有大量未提交修改 | 完成验证、整理提交范围、推送最终 commit，并将可复现源码纳入压缩包 |
-| 功能介绍 PPT | 按更严格口径必备 | ⚠️ 只有 `docs/business_plan_studymate.pptx`，偏商业计划书 | 改成评审导向的功能介绍 PPT；建议 8–10 页 |
+| 功能介绍 PPT | 按更严格口径必备 | ✅ 已生成并逐页检查 `docs/submission/StudyMate-AI4S-功能介绍.pptx` 与 PDF，共 10 页 | 提交最终包内版本，不再使用旧商业计划书 |
 | 运行与依赖说明 | 作品可运行和可复用的必要材料 | ✅ `README.md` 已有安装、Mock 和运行说明 | 最终验证后更新命令、环境变量和已知限制 |
 | 演示视频 | 可选但建议 | ✅ B 站 78 秒视频；本地 MP4 约 4.0 MiB | 将链接写入 README/PPT；可在压缩包放轻量说明文件，不必重复塞大文件 |
 | 截图/可视化 | 可选但建议 | ✅ `screenshots/` 中有 9 个主页面截图及其他素材 | 精选 4–6 张，避免把全部历史截图打包 |
@@ -60,6 +60,26 @@ studymate-agent-submission/
 ```
 
 排除 `.git/`、`node_modules/`、`dist/`、`web/dist/`、coverage、真实 `workspace/`、`.env*`、API Key、个人学习材料和临时预览文件。源码包中不要携带本机绝对路径或个人数据。
+
+### 2.4 SCP 平台创建 Skill 表单速填（discovery.intern-ai.org.cn/scp/create/skills）
+
+| 表单字段 | 规则 | 填写值 |
+| --- | --- | --- |
+| 上传 Skill（必填） | 单个 SKILL.md 或含 SKILL.md 的文件夹 | 上传**整个文件夹** `skills/studymate-exam-prep/`（SKILL.md + agents/openai.yaml，后者是平台 interface 展示元数据，不能丢） |
+| Skill 名称（必填） | 2~30 字符，仅英文/数字/`-`/`_` | `studymate-exam-prep`（19 字符，与目录名、frontmatter `name` 三方一致） |
+| Skill 描述 | ≤500 字符 | 见下方中文描述（254 字符） |
+| GitHub 仓库 | 选填，URL 格式校验 | `https://github.com/qrx-joe/studymate-agent`（与 upstream 已同步，任一均可） |
+| 所属学科（必填） | 下拉单选 | 优先「教育学/社会科学」类；无则「计算机科学/人工智能」；再无则「其他」 |
+| 所属标签 | 最多 5 个 | 备考、教育智能体、间隔重复、知识图谱、个性化学习（若为预设标签，挑最接近的） |
+| Skill 封面 | 选填，需先选学科 | 任选一个书本/学习主题封面（不选则随机，观感不可控） |
+| 版本号（必填） | 首次默认 | `v1.0.0`（不可改，保持默认） |
+| Skill 可见性（必填） | 私有 / 公开 | **必须选「公开」**——通过审核后进入科学工具广场；比赛晋级分 40% 来自广场收藏量，选私有即放弃社区投票 |
+
+平台「Skill 描述」直接粘贴（面向广场用户的中文版，区别于 SKILL.md 内面向 Agent 触发的英文 description）：
+
+> 基于个人备考教材构建本地学习闭环的 AI 备考智能体：导入 PDF/Markdown 资料 → 自动抽取概念与前置依赖 → 生成容量可核验的复习计划（SM-2 间隔重复）→ 每日任务 → 自动出题 → 即时批改 → 错题回流 → 掌握度更新，并据此动态调整后续计划。内置 4 个拟人化备考搭子：跨会话记忆、连续打卡、关键时刻鼓励。面向考证、考研、在职学习的真实备考场景；数据本地优先，无 API Key 可用 Mock 模式完整体验闭环；提供 Web 界面与 CLI 双入口，336 项自动化测试保障可复现。
+
+创建后进入作品详情页 →「分享」生成 HTTP(S) 链接 → 粘贴到比赛提交页「作品链接」字段。
 
 ## 三、报名与团队信息
 
@@ -116,11 +136,11 @@ StudyMate 的讲述重点应是“把个人备考方法论封装为可复用 Ski
 - ✅ 源码仓库已配置 GitHub remote：`qrx-joe/studymate-agent`；是否公开、远端是否包含本地最新修改，本次未验证。
 - ⚠️ 工作区当前有多项未提交代码和测试修改，并有未跟踪的 PPT/PDF/计划文档；不能直接把“本仓库”视为已冻结的最终源码。
 - ✅ 已创建 `skills/studymate-exam-prep/SKILL.md`，包含触发描述、输入输出、Web/CLI 工作流、失败处理、隐私边界和完成标准；配套 `agents/openai.yaml` 已生成。
-- ⚠️ `docs/business_plan_studymate.pptx` 和 PDF 存在，但不是专门的功能介绍稿。
-- ✅ `README.md` 声明无 API Key 时可走 Mock；是否仍能跑通应在最终代码冻结后重新验证。
+- ✅ 已生成专门的 10 页功能介绍稿 `docs/submission/StudyMate-AI4S-功能介绍.pptx` 与 PDF；PPT 结构一致性检查通过，PPT/PDF 均已逐页视觉检查。
+- ✅ `README.md` 声明无 API Key 时可走 Mock；本次已验证 336 项测试、TypeScript build、Web build 和 CLI smoke 全部通过。
 - ✅ README 中有 B 站 Demo 链接，本地视频 `screenshots/demo_v2/studymate_demo.mp4` 存在。
 - ✅ `screenshots/` 有完整 UI 截图。
-- ⚠️ README 写“297+ 用例”，本次只确认有 40 个测试文件，未运行全量测试，因此不能把 297+ 当成本次核验结果。
+- ✅ README 与参赛材料已统一为 42 个测试文件、336 项测试；本次 `npm test` 实际全绿。
 - ⚠️ README 当前是 All Rights Reserved；许可证需单独决策。
 
 ## 八、最终行动清单（按阻塞顺序）
@@ -129,9 +149,9 @@ StudyMate 的讲述重点应是“把个人备考方法论封装为可复用 Ski
 - [ ] 阅读并保存登录后的参赛协议/提交确认文本，重点确认知识产权和开源授权。
 - [x] 创建并验证 `SKILL.md`，描述触发场景、输入输出、运行方式、能力边界和 Mock 路径。
 - [ ] 在科学发现平台创建 Skill，确认实际可运行/可访问，生成分享链接。
-- [ ] 将商业计划书改为 8–10 页功能介绍 PPT：用户与痛点 → 闭环 → Demo → Agent/数据流 → 差异化 → 可复现方式 → 风险与边界。
+- [x] 将商业计划书改为 10 页功能介绍 PPT：用户与痛点 → 闭环 → Demo → Agent/数据流 → 差异化 → 可复现方式 → 风险与边界。
 - [ ] 冻结代码，检查 `git status` 和 diff，排除密钥、个人数据、真实 `workspace/` 与临时文件。
-- [ ] 运行后端测试、TypeScript build、Web build、CLI smoke 和一次 Mock 主流程；记录实际结果。
+- [x] 运行后端测试、TypeScript build、Web build、CLI smoke；结果为 42 个测试文件、336 项测试全绿，两个 build 和 smoke 均通过。
 - [ ] 推送用于评审的最终 commit/tag，并确认远端可访问性。
 - [ ] 生成小于 1 GiB 的 `.zip`，在一台干净环境或临时目录解压复现。
 - [ ] 在比赛页填写 SCP 作品分享链接并上传压缩包；提交后截图保存回执和时间。

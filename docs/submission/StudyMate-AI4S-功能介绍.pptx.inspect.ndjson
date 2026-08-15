@@ -1,0 +1,442 @@
+{"kind":"deck","id":"pr/l85igq","name":"Deck"}
+{"kind":"layout","layoutId":"/ppt/slideMasters/slideMaster1.xml","name":"","type":"master","placeholders":[{"name":"title","type":"title","textPreview":"Click to edit Master title style"},{"name":"body","type":"body","textPreview":"Click to edit Master text styles | Second level | Third level | Fourth level | Fifth level"},{"name":"dateTime","type":"dateTime","textPreview":"1/27/13"},{"name":"footer","type":"footer"},{"name":"slideNumber","type":"slideNumber","textPreview":"‹#›"}]}
+{"kind":"layout","layoutId":"/ppt/slideLayouts/slideLayout1.xml","name":"Title Slide","type":"title","placeholders":[{"name":"title","type":"title","textPreview":"Click to edit Master title style"},{"name":"subtitle","type":"subtitle","textPreview":"Click to edit Master subtitle style"},{"name":"dateTime","type":"dateTime","textPreview":"1/27/13"},{"name":"footer","type":"footer"},{"name":"slideNumber","type":"slideNumber","textPreview":"‹#›"}]}
+{"kind":"layout","layoutId":"/ppt/slideLayouts/slideLayout2.xml","name":"Title and Content","type":"obj","placeholders":[{"name":"title","type":"title","textPreview":"Click to edit Master title style"},{"name":"content placeholder 2","textPreview":"Click to edit Master text styles | Second level | Third level | Fourth level | Fifth level"},{"name":"dateTime","type":"dateTime","textPreview":"1/27/13"},{"name":"footer","type":"footer"},{"name":"slideNumber","type":"slideNumber","textPreview":"‹#›"}]}
+{"kind":"layout","layoutId":"/ppt/slideLayouts/slideLayout3.xml","name":"Section Header","type":"secHead","placeholders":[{"name":"title","type":"title","textPreview":"Click to edit Master title style"},{"name":"body","type":"body","textPreview":"Click to edit Master text styles"},{"name":"dateTime","type":"dateTime","textPreview":"1/27/13"},{"name":"footer","type":"footer"},{"name":"slideNumber","type":"slideNumber","textPreview":"‹#›"}]}
+{"kind":"layout","layoutId":"/ppt/slideLayouts/slideLayout4.xml","name":"Two Content","type":"twoObj","placeholders":[{"name":"title","type":"title","textPreview":"Click to edit Master title style"},{"name":"content placeholder 2","textPreview":"Click to edit Master text styles | Second level | Third level | Fourth level | Fifth level"},{"name":"content placeholder 3","textPreview":"Click to edit Master text styles | Second level | Third level | Fourth level | Fifth level"},{"name":"dateTime","type":"dateTime","textPreview":"1/27/13"},{"name":"footer","type":"footer"},{"name":"slideNumber","type":"slideNumber","textPreview":"‹#›"}]}
+{"kind":"layout","layoutId":"/ppt/slideLayouts/slideLayout5.xml","name":"Comparison","type":"twoTxTwoObj","placeholders":[{"name":"title","type":"title","textPreview":"Click to edit Master title style"},{"name":"body","type":"body","textPreview":"Click to edit Master text styles"},{"name":"content placeholder 3","textPreview":"Click to edit Master text styles | Second level | Third level | Fourth level | Fifth level"},{"name":"body","type":"body","textPreview":"Click to edit Master text styles"},{"name":"content placeholder 5","textPreview":"Click to edit Master text styles | Second level | Third level | Fourth level | Fifth level"},{"name":"dateTime","type":"dateTime","textPreview":"1/27/13"},{"name":"footer","type":"footer"},{"name":"slideNumber","type":"slideNumber","textPreview":"‹#›"}]}
+{"kind":"layout","layoutId":"/ppt/slideLayouts/slideLayout6.xml","name":"Title Only","type":"titleOnly","placeholders":[{"name":"title","type":"title","textPreview":"Click to edit Master title style"},{"name":"dateTime","type":"dateTime","textPreview":"1/27/13"},{"name":"footer","type":"footer"},{"name":"slideNumber","type":"slideNumber","textPreview":"‹#›"}]}
+{"kind":"layout","layoutId":"/ppt/slideLayouts/slideLayout7.xml","name":"Blank","type":"blank","placeholders":[{"name":"dateTime","type":"dateTime","textPreview":"1/27/13"},{"name":"footer","type":"footer"},{"name":"slideNumber","type":"slideNumber","textPreview":"‹#›"}]}
+{"kind":"layout","layoutId":"/ppt/slideLayouts/slideLayout8.xml","name":"Content with Caption","type":"objTx","placeholders":[{"name":"title","type":"title","textPreview":"Click to edit Master title style"},{"name":"content placeholder 2","textPreview":"Click to edit Master text styles | Second level | Third level | Fourth level | Fifth level"},{"name":"body","type":"body","textPreview":"Click to edit Master text styles"},{"name":"dateTime","type":"dateTime","textPreview":"1/27/13"},{"name":"footer","type":"footer"},{"name":"slideNumber","type":"slideNumber","textPreview":"‹#›"}]}
+{"kind":"layout","layoutId":"/ppt/slideLayouts/slideLayout9.xml","name":"Picture with Caption","type":"picTx","placeholders":[{"name":"title","type":"title","textPreview":"Click to edit Master title style"},{"name":"picture","type":"picture"},{"name":"body","type":"body","textPreview":"Click to edit Master text styles"},{"name":"dateTime","type":"dateTime","textPreview":"1/27/13"},{"name":"footer","type":"footer"},{"name":"slideNumber","type":"slideNumber","textPreview":"‹#›"}]}
+{"kind":"layout","layoutId":"/ppt/slideLayouts/slideLayout10.xml","name":"Title and Vertical Text","type":"vertTx","placeholders":[{"name":"title","type":"title","textPreview":"Click to edit Master title style"},{"name":"body","type":"body","textPreview":"Click to edit Master text styles | Second level | Third level | Fourth level | Fifth level"},{"name":"dateTime","type":"dateTime","textPreview":"1/27/13"},{"name":"footer","type":"footer"},{"name":"slideNumber","type":"slideNumber","textPreview":"‹#›"}]}
+{"kind":"layout","layoutId":"/ppt/slideLayouts/slideLayout11.xml","name":"Vertical Title and Text","type":"vertTitleAndTx","placeholders":[{"name":"title","type":"title","textPreview":"Click to edit Master title style"},{"name":"body","type":"body","textPreview":"Click to edit Master text styles | Second level | Third level | Fourth level | Fifth level"},{"name":"dateTime","type":"dateTime","textPreview":"1/27/13"},{"name":"footer","type":"footer"},{"name":"slideNumber","type":"slideNumber","textPreview":"‹#›"}]}
+{"kind":"slide","id":"sl/y90nupkv","slide":1,"title":"书生国智科探挑战赛 · 自由赛道","textShapes":8}
+{"kind":"shape","id":"sh/547294r6","slide":1,"name":"Rectangle 2","bbox":[0,0,1280,720]}
+{"kind":"shape","id":"sh/k3yl0zql","slide":1,"name":"Rectangle 3","bbox":[0,0,1280,720]}
+{"kind":"shape","id":"sh/7qp4be9c","slide":1,"name":"Ellipse 4","bbox":[1060,510,300,300]}
+{"kind":"shape","id":"sh/65g3298r","slide":1,"name":"Ellipse 5","bbox":[-20,-10,180,180]}
+{"kind":"shape","id":"sh/sryl4zqx","slide":1,"name":"Rectangle 7","bbox":[64,128,356,40]}
+{"kind":"textbox","id":"sh/fu94fe98","slide":1,"name":"TextBox 8","text":"书生国智科探挑战赛 · 自由赛道","textPreview":"书生国智科探挑战赛 · 自由赛道","textChars":16,"textLines":1,"bbox":[87.28,139.7,284.92,27.72]}
+{"kind":"textbox","id":"sh/utg3698n","slide":1,"name":"TextBox 9","text":"StudyMate","textPreview":"StudyMate","textChars":9,"textLines":1,"bbox":[60,206.8,421.89,110]}
+{"kind":"textbox","id":"sh/wn6dc7eh","slide":1,"name":"TextBox 10","text":"Agent","textPreview":"Agent","textChars":5,"textLines":1,"bbox":[60,290.8,226.87,110]}
+{"kind":"textbox","id":"sh/hofulsf2","slide":1,"name":"TextBox 11","text":"教材进,成绩出","textPreview":"教材进,成绩出","textChars":7,"textLines":1,"bbox":[62.72,396.8,235.84,49.28]}
+{"kind":"textbox","id":"sh/ul4vaxgb","slide":1,"name":"TextBox 12","text":"本地优先的个人备考闭环 Agent —— 用你自己的资料,","textPreview":"本地优先的个人备考闭环 Agent —— 用你自己的资料,","textChars":29,"textLines":1,"bbox":[63.04,449.6,601.38,36.96]}
+{"kind":"textbox","id":"sh/vmdcj2xw","slide":1,"name":"TextBox 13","text":"跑通「学习 → 测验 → 批改 → 错题回流 → 动态复习」","textPreview":"跑通「学习 → 测验 → 批改 → 错题回流 → 动态复习」","textChars":30,"textLines":1,"bbox":[63.04,485.6,576.86,36.96]}
+{"kind":"shape","id":"sh/4r6dg7et","slide":1,"name":"Rectangle 14","bbox":[64,546,56,6]}
+{"kind":"shape","id":"sh/ipovexwn","slide":1,"name":"Rectangle 16","bbox":[842,132,376,376]}
+{"kind":"shape","id":"sh/3qxwn2x8","slide":1,"name":"Ellipse 17","bbox":[812,102,60,60]}
+{"kind":"shape","id":"sh/sfqdkrep","slide":1,"name":"Ellipse 18","bbox":[1196,486,44,44]}
+{"kind":"shape","id":"sh/1cvuxc7e","slide":1,"name":"Rectangle 20","bbox":[880,170,300,300]}
+{"kind":"shape","id":"sh/zadcv2p8","slide":1,"name":"Line 22","bbox":[64,636,1152,1]}
+{"kind":"textbox","id":"sh/e94v2hon","slide":1,"name":"TextBox 23","text":"科艺融合 × AI4SS · 教育智能体","textPreview":"科艺融合 × AI4SS · 教育智能体","textChars":20,"textLines":1,"bbox":[63.36,658.4,248.58,24.64]}
+{"kind":"textbox","id":"sh/90ve1w7q","slide":1,"name":"TextBox 24","text":"2026 · StudyMate Agent","textPreview":"2026 · StudyMate Agent","textChars":22,"textLines":1,"bbox":[1017.1,658.4,199.54,24.64]}
+{"kind":"image","id":"im/zidgfixg","slide":1,"name":"Image 19","geometry":"roundRect","bbox":[880,170,300,300]}
+{"kind":"notes","id":"nt/y90nupkv","slide":1,"text":"各位评审好,这是 StudyMate Agent —— 一个教材进、成绩出的本地优先备考智能体。它围绕你自己上传的资料,跑通从学习到测验、批改、错题回流再到动态复习的完整闭环。接下来用十页讲清楚它为什么值得一个奖项。"}
+{"kind":"slide","id":"sl/hwbqtkby","slide":2,"title":"01 痛点","textShapes":17}
+{"kind":"shape","id":"sh/9072xkry","slide":2,"name":"Rectangle 2","bbox":[0,0,1280,720]}
+{"kind":"shape","id":"sh/ozy1ofad","slide":2,"name":"Rectangle 3","bbox":[64,52,96,36]}
+{"kind":"textbox","id":"sh/b29kza94","slide":2,"name":"TextBox 4","text":"01 痛点","textPreview":"01 痛点","textChars":5,"textLines":1,"bbox":[77.22,61.7,69.56,27.72]}
+{"kind":"textbox","id":"sh/a10jqpsj","slide":2,"name":"TextBox 5","text":"备考的四个真实困境","textPreview":"备考的四个真实困境","textChars":9,"textLines":1,"bbox":[62.32,104.3,424.07,64.68]}
+{"kind":"textbox","id":"sh/x4r21kru","slide":2,"name":"TextBox 6","text":"通用题库教的不是你的考纲,刷完就忘不是你的错 —— 是缺一个围绕你自己资料的闭环。","textPreview":"通用题库教的不是你的考纲,刷完就忘不是你的错 —— 是缺一个围绕你自己资料的闭环。","textChars":41,"textLines":1,"bbox":[62.96,159.9,1063.14,40.04]}
+{"kind":"shape","id":"sh/r65knqtk","slide":2,"name":"Rectangle 8","bbox":[64,216,560,212]}
+{"kind":"shape","id":"sh/q5wjelsz","slide":2,"name":"Ellipse 9","bbox":[96,248,72,72]}
+{"kind":"shape","id":"sh/ove9o7yd","slide":2,"name":"Freeform 10","bbox":[115.33,269.64,33.33,27.77]}
+{"kind":"textbox","id":"sh/9wnqhczy","slide":2,"name":"TextBox 11","text":"「学了不考」","textPreview":"「学了不考」","textChars":6,"textLines":1,"bbox":[194.96,255.9,175.71,40.04]}
+{"kind":"textbox","id":"sh/mtwrmxg7","slide":2,"name":"TextBox 12","text":"通用题库与自己的教材、考纲错位,","textPreview":"通用题库与自己的教材、考纲错位,","textChars":16,"textLines":1,"bbox":[195.04,291.6,397.51,36.96]}
+{"kind":"textbox","id":"sh/nu58f2hs","slide":2,"name":"TextBox 13","text":"花时间刷的题和真正要考的对不上。","textPreview":"花时间刷的题和真正要考的对不上。","textChars":16,"textLines":1,"bbox":[195.04,325.6,408.96,36.96]}
+{"kind":"shape","id":"sh/xk7qlczu","slide":2,"name":"Rectangle 15","bbox":[656,216,560,212]}
+{"kind":"shape","id":"sh/ahwrqhgj","slide":2,"name":"Ellipse 16","bbox":[688,248,72,72]}
+{"kind":"shape","id":"sh/bip8jmho","slide":2,"name":"Freeform 17","bbox":[707.33,266.59,35.05,35.11]}
+{"kind":"textbox","id":"sh/cnupgny5","slide":2,"name":"TextBox 18","text":"「考了没学」","textPreview":"「考了没学」","textChars":6,"textLines":1,"bbox":[786.96,255.9,175.71,40.04]}
+{"kind":"textbox","id":"sh/do3q9szq","slide":2,"name":"TextBox 19","text":"看完 ≠ 学会:没有间隔重复、没有错题","textPreview":"看完 ≠ 学会:没有间隔重复、没有错题","textChars":19,"textLines":1,"bbox":[787.04,291.6,426.77,36.96]}
+{"kind":"textbox","id":"sh/t8byxkn2","slide":2,"name":"TextBox 20","text":"追踪,薄弱点静悄悄地留到考场。","textPreview":"追踪,薄弱点静悄悄地留到考场。","textChars":15,"textLines":1,"bbox":[787.04,325.6,372.07,36.96]}
+{"kind":"shape","id":"sh/76twva5c","slide":2,"name":"Rectangle 22","bbox":[64,452,560,212]}
+{"kind":"shape","id":"sh/65kfmpor","slide":2,"name":"Ellipse 23","bbox":[96,484,72,72]}
+{"kind":"shape","id":"sh/hcvy14ne","slide":2,"name":"Freeform 24","bbox":[114.58,503.33,34.84,33.35]}
+{"kind":"textbox","id":"sh/gbmxszmt","slide":2,"name":"TextBox 25","text":"「数据上云」","textPreview":"「数据上云」","textChars":6,"textLines":1,"bbox":[194.96,491.9,175.71,40.04]}
+{"kind":"textbox","id":"sh/fadgzu58","slide":2,"name":"TextBox 26","text":"教材笔记、错题记录高度个人化,","textPreview":"教材笔记、错题记录高度个人化,","textChars":15,"textLines":1,"bbox":[195.04,527.6,372.07,36.96]}
+{"kind":"textbox","id":"sh/u94fqp4n","slide":2,"name":"TextBox 27","text":"传上云端题库总让人不安心。","textPreview":"传上云端题库总让人不安心。","textChars":13,"textLines":1,"bbox":[195.04,561.6,332.64,36.96]}
+{"kind":"shape","id":"sh/4zmxwzmp","slide":2,"name":"Rectangle 29","bbox":[656,452,560,212]}
+{"kind":"shape","id":"sh/mlgvq147","slide":2,"name":"Ellipse 30","bbox":[688,484,72,72]}
+{"kind":"shape","id":"sh/nmpcj6ls","slide":2,"name":"Freeform 31","bbox":[706.3,503.82,35.02,30.2]}
+{"kind":"textbox","id":"sh/onydsbmd","slide":2,"name":"TextBox 32","text":"「孤独长跑」","textPreview":"「孤独长跑」","textChars":6,"textLines":1,"bbox":[786.96,491.9,175.71,40.04]}
+{"kind":"textbox","id":"sh/9o7ulg3y","slide":2,"name":"TextBox 33","text":"数月备考无人陪伴、无人提醒,","textPreview":"数月备考无人陪伴、无人提醒,","textChars":14,"textLines":1,"bbox":[787.04,527.6,346.63,36.96]}
+{"kind":"textbox","id":"sh/a9gvulkj","slide":2,"name":"TextBox 34","text":"坚持本身就是巨大的成本。","textPreview":"坚持本身就是巨大的成本。","textChars":12,"textLines":1,"bbox":[787.04,561.6,307.2,36.96]}
+{"kind":"textbox","id":"sh/wbidwb29","slide":2,"name":"TextBox 36","text":"StudyMate Agent · 功能介绍","textPreview":"StudyMate Agent · 功能介绍","textChars":22,"textLines":1,"bbox":[63.36,690.4,230.44,24.64]}
+{"kind":"textbox","id":"sh/xcrupg3u","slide":2,"name":"TextBox 37","text":"02","textPreview":"02","textChars":2,"textLines":1,"bbox":[1196.7,690.4,19.94,24.64]}
+{"kind":"notes","id":"nt/hwbqtkby","slide":2,"text":"先从每个备考的人都经历过的四个困境说起。学了不考,是因为通用题库和你的教材考纲对不上;考了没学,是因为没有间隔重复和错题追踪;数据上云让人不安;而几个月的孤独长跑,坚持本身就是成本。这四个困境指向同一个答案 —— 我们需要一个围绕自己资料的闭环。"}
+{"kind":"slide","id":"sl/ofy9wn61","slide":3,"title":"02 方案","textShapes":21}
+{"kind":"shape","id":"sh/cza94vmx","slide":3,"name":"Rectangle 2","bbox":[0,0,1280,720]}
+{"kind":"shape","id":"sh/d0jax03i","slide":3,"name":"Rectangle 3","bbox":[64,52,96,36]}
+{"kind":"textbox","id":"sh/298ryl4v","slide":3,"name":"TextBox 4","text":"02 方案","textPreview":"02 方案","textChars":5,"textLines":1,"bbox":[77.22,61.7,69.56,27.72]}
+{"kind":"textbox","id":"sh/3ah8rqlg","slide":3,"name":"TextBox 5","text":"StudyMate 的答案","textPreview":"StudyMate 的答案","textChars":13,"textLines":1,"bbox":[62.32,104.3,403.33,64.68]}
+{"kind":"textbox","id":"sh/obq90bml","slide":3,"name":"TextBox 6","text":"不是又一个题库 —— 它围绕你上传的资料构建知识体系,并把每个学习动作接进闭环。","textPreview":"不是又一个题库 —— 它围绕你上传的资料构建知识体系,并把每个学习动作接进闭环。","textChars":40,"textLines":1,"bbox":[62.96,159.9,1036.96,40.04]}
+{"kind":"shape","id":"sh/m5cra54z","slide":3,"name":"Rectangle 8","bbox":[64,212,368,292]}
+{"kind":"shape","id":"sh/n6ls3alk","slide":3,"name":"Ellipse 9","bbox":[96,248,72,72]}
+{"kind":"shape","id":"sh/n2l4fq98","slide":3,"name":"Freeform 10","bbox":[118.67,267.33,26.67,33.33]}
+{"kind":"shape","id":"sh/m1c3mlsn","slide":3,"name":"Freeform 11","bbox":[137,269,6.67,6.67]}
+{"kind":"textbox","id":"sh/83ulovat","slide":3,"name":"TextBox 13","text":"自有资料驱动","textPreview":"自有资料驱动","textChars":6,"textLines":1,"bbox":[98.96,345.9,175.71,40.04]}
+{"kind":"textbox","id":"sh/v6l4jq94","slide":3,"name":"TextBox 14","text":"导入 PDF / Markdown,","textPreview":"导入 PDF / Markdown,","textChars":18,"textLines":1,"bbox":[99.04,387.6,273.24,36.96]}
+{"kind":"textbox","id":"sh/a5c3ql8z","slide":3,"name":"TextBox 15","text":"语义切片、抽取概念与","textPreview":"语义切片、抽取概念与","textChars":10,"textLines":1,"bbox":[99.04,421.6,256.32,36.96]}
+{"kind":"textbox","id":"sh/x8nml0ra","slide":3,"name":"TextBox 16","text":"前置依赖,构建知识图谱。","textPreview":"前置依赖,构建知识图谱。","textChars":12,"textLines":1,"bbox":[99.04,455.6,295.75,36.96]}
+{"kind":"shape","id":"sh/ja54na9g","slide":3,"name":"Rectangle 18","bbox":[456,212,368,292]}
+{"kind":"shape","id":"sh/i9w3u58v","slide":3,"name":"Ellipse 19","bbox":[488,248,72,72]}
+{"kind":"shape","id":"sh/e10f2twf","slide":3,"name":"Freeform 20","bbox":[508.02,269.67,10.31,7.82]}
+{"kind":"shape","id":"sh/f29gbyx0","slide":3,"name":"Freeform 21","bbox":[508.02,279.67,10.31,7.82]}
+{"kind":"shape","id":"sh/03ix43e5","slide":3,"name":"Freeform 22","bbox":[508.02,289.67,10.31,7.82]}
+{"kind":"shape","id":"sh/14ryd8fq","slide":3,"name":"Freeform 23","bbox":[520.67,272.33,18.33,3.33]}
+{"kind":"shape","id":"sh/6d0fytg3","slide":3,"name":"Freeform 24","bbox":[520.67,282.33,18.33,3.33]}
+{"kind":"shape","id":"sh/re9g7yxo","slide":3,"name":"Freeform 25","bbox":[520.67,292.33,18.33,3.33]}
+{"kind":"textbox","id":"sh/tgry9ofu","slide":3,"name":"TextBox 27","text":"真正的复习闭环","textPreview":"真正的复习闭环","textChars":7,"textLines":1,"bbox":[490.96,345.9,204.65,40.04]}
+{"kind":"textbox","id":"sh/a9kfadwn","slide":3,"name":"TextBox 28","text":"出题→批改→错题→掌握度","textPreview":"出题→批改→错题→掌握度","textChars":12,"textLines":1,"bbox":[491.04,387.6,272.86,36.96]}
+{"kind":"textbox","id":"sh/batgjixs","slide":3,"name":"TextBox 29","text":"→计划调整,SM-2 间隔","textPreview":"→计划调整,SM-2 间隔","textChars":13,"textLines":1,"bbox":[491.04,421.6,265.34,36.96]}
+{"kind":"textbox","id":"sh/l4fi9cza","slide":3,"name":"TextBox 30","text":"重复贯穿始终。","textPreview":"重复贯穿始终。","textChars":7,"textLines":1,"bbox":[491.04,455.6,180,36.96]}
+{"kind":"shape","id":"sh/z2d07mh4","slide":3,"name":"Rectangle 32","bbox":[848,212,368,292]}
+{"kind":"shape","id":"sh/y14jehgj","slide":3,"name":"Ellipse 33","bbox":[880,248,72,72]}
+{"kind":"shape","id":"sh/x0vi5czy","slide":3,"name":"Freeform 34","bbox":[902.67,267.33,26.67,33.33]}
+{"kind":"textbox","id":"sh/czmhc7id","slide":3,"name":"TextBox 35","text":"本地优先","textPreview":"本地优先","textChars":4,"textLines":1,"bbox":[882.96,345.9,117.83,40.04]}
+{"kind":"textbox","id":"sh/byd032h8","slide":3,"name":"TextBox 36","text":"数据全部留在本地","textPreview":"数据全部留在本地","textChars":8,"textLines":1,"bbox":[883.04,387.6,205.44,36.96]}
+{"kind":"textbox","id":"sh/ax4zax0n","slide":3,"name":"TextBox 37","text":"workspace/,无 API Key","textPreview":"workspace/,无 API Key","textChars":20,"textLines":1,"bbox":[883.04,421.6,283.4,36.96]}
+{"kind":"textbox","id":"sh/hwzihwzi","slide":3,"name":"TextBox 38","text":"也能 Mock 跑通全流程。","textPreview":"也能 Mock 跑通全流程。","textChars":14,"textLines":1,"bbox":[883.04,455.6,285.72,36.96]}
+{"kind":"shape","id":"sh/4nuhs7uh","slide":3,"name":"Rectangle 40","bbox":[64,536,1152,120]}
+{"kind":"shape","id":"sh/po3ilcvm","slide":3,"name":"Freeform 41","bbox":[109.93,580.92,36.14,30.08]}
+{"kind":"textbox","id":"sh/21szqxcb","slide":3,"name":"TextBox 42","text":"Web 仪表盘","textPreview":"Web 仪表盘","textChars":7,"textLines":1,"bbox":[166.96,563.9,153.92,40.04]}
+{"kind":"textbox","id":"sh/32l0j2dw","slide":3,"name":"TextBox 43","text":"npm run serve · localhost:3456","textPreview":"npm run serve · localhost:3456","textChars":30,"textLines":1,"bbox":[167.28,604.7,291.46,27.72]}
+{"kind":"shape","id":"sh/cruhwrud","slide":3,"name":"Line 44","bbox":[640,560,1,72]}
+{"kind":"shape","id":"sh/ds3ipcvy","slide":3,"name":"Freeform 45","bbox":[706.67,579.33,26.67,33.33]}
+{"kind":"shape","id":"sh/qpczuhc7","slide":3,"name":"Freeform 46","bbox":[725,581,6.67,6.67]}
+{"kind":"textbox","id":"sh/0ve10ru9","slide":3,"name":"TextBox 48","text":"CLI 命令行","textPreview":"CLI 命令行","textChars":7,"textLines":1,"bbox":[758.96,563.9,145.79,40.04]}
+{"kind":"textbox","id":"sh/1wnitwvu","slide":3,"name":"TextBox 49","text":"studymate init / plan / quiz / grade","textPreview":"studymate init / plan / quiz / grade","textChars":36,"textLines":1,"bbox":[759.28,604.7,330.57,27.72]}
+{"kind":"textbox","id":"sh/a10b6p03","slide":3,"name":"TextBox 51","text":"StudyMate Agent · 功能介绍","textPreview":"StudyMate Agent · 功能介绍","textChars":22,"textLines":1,"bbox":[63.36,690.4,230.44,24.64]}
+{"kind":"textbox","id":"sh/xoruhkje","slide":3,"name":"TextBox 52","text":"03","textPreview":"03","textChars":2,"textLines":1,"bbox":[1196.7,690.4,19.94,24.64]}
+{"kind":"notes","id":"nt/ofy9wn61","slide":3,"text":"StudyMate 的答案不是再做 一个题库。它做三件事:把你的 PDF 和 Markdown 变成概念图谱;把每个学习动作接进闭环,用间隔重复贯穿始终;以及把数据全部留在本地。同一套 Agent 层,提供 Web 仪表盘和命令行两种入口。"}
+{"kind":"slide","id":"sl/jyx0ra1s","slide":4,"title":"03 核心闭环","textShapes":22}
+{"kind":"shape","id":"sh/1cj2d8b6","slide":4,"name":"Rectangle 2","bbox":[0,0,1280,720]}
+{"kind":"shape","id":"sh/0ba143al","slide":4,"name":"Rectangle 3","bbox":[64,48,120,36]}
+{"kind":"textbox","id":"sh/rm1k7yt4","slide":4,"name":"TextBox 4","text":"03 核心闭环","textPreview":"03 核心闭环","textChars":7,"textLines":1,"bbox":[69.19,57.7,109.62,27.72]}
+{"kind":"textbox","id":"sh/ql8jytsj","slide":4,"name":"TextBox 5","text":"学习 → 测验 → 批改 → 错题 → 再学习","textPreview":"学习 → 测验 → 批改 → 错题 → 再学习","textChars":23,"textLines":1,"bbox":[62.32,96.3,732.6,64.68]}
+{"kind":"textbox","id":"sh/doj29oba","slide":4,"name":"TextBox 6","text":"八步构成可执行的闭环,错题最终回流为新的学习任务—— 这是「学了不忘」的机械保证。","textPreview":"八步构成可执行的闭环,错题最终回流为新的学习任务—— 这是「学了不忘」的机械保证。","textChars":41,"textLines":1,"bbox":[62.96,149.9,1083.81,40.04]}
+{"kind":"shape","id":"sh/3ihk3et8","slide":4,"name":"Freeform 8","bbox":[230,300,955,230]}
+{"kind":"shape","id":"sh/ih8ju9sn","slide":4,"name":"Freeform 9","bbox":[230,300,955,230]}
+{"kind":"shape","id":"sh/5cva1cfq","slide":4,"name":"Freeform 11","bbox":[196,322,104,208]}
+{"kind":"textbox","id":"sh/i94r6xgz","slide":4,"name":"TextBox 12","text":"错题回流 · 计划再生成","textPreview":"错题回流 · 计划再生成","textChars":12,"textLines":1,"bbox":[24.17,294.47,204.79,27.72]}
+{"kind":"shape","id":"sh/w72947yt","slide":4,"name":"Ellipse 14","bbox":[196,266,68,68]}
+{"kind":"shape","id":"sh/x8vaxsfe","slide":4,"name":"Freeform 15","bbox":[219.33,286.67,21.33,26.67]}
+{"kind":"shape","id":"sh/a5kr2xg3","slide":4,"name":"Freeform 16","bbox":[234,288,5.33,5.33]}
+{"kind":"textbox","id":"sh/g36tgryd","slide":4,"name":"TextBox 18","text":"① 导入材料","textPreview":"① 导入材料","textChars":6,"textLines":1,"bbox":[164.26,347.6,131.47,36.96]}
+{"kind":"textbox","id":"sh/h4fa9wfy","slide":4,"name":"TextBox 19","text":"PDF / Markdown","textPreview":"PDF / Markdown","textChars":14,"textLines":1,"bbox":[155.28,382.7,149.43,27.72]}
+{"kind":"shape","id":"sh/oz29krqh","slide":4,"name":"Ellipse 21","bbox":[476,266,68,68]}
+{"kind":"shape","id":"sh/3ytsrmpw","slide":4,"name":"Freeform 22","bbox":[498,288,10.67,9.33]}
+{"kind":"shape","id":"sh/2xkrih8b","slide":4,"name":"Freeform 23","bbox":[498,300,10.67,12]}
+{"kind":"shape","id":"sh/1wbapc7q","slide":4,"name":"Freeform 24","bbox":[511.33,288,10.67,12]}
+{"kind":"shape","id":"sh/gv29g7q5","slide":4,"name":"Freeform 25","bbox":[511.33,302.67,10.67,9.33]}
+{"kind":"textbox","id":"sh/et0reh8f","slide":4,"name":"TextBox 27","text":"② 语义切片","textPreview":"② 语义切片","textChars":6,"textLines":1,"bbox":[444.26,347.6,131.47,36.96]}
+{"kind":"textbox","id":"sh/tsrqlc7u","slide":4,"name":"TextBox 28","text":"按标题层级分块","textPreview":"按标题层级分块","textChars":7,"textLines":1,"bbox":[442.5,382.7,135,27.72]}
+{"kind":"shape","id":"sh/ilwf69kv","slide":4,"name":"Ellipse 30","bbox":[756,266,68,68]}
+{"kind":"shape","id":"sh/jm5gze1g","slide":4,"name":"Freeform 31","bbox":[776.67,286.67,26.67,26.67]}
+{"kind":"shape","id":"sh/knex8j21","slide":4,"name":"Freeform 32","bbox":[781.56,289.33,22.03,19.07]}
+{"kind":"textbox","id":"sh/axcf29kj","slide":4,"name":"TextBox 34","text":"③ 概念图谱","textPreview":"③ 概念图谱","textChars":6,"textLines":1,"bbox":[724.26,347.6,131.47,36.96]}
+{"kind":"textbox","id":"sh/vy5gbe14","slide":4,"name":"TextBox 35","text":"概念 + 前置依赖","textPreview":"概念 + 前置依赖","textChars":9,"textLines":1,"bbox":[721.07,382.7,137.86,27.72]}
+{"kind":"shape","id":"sh/xknyx4ja","slide":4,"name":"Ellipse 37","bbox":[1036,266,68,68]}
+{"kind":"shape","id":"sh/mtcfypkn","slide":4,"name":"Freeform 38","bbox":[1058,286.63,24,26.7]}
+{"kind":"textbox","id":"sh/nulw7u18","slide":4,"name":"TextBox 39","text":"④ 生成计划","textPreview":"④ 生成计划","textChars":6,"textLines":1,"bbox":[1004.26,347.6,131.47,36.96]}
+{"kind":"textbox","id":"sh/fm5c3q54","slide":4,"name":"TextBox 40","text":"三阶段复习路线","textPreview":"三阶段复习路线","textChars":7,"textLines":1,"bbox":[1002.5,382.7,135,27.72]}
+{"kind":"shape","id":"sh/18nu50nu","slide":4,"name":"Ellipse 42","bbox":[1036,496,68,68]}
+{"kind":"shape","id":"sh/0netcvm9","slide":4,"name":"Freeform 43","bbox":[1057.22,518.54,8.24,6.26]}
+{"kind":"shape","id":"sh/rilczq5s","slide":4,"name":"Freeform 44","bbox":[1057.22,526.54,8.24,6.26]}
+{"kind":"shape","id":"sh/qhcb6l47","slide":4,"name":"Freeform 45","bbox":[1057.22,534.54,8.24,6.26]}
+{"kind":"shape","id":"sh/dknu10ny","slide":4,"name":"Freeform 46","bbox":[1067.33,520.67,14.67,2.67]}
+{"kind":"shape","id":"sh/sjut8vmd","slide":4,"name":"Freeform 47","bbox":[1067.33,528.67,14.67,2.67]}
+{"kind":"shape","id":"sh/3elcv65w","slide":4,"name":"Freeform 48","bbox":[1067.33,536.67,14.67,2.67]}
+{"kind":"textbox","id":"sh/8jq9c72t","slide":4,"name":"TextBox 50","text":"⑤ 今日任务","textPreview":"⑤ 今日任务","textChars":6,"textLines":1,"bbox":[1004.26,451.6,131.47,36.96]}
+{"kind":"textbox","id":"sh/tkjq5c3e","slide":4,"name":"TextBox 51","text":"未完成自动顺延","textPreview":"未完成自动顺延","textChars":7,"textLines":1,"bbox":[1002.5,426.7,135,27.72]}
+{"kind":"shape","id":"sh/7ih83mlo","slide":4,"name":"Ellipse 53","bbox":[756,496,68,68]}
+{"kind":"shape","id":"sh/gna9gr25","slide":4,"name":"Freeform 54","bbox":[779.33,516.67,21.33,26.67]}
+{"kind":"textbox","id":"sh/hoja9w3q","slide":4,"name":"TextBox 55","text":"⑥ 自动出题","textPreview":"⑥ 自动出题","textChars":6,"textLines":1,"bbox":[724.26,451.6,131.47,36.96]}
+{"kind":"textbox","id":"sh/ulsrehkz","slide":4,"name":"TextBox 56","text":"当日 + 到期薄弱点","textPreview":"当日 + 到期薄弱点","textChars":10,"textLines":1,"bbox":[711.53,426.7,156.94,27.72]}
+{"kind":"shape","id":"sh/wr694nm1","slide":4,"name":"Ellipse 58","bbox":[476,496,68,68]}
+{"kind":"shape","id":"sh/xsfqxs36","slide":4,"name":"Freeform 59","bbox":[499.33,516.67,21.33,26.67]}
+{"kind":"textbox","id":"sh/do761ova","slide":4,"name":"TextBox 60","text":"⑦ 即时批改","textPreview":"⑦ 即时批改","textChars":6,"textLines":1,"bbox":[444.26,451.6,131.47,36.96]}
+{"kind":"textbox","id":"sh/cnyp8jep","slide":4,"name":"TextBox 61","text":"服务端权威判分","textPreview":"服务端权威判分","textChars":7,"textLines":1,"bbox":[442.5,426.7,135,27.72]}
+{"kind":"shape","id":"sh/qlg769wj","slide":4,"name":"Ellipse 63","bbox":[196,496,68,68]}
+{"kind":"shape","id":"sh/lcr658v6","slide":4,"name":"Freeform 64","bbox":[216.67,516.67,26.67,26.79]}
+{"kind":"textbox","id":"sh/0bipc3el","slide":4,"name":"TextBox 65","text":"⑧ 错题回流","textPreview":"⑧ 错题回流","textChars":6,"textLines":1,"bbox":[164.26,451.6,131.47,36.96]}
+{"kind":"textbox","id":"sh/zq9o3ydg","slide":4,"name":"TextBox 66","text":"画像 + 掌握度更新","textPreview":"画像 + 掌握度更新","textChars":10,"textLines":1,"bbox":[151.53,426.7,156.94,27.72]}
+{"kind":"textbox","id":"sh/9grq98vi","slide":4,"name":"TextBox 68","text":"StudyMate Agent · 功能介绍","textPreview":"StudyMate Agent · 功能介绍","textChars":22,"textLines":1,"bbox":[63.36,690.4,230.44,24.64]}
+{"kind":"textbox","id":"sh/8fipg3ex","slide":4,"name":"TextBox 69","text":"04","textPreview":"04","textChars":2,"textLines":1,"bbox":[1196.7,690.4,19.94,24.64]}
+{"kind":"notes","id":"nt/jyx0ra1s","slide":4,"text":"这一页是整个产品的骨架 —— 八步闭环。材料导入、语义切片、概念图谱、生成计划,这是准备阶段;今日任务、自动出题、即时批改,这是每天的执行;最后一步错题回流,掌握度更新之后回到计划再生成。注意左下角这条橙色回线 —— 它是学了不忘的机械保证。"}
+{"kind":"slide","id":"sl/i107q5of","slide":5,"title":"04 记忆引擎","textShapes":28}
+{"kind":"shape","id":"sh/dgbulwnm","slide":5,"name":"Rectangle 2","bbox":[0,0,1280,720]}
+{"kind":"shape","id":"sh/cf2tcr61","slide":5,"name":"Rectangle 3","bbox":[64,48,120,36]}
+{"kind":"textbox","id":"sh/z2tcnm5s","slide":5,"name":"TextBox 4","text":"04 记忆引擎","textPreview":"04 记忆引擎","textChars":7,"textLines":1,"bbox":[69.19,57.7,109.62,27.72]}
+{"kind":"textbox","id":"sh/yhkbe1o7","slide":5,"name":"TextBox 5","text":"每个概念都有下一次见面的时间","textPreview":"每个概念都有下一次见面的时间","textChars":14,"textLines":1,"bbox":[62.32,96.3,657.8,64.68]}
+{"kind":"textbox","id":"sh/l4bupwny","slide":5,"name":"TextBox 6","text":"复习不靠自觉,靠调度 —— 答错提前再见,答对推后重逢。","textPreview":"复习不靠自觉,靠调度 —— 答错提前再见,答对推后重逢。","textChars":28,"textLines":1,"bbox":[62.96,149.9,696.59,40.04]}
+{"kind":"textbox","id":"sh/n6dcr65o","slide":5,"name":"TextBox 8","text":"SM-2 初始复习间隔","textPreview":"SM-2 初始复习间隔","textChars":11,"textLines":1,"bbox":[62.96,217.9,268.09,40.04]}
+{"kind":"textbox","id":"sh/m5kbi1oj","slide":5,"name":"TextBox 9","text":"真实批改后由 SM-2 动态接管","textPreview":"真实批改后由 SM-2 动态接管","textChars":16,"textLines":1,"bbox":[953.2,224.7,263.52,27.72]}
+{"kind":"shape","id":"sh/w32dkbuh","slide":5,"name":"Line 10","bbox":[160,320,780,1]}
+{"kind":"shape","id":"sh/x4vedgvm","slide":5,"name":"Line 11","bbox":[940,320,200,1]}
+{"kind":"shape","id":"sh/ahkvi1cb","slide":5,"name":"Line 12","bbox":[940,320,200,1]}
+{"kind":"shape","id":"sh/v2twb6dw","slide":5,"name":"Ellipse 13","bbox":[136,296,48,48]}
+{"kind":"shape","id":"sh/k7mxovud","slide":5,"name":"Ellipse 14","bbox":[145,305,30,30]}
+{"kind":"textbox","id":"sh/58vehgvy","slide":5,"name":"TextBox 15","text":"D+1","textPreview":"D+1","textChars":3,"textLines":1,"bbox":[127.67,260.8,64.65,49.28]}
+{"kind":"textbox","id":"sh/i54fmlc7","slide":5,"name":"TextBox 16","text":"首日复习","textPreview":"首日复习","textChars":4,"textLines":1,"bbox":[121.12,350.7,77.76,27.72]}
+{"kind":"shape","id":"sh/sb6xsvu9","slide":5,"name":"Ellipse 18","bbox":[326,296,48,48]}
+{"kind":"shape","id":"sh/tcfel0vu","slide":5,"name":"Ellipse 19","bbox":[335,305,30,30]}
+{"kind":"textbox","id":"sh/hgrmpwj2","slide":5,"name":"TextBox 20","text":"D+3","textPreview":"D+3","textChars":3,"textLines":1,"bbox":[317.67,260.8,64.65,49.28]}
+{"kind":"textbox","id":"sh/gfi5grih","slide":5,"name":"TextBox 21","text":"短期巩固","textPreview":"短期巩固","textChars":4,"textLines":1,"bbox":[311.12,350.7,77.76,27.72]}
+{"kind":"shape","id":"sh/ud0ne10b","slide":5,"name":"Ellipse 23","bbox":[516,296,48,48]}
+{"kind":"shape","id":"sh/pkr6tgjy","slide":5,"name":"Ellipse 24","bbox":[525,305,30,30]}
+{"kind":"textbox","id":"sh/4ji5kbid","slide":5,"name":"TextBox 25","text":"D+7","textPreview":"D+7","textChars":3,"textLines":1,"bbox":[507.67,260.8,64.65,49.28]}
+{"kind":"textbox","id":"sh/3i94r61s","slide":5,"name":"TextBox 26","text":"周度重现","textPreview":"周度重现","textChars":4,"textLines":1,"bbox":[501.12,350.7,77.76,27.72]}
+{"kind":"shape","id":"sh/5o7mhcju","slide":5,"name":"Ellipse 28","bbox":[706,296,48,48]}
+{"kind":"shape","id":"sh/kny587i9","slide":5,"name":"Ellipse 29","bbox":[715,305,30,30]}
+{"kind":"textbox","id":"sh/atcjidg7","slide":5,"name":"TextBox 30","text":"D+15","textPreview":"D+15","textChars":4,"textLines":1,"bbox":[687.32,260.8,85.35,49.28]}
+{"kind":"textbox","id":"sh/vu5kbihc","slide":5,"name":"TextBox 31","text":"半月检验","textPreview":"半月检验","textChars":4,"textLines":1,"bbox":[691.12,350.7,77.76,27.72]}
+{"kind":"shape","id":"sh/xwn2dszi","slide":5,"name":"Ellipse 33","bbox":[896,296,48,48]}
+{"kind":"shape","id":"sh/ihw3mxg3","slide":5,"name":"Ellipse 34","bbox":[905,305,30,30]}
+{"kind":"textbox","id":"sh/ji5kf2ho","slide":5,"name":"TextBox 35","text":"D+30","textPreview":"D+30","textChars":4,"textLines":1,"bbox":[877.32,260.8,85.35,49.28]}
+{"kind":"textbox","id":"sh/kjelony9","slide":5,"name":"TextBox 36","text":"月度锁定","textPreview":"月度锁定","textChars":4,"textLines":1,"bbox":[881.12,350.7,77.76,27.72]}
+{"kind":"shape","id":"sh/e1sjatgz","slide":5,"name":"Ellipse 38","bbox":[1112,292,56,56]}
+{"kind":"shape","id":"sh/zmlk3yhk","slide":5,"name":"Ellipse 39","bbox":[1122,302,36,36]}
+{"kind":"textbox","id":"sh/fid07u98","slide":5,"name":"TextBox 40","text":"动态","textPreview":"动态","textChars":2,"textLines":1,"bbox":[1110.02,261.9,59.96,40.04]}
+{"kind":"textbox","id":"sh/ehkzepsn","slide":5,"name":"TextBox 41","text":"SM-2 接管调度","textPreview":"SM-2 接管调度","textChars":9,"textLines":1,"bbox":[1071.74,350.7,136.51,27.72]}
+{"kind":"shape","id":"sh/3md0bu94","slide":5,"name":"Rectangle 44","bbox":[64,440,368,212]}
+{"kind":"shape","id":"sh/2l4zip8j","slide":5,"name":"Ellipse 45","bbox":[96,472,72,72]}
+{"kind":"shape","id":"sh/povid4ra","slide":5,"name":"Freeform 46","bbox":[115.33,490.59,35.05,35.11]}
+{"kind":"textbox","id":"sh/onmhkzqp","slide":5,"name":"TextBox 47","text":"到期日排队","textPreview":"到期日排队","textChars":5,"textLines":1,"bbox":[98.96,565.9,146.77,40.04]}
+{"kind":"textbox","id":"sh/bqx0fe9g","slide":5,"name":"TextBox 48","text":"概念按 SM-2 到期日","textPreview":"概念按 SM-2 到期日","textChars":12,"textLines":1,"bbox":[99.04,601.6,243.84,36.96]}
+{"kind":"textbox","id":"sh/qp4jm98v","slide":5,"name":"TextBox 49","text":"进入今日任务队列。","textPreview":"进入今日任务队列。","textChars":9,"textLines":1,"bbox":[99.04,631.6,230.88,36.96]}
+{"kind":"shape","id":"sh/9gfy5o7e","slide":5,"name":"Rectangle 51","bbox":[456,440,368,212]}
+{"kind":"shape","id":"sh/mdoza9o3","slide":5,"name":"Ellipse 52","bbox":[488,472,72,72]}
+{"kind":"shape","id":"sh/nexg3epo","slide":5,"name":"Freeform 53","bbox":[507.33,490.59,35.05,35.11]}
+{"kind":"textbox","id":"sh/0r6h8z6x","slide":5,"name":"TextBox 54","text":"掌握度 EMA","textPreview":"掌握度 EMA","textChars":7,"textLines":1,"bbox":[490.96,565.9,159.55,40.04]}
+{"kind":"textbox","id":"sh/lcfy147i","slide":5,"name":"TextBox 55","text":"指数滑动平均更新,","textPreview":"指数滑动平均更新,","textChars":9,"textLines":1,"bbox":[491.04,601.6,219.43,36.96]}
+{"kind":"textbox","id":"sh/yp4z69or","slide":5,"name":"TextBox 56","text":"答对稳步升、答错显著降。","textPreview":"答对稳步升、答错显著降。","textChars":12,"textLines":1,"bbox":[491.04,631.6,307.2,36.96]}
+{"kind":"shape","id":"sh/cnmh4z61","slide":5,"name":"Rectangle 58","bbox":[848,440,368,212]}
+{"kind":"shape","id":"sh/dovyx476","slide":5,"name":"Ellipse 59","bbox":[880,472,72,72]}
+{"kind":"shape","id":"sh/t8n6lwvy","slide":5,"name":"Freeform 60","bbox":[901,493,10,30.05]}
+{"kind":"shape","id":"sh/s7u5crud","slide":5,"name":"Freeform 61","bbox":[911,493,10,30.05]}
+{"kind":"shape","id":"sh/r6lojmds","slide":5,"name":"Freeform 62","bbox":[921,493,10,30.05]}
+{"kind":"textbox","id":"sh/5436hcv2","slide":5,"name":"TextBox 64","text":"计划自动调整","textPreview":"计划自动调整","textChars":6,"textLines":1,"bbox":[882.96,565.9,175.71,40.04]}
+{"kind":"textbox","id":"sh/43u587uh","slide":5,"name":"TextBox 65","text":"薄弱概念自动插入","textPreview":"薄弱概念自动插入","textChars":8,"textLines":1,"bbox":[883.04,601.6,205.44,36.96]}
+{"kind":"textbox","id":"sh/j2lofmdw","slide":5,"name":"TextBox 66","text":"复习任务,未完成顺延。","textPreview":"复习任务,未完成顺延。","textChars":11,"textLines":1,"bbox":[883.04,631.6,270.31,36.96]}
+{"kind":"textbox","id":"sh/p076tgv6","slide":5,"name":"TextBox 68","text":"StudyMate Agent · 功能介绍","textPreview":"StudyMate Agent · 功能介绍","textChars":22,"textLines":1,"bbox":[63.36,690.4,230.44,24.64]}
+{"kind":"textbox","id":"sh/ozepkbul","slide":5,"name":"TextBox 69","text":"05","textPreview":"05","textChars":2,"textLines":1,"bbox":[1196.7,690.4,19.94,24.64]}
+{"kind":"notes","id":"nt/i107q5of","slide":5,"text":"复习靠的不是自觉,是调度。每个新概念按第一、三、七、十五、三十天的节奏初次见面,真实批改之后由 SM-2 算法动态接管 —— 答错提前再见,答对推后重逢。掌握度用指数滑动平均更新,薄弱概念会被自动插进后续计划。"}
+{"kind":"slide","id":"sl/x8f69ofe","slide":6,"title":"05 备考搭子","textShapes":24}
+{"kind":"shape","id":"sh/yhg7epsj","slide":6,"name":"Rectangle 2","bbox":[0,0,1280,720]}
+{"kind":"shape","id":"sh/zi98nu94","slide":6,"name":"Rectangle 3","bbox":[64,48,120,36]}
+{"kind":"textbox","id":"sh/87ipkzal","slide":6,"name":"TextBox 4","text":"05 备考搭子","textPreview":"05 备考搭子","textChars":7,"textLines":1,"bbox":[69.19,57.7,109.62,27.72]}
+{"kind":"textbox","id":"sh/98rqt4r6","slide":6,"name":"TextBox 5","text":"会说话、会记住、会在关键时刻出现","textPreview":"会说话、会记住、会在关键时刻出现","textChars":16,"textLines":1,"bbox":[62.32,96.3,751.3,64.68]}
+{"kind":"textbox","id":"sh/ml07i9sv","slide":6,"name":"TextBox 6","text":"搭子不是装饰 —— 跨会话记忆 + 关键时刻介入,把「坚持」变成系统行为。","textPreview":"搭子不是装饰 —— 跨会话记忆 + 关键时刻介入,把「坚持」变成系统行为。","textChars":37,"textLines":1,"bbox":[62.96,149.9,911.77,40.04]}
+{"kind":"shape","id":"sh/oryp8fah","slide":6,"name":"Rectangle 8","bbox":[64,204,180,44]}
+{"kind":"textbox","id":"sh/pc76hkr2","slide":6,"name":"TextBox 9","text":"芽团 · 温柔阳光","textPreview":"芽团 · 温柔阳光","textChars":9,"textLines":1,"bbox":[85.07,217.7,137.86,27.72]}
+{"kind":"shape","id":"sh/h4bupgn6","slide":6,"name":"Rectangle 10","bbox":[256,204,180,44]}
+{"kind":"textbox","id":"sh/w32twb6l","slide":6,"name":"TextBox 11","text":"晴川 · 高冷学霸","textPreview":"晴川 · 高冷学霸","textChars":9,"textLines":1,"bbox":[277.07,217.7,137.86,27.72]}
+{"kind":"shape","id":"sh/v2tcn650","slide":6,"name":"Rectangle 12","bbox":[448,204,180,44]}
+{"kind":"textbox","id":"sh/u1kbu1ov","slide":6,"name":"TextBox 13","text":"凛川 · 元气少女","textPreview":"凛川 · 元气少女","textChars":9,"textLines":1,"bbox":[469.07,217.7,137.86,27.72]}
+{"kind":"shape","id":"sh/5svutgni","slide":6,"name":"Rectangle 14","bbox":[640,204,180,44]}
+{"kind":"textbox","id":"sh/47mt0b6x","slide":6,"name":"TextBox 15","text":"柚宁 · 治愈萌系","textPreview":"柚宁 · 治愈萌系","textChars":9,"textLines":1,"bbox":[661.07,217.7,137.86,27.72]}
+{"kind":"shape","id":"sh/i54bylor","slide":6,"name":"Rectangle 17","bbox":[64,276,372,180]}
+{"kind":"shape","id":"sh/twfux0ne","slide":6,"name":"Ellipse 18","bbox":[96,304,64,64]}
+{"kind":"shape","id":"sh/svmt4v6t","slide":6,"name":"Freeform 19","bbox":[112.38,322.15,31.2,27.49]}
+{"kind":"textbox","id":"sh/cbe5g3ih","slide":6,"name":"TextBox 20","text":"跨会话记忆","textPreview":"跨会话记忆","textChars":5,"textLines":1,"bbox":[182.96,307.9,146.77,40.04]}
+{"kind":"textbox","id":"sh/dcnm98zm","slide":6,"name":"TextBox 21","text":"回忆、约定、关系等级","textPreview":"回忆、约定、关系等级","textChars":10,"textLines":1,"bbox":[183.28,348.7,192.24,27.72]}
+{"kind":"textbox","id":"sh/qpwnet0b","slide":6,"name":"TextBox 22","text":"全部持久化保存","textPreview":"全部持久化保存","textChars":7,"textLines":1,"bbox":[183.28,374.7,135,27.72]}
+{"kind":"shape","id":"sh/0fy5k3id","slide":6,"name":"Rectangle 24","bbox":[456,276,372,180]}
+{"kind":"shape","id":"sh/lg76d8zy","slide":6,"name":"Ellipse 25","bbox":[488,304,64,64]}
+{"kind":"shape","id":"sh/ydgnit07","slide":6,"name":"Freeform 26","bbox":[503.45,321.22,33.14,29.67]}
+{"kind":"textbox","id":"sh/zep4byhs","slide":6,"name":"TextBox 27","text":"人设化对话","textPreview":"人设化对话","textChars":5,"textLines":1,"bbox":[574.96,307.9,146.77,40.04]}
+{"kind":"textbox","id":"sh/gju58ji9","slide":6,"name":"TextBox 28","text":"结合学习上下文","textPreview":"结合学习上下文","textChars":7,"textLines":1,"bbox":[575.28,348.7,135,27.72]}
+{"kind":"textbox","id":"sh/1k3mhozu","slide":6,"name":"TextBox 29","text":"进行角色扮演多轮聊","textPreview":"进行角色扮演多轮聊","textChars":9,"textLines":1,"bbox":[575.28,374.7,173.16,27.72]}
+{"kind":"shape","id":"sh/idk7ehkr","slide":6,"name":"Rectangle 31","bbox":[64,476,372,180]}
+{"kind":"shape","id":"sh/50bqpcj2","slide":6,"name":"Ellipse 32","bbox":[96,504,64,64]}
+{"kind":"shape","id":"sh/4f2pgr2h","slide":6,"name":"Freeform 33","bbox":[122.7,546.5,10.63,4.5]}
+{"kind":"shape","id":"sh/va98j210","slide":6,"name":"Freeform 34","bbox":[113.92,521,28.11,24]}
+{"kind":"textbox","id":"sh/hcrqlcj6","slide":6,"name":"TextBox 36","text":"关键时刻介入","textPreview":"关键时刻介入","textChars":6,"textLines":1,"bbox":[182.96,507.9,175.71,40.04]}
+{"kind":"textbox","id":"sh/wbipc72l","slide":6,"name":"TextBox 37","text":"出分、连击里程碑、薄弱","textPreview":"出分、连击里程碑、薄弱","textChars":11,"textLines":1,"bbox":[183.28,548.7,211.32,27.72]}
+{"kind":"textbox","id":"sh/7698f214","slide":6,"name":"TextBox 38","text":"预警等 8 个触发时机","textPreview":"预警等 8 个触发时机","textChars":11,"textLines":1,"bbox":[183.28,574.7,176.02,27.72]}
+{"kind":"shape","id":"sh/2dkbalg3","slide":6,"name":"Rectangle 40","bbox":[456,476,372,180]}
+{"kind":"shape","id":"sh/netcjqxo","slide":6,"name":"Ellipse 41","bbox":[488,504,64,64]}
+{"kind":"shape","id":"sh/of2tcvy9","slide":6,"name":"Freeform 42","bbox":[508,519,24,32]}
+{"kind":"textbox","id":"sh/pgbul0fu","slide":6,"name":"TextBox 43","text":"连续打卡","textPreview":"连续打卡","textChars":4,"textLines":1,"bbox":[574.96,507.9,117.83,40.04]}
+{"kind":"textbox","id":"sh/ep0b6lg7","slide":6,"name":"TextBox 44","text":"streak 天数累积,","textPreview":"streak 天数累积,","textChars":12,"textLines":1,"bbox":[575.28,548.7,156.94,27.72]}
+{"kind":"textbox","id":"sh/fq9cfqxc","slide":6,"name":"TextBox 45","text":"活跃度随坚持自动升级","textPreview":"活跃度随坚持自动升级","textChars":10,"textLines":1,"bbox":[575.28,574.7,192.24,27.72]}
+{"kind":"shape","id":"sh/1sbuh0fi","slide":6,"name":"Rectangle 47","bbox":[872,276,344,238]}
+{"kind":"textbox","id":"sh/rm9sb6xg","slide":6,"name":"TextBox 49","text":"搭子对话:上下文感知的角色聊天","textPreview":"搭子对话:上下文感知的角色聊天","textChars":15,"textLines":1,"bbox":[871.28,530.7,279.05,27.72]}
+{"kind":"shape","id":"sh/9gfeh4zy","slide":6,"name":"Rectangle 50","bbox":[872,580,344,76]}
+{"kind":"textbox","id":"sh/8f6x8jid","slide":6,"name":"TextBox 51","text":"「今天的错题我已经记下了,","textPreview":"「今天的错题我已经记下了,","textChars":13,"textLines":1,"bbox":[891.28,596.7,240.89,27.72]}
+{"kind":"textbox","id":"sh/7exwfehs","slide":6,"name":"TextBox 52","text":"明天安排你再复习一遍。」","textPreview":"明天安排你再复习一遍。」","textChars":12,"textLines":1,"bbox":[891.28,622.7,230.4,27.72]}
+{"kind":"textbox","id":"sh/lcfed4z2","slide":6,"name":"TextBox 54","text":"StudyMate Agent · 功能介绍","textPreview":"StudyMate Agent · 功能介绍","textChars":22,"textLines":1,"bbox":[63.36,690.4,230.44,24.64]}
+{"kind":"textbox","id":"sh/kb6d4zih","slide":6,"name":"TextBox 55","text":"06","textPreview":"06","textChars":2,"textLines":1,"bbox":[1196.7,690.4,19.94,24.64]}
+{"kind":"image","id":"im/4ra94vi9","slide":6,"name":"Image 48","bbox":[876,290,336,210]}
+{"kind":"notes","id":"nt/x8f69ofe","slide":6,"text":"备考是长跑,所以有了备考搭子。四个角色各有性格,但更重要的是三件事:跨会话记忆,它记得你的约定和进步;关键时刻介入,出分、连击、薄弱预警等八个时机主动出现;连续打卡,活跃度随坚持自动升级。右上角是真实的对话界面截图。"}
+{"kind":"slide","id":"sl/gnmp4jqx","slide":7,"title":"06 产品界面","textShapes":9}
+{"kind":"shape","id":"sh/cb2tkvap","slide":7,"name":"Rectangle 2","bbox":[0,0,1280,720]}
+{"kind":"shape","id":"sh/dcbud0ra","slide":7,"name":"Rectangle 3","bbox":[64,44,120,36]}
+{"kind":"textbox","id":"sh/ydkbm5sv","slide":7,"name":"TextBox 4","text":"06 产品界面","textPreview":"06 产品界面","textChars":7,"textLines":1,"bbox":[69.19,53.7,109.62,27.72]}
+{"kind":"textbox","id":"sh/zedcfa9g","slide":7,"name":"TextBox 5","text":"两种入口,同一套闭环","textPreview":"两种入口,同一套闭环","textChars":10,"textLines":1,"bbox":[62.32,88.3,449.78,64.68]}
+{"kind":"textbox","id":"sh/kzmdova1","slide":7,"name":"TextBox 6","text":"Web 给学习者完整可视化闭环,CLI 给评审可复现的自动化路径 —— 同一 Agent 层,两种皮。","textPreview":"Web 给学习者完整可视化闭环,CLI 给评审可复现的自动化路径 —— 同一 Agent 层,两种皮。","textChars":51,"textLines":1,"bbox":[62.96,141.9,1155.46,40.04]}
+{"kind":"textbox","id":"sh/eh0ba1sr","slide":7,"name":"TextBox 8","text":"/studio 学习会话 · 材料 → 回忆 → 测验 → 反馈 → 复盘","textPreview":"/studio 学习会话 · 材料 → 回忆 → 测验 → 反馈 → 复盘","textChars":37,"textLines":1,"bbox":[63.28,190.7,475.24,27.72]}
+{"kind":"shape","id":"sh/fi9c369c","slide":7,"name":"Rectangle 9","bbox":[64,216,544,340]}
+{"kind":"textbox","id":"sh/xcz2l03q","slide":7,"name":"TextBox 12","text":"首页 Lobby · 考试项目与今日进度","textPreview":"首页 Lobby · 考试项目与今日进度","textChars":20,"textLines":1,"bbox":[647.28,190.7,309.4,27.72]}
+{"kind":"shape","id":"sh/cbq1sv25","slide":7,"name":"Rectangle 13","bbox":[648,216,544,340]}
+{"kind":"shape","id":"sh/p8fih03e","slide":7,"name":"Rectangle 16","bbox":[64,576,160,100]}
+{"kind":"shape","id":"sh/f2d0b6lc","slide":7,"name":"Rectangle 18","bbox":[240,576,160,100]}
+{"kind":"shape","id":"sh/id4ju1oz","slide":7,"name":"Rectangle 20","bbox":[416,576,160,100]}
+{"kind":"shape","id":"sh/4fm1wb6p","slide":7,"name":"Rectangle 22","bbox":[592,576,160,100]}
+{"kind":"textbox","id":"sh/q143ylov","slide":7,"name":"TextBox 24","text":"还有更多界面","textPreview":"还有更多界面","textChars":6,"textLines":1,"bbox":[798.96,589.9,175.71,40.04]}
+{"kind":"textbox","id":"sh/r2dkrq5g","slide":7,"name":"TextBox 25","text":"测验 · 计划 · 成长趋势 · Ambient 深色主题","textPreview":"测验 · 计划 · 成长趋势 · Ambient 深色主题","textChars":29,"textLines":1,"bbox":[799.28,628.7,377.47,27.72]}
+{"kind":"textbox","id":"sh/d4f2t0nm","slide":7,"name":"TextBox 27","text":"StudyMate Agent · 功能介绍","textPreview":"StudyMate Agent · 功能介绍","textChars":22,"textLines":1,"bbox":[63.36,694.4,230.44,24.64]}
+{"kind":"textbox","id":"sh/e5o32lor","slide":7,"name":"TextBox 28","text":"07","textPreview":"07","textChars":2,"textLines":1,"bbox":[1196.7,694.4,19.94,24.64]}
+{"kind":"image","id":"im/k3i5oz61","slide":7,"name":"Image 10","bbox":[70.4,220,531.2,332]}
+{"kind":"image","id":"im/a9gji54j","slide":7,"name":"Image 14","bbox":[654.4,220,531.2,332]}
+{"kind":"image","id":"im/bapkral4","slide":7,"name":"Image 17","bbox":[70.4,580,147.2,92]}
+{"kind":"image","id":"im/wbylkfmp","slide":7,"name":"Image 19","bbox":[246.4,580,147.2,92]}
+{"kind":"image","id":"im/xc72tk3a","slide":7,"name":"Image 21","bbox":[422.4,580,147.2,92]}
+{"kind":"image","id":"im/ydg3m54v","slide":7,"name":"Image 23","bbox":[598.4,580,147.2,92]}
+{"kind":"notes","id":"nt/gnmp4jqx","slide":7,"text":"这是产品的两张主界面。左边是学习会话页,材料、回忆、测验、反馈、复盘一气呵成,刷新也能恢复;右边是首页仪表盘。下面一排是测验、计划、成长趋势和深色主题。Web 给学习者完整体验,命令行给评审可复现的路径。"}
+{"kind":"slide","id":"sl/fu1gfa1s","slide":8,"title":"07 技术架构","textShapes":36}
+{"kind":"shape","id":"sh/18byd4zy","slide":8,"name":"Rectangle 2","bbox":[0,0,1280,720]}
+{"kind":"shape","id":"sh/g72x4zyd","slide":8,"name":"Rectangle 3","bbox":[64,44,140,36]}
+{"kind":"textbox","id":"sh/ri9g7uhw","slide":8,"name":"TextBox 4","text":"07 技术架构","textPreview":"07 技术架构","textChars":7,"textLines":1,"bbox":[79.19,53.7,109.62,27.72]}
+{"kind":"textbox","id":"sh/6h0fypgb","slide":8,"name":"TextBox 5","text":"LLM 出决策,TypeScript 管流程","textPreview":"LLM 出决策,TypeScript 管流程","textChars":22,"textLines":1,"bbox":[62.32,88.3,683.99,64.68]}
+{"kind":"textbox","id":"sh/tkby9kzm","slide":8,"name":"TextBox 6","text":"每一步都是结构化 JSON 决策 + 确定性代码路由,全链路事件留痕 —— 智能但可审计。","textPreview":"每一步都是结构化 JSON 决策 + 确定性代码路由,全链路事件留痕 —— 智能但可审计。","textChars":45,"textLines":1,"bbox":[62.96,141.9,1114.68,40.04]}
+{"kind":"shape","id":"sh/je9g3ahk","slide":8,"name":"Rectangle 8","bbox":[40,188,40,104]}
+{"kind":"textbox","id":"sh/id0fu50z","slide":8,"name":"TextBox 9","text":"01","textPreview":"01","textChars":2,"textLines":1,"bbox":[45.65,229.3,28.69,33.88]}
+{"kind":"shape","id":"sh/o7ydoret","slide":8,"name":"Rectangle 10","bbox":[96,188,920,104]}
+{"kind":"textbox","id":"sh/98rehwve","slide":8,"name":"TextBox 11","text":"UI 层 · 使用者入口","textPreview":"UI 层 · 使用者入口","textChars":12,"textLines":1,"bbox":[115.28,200.7,189.45,27.72]}
+{"kind":"shape","id":"sh/m5gvmhwn","slide":8,"name":"Freeform 12","bbox":[117.73,236.43,32.53,27.07]}
+{"kind":"textbox","id":"sh/n6pwfmd8","slide":8,"name":"TextBox 13","text":"Web 仪表盘","textPreview":"Web 仪表盘","textChars":7,"textLines":1,"bbox":[164.96,227.9,153.92,40.04]}
+{"kind":"textbox","id":"sh/0jydkreh","slide":8,"name":"TextBox 14","text":"React 18 + Vite · /studio · /growth","textPreview":"React 18 + Vite · /studio · /growth","textChars":35,"textLines":1,"bbox":[165.28,262.7,331.39,27.72]}
+{"kind":"shape","id":"sh/1k7edwv2","slide":8,"name":"Freeform 15","bbox":[566,235,24,30]}
+{"kind":"shape","id":"sh/ehgvihwr","slide":8,"name":"Freeform 16","bbox":[582.5,236.5,6,6]}
+{"kind":"textbox","id":"sh/kfixwbe1","slide":8,"name":"TextBox 18","text":"CLI 命令行","textPreview":"CLI 命令行","textChars":7,"textLines":1,"bbox":[608.96,227.9,145.79,40.04]}
+{"kind":"textbox","id":"sh/lgbepgvm","slide":8,"name":"TextBox 19","text":"Commander · init→ingest→plan→grade","textPreview":"Commander · init→ingest→plan→grade","textChars":34,"textLines":1,"bbox":[609.28,262.7,337.93,27.72]}
+{"kind":"shape","id":"sh/svydgb65","slide":8,"name":"Rectangle 21","bbox":[40,312,40,104]}
+{"kind":"textbox","id":"sh/7u5w765k","slide":8,"name":"TextBox 22","text":"02","textPreview":"02","textChars":2,"textLines":1,"bbox":[45.65,353.3,28.69,33.88]}
+{"kind":"shape","id":"sh/6twve1oz","slide":8,"name":"Rectangle 23","bbox":[96,312,920,104]}
+{"kind":"textbox","id":"sh/5sne5wne","slide":8,"name":"TextBox 24","text":"API 层 · 服务端权威","textPreview":"API 层 · 服务端权威","textChars":13,"textLines":1,"bbox":[115.28,324.7,202.22,27.72]}
+{"kind":"shape","id":"sh/kredcr6t","slide":8,"name":"Freeform 25","bbox":[119,358.33,31.59,31.71]}
+{"kind":"textbox","id":"sh/jq5w365o","slide":8,"name":"TextBox 26","text":"Express 5 REST","textPreview":"Express 5 REST","textChars":14,"textLines":1,"bbox":[164.96,351.9,215.79,40.04]}
+{"kind":"textbox","id":"sh/i5wva1o3","slide":8,"name":"TextBox 27","text":"批改原子幂等 · 上传白名单 20MiB · 默认回环监听","textPreview":"批改原子幂等 · 上传白名单 20MiB · 默认回环监听","textChars":29,"textLines":1,"bbox":[165.28,386.7,442.98,27.72]}
+{"kind":"shape","id":"sh/w3ed8r6x","slide":8,"name":"Rectangle 29","bbox":[40,436,40,128]}
+{"kind":"textbox","id":"sh/m9sb2x4v","slide":8,"name":"TextBox 30","text":"03","textPreview":"03","textChars":2,"textLines":1,"bbox":[45.65,489.3,28.69,33.88]}
+{"kind":"shape","id":"sh/na1sb2lg","slide":8,"name":"Rectangle 31","bbox":[96,436,920,128]}
+{"kind":"textbox","id":"sh/8bat47ml","slide":8,"name":"TextBox 32","text":"AGENT 层 · 8 个模块化智能体","textPreview":"AGENT 层 · 8 个模块化智能体","textChars":19,"textLines":1,"bbox":[115.28,448.7,297.84,27.72]}
+{"kind":"shape","id":"sh/9w3uds36","slide":8,"name":"Freeform 33","bbox":[120.34,484.5,27.38,27.05]}
+{"kind":"shape","id":"sh/y5sbed4j","slide":8,"name":"Rectangle 34","bbox":[166,484,100,36]}
+{"kind":"textbox","id":"sh/z61s7il4","slide":8,"name":"TextBox 35","text":"切片","textPreview":"切片","textChars":2,"textLines":1,"bbox":[196.2,492.7,39.6,27.72]}
+{"kind":"shape","id":"sh/07atgnmp","slide":8,"name":"Rectangle 36","bbox":[278,484,100,36]}
+{"kind":"textbox","id":"sh/l8ja9s3a","slide":8,"name":"TextBox 37","text":"概念","textPreview":"概念","textChars":2,"textLines":1,"bbox":[308.2,492.7,39.6,27.72]}
+{"kind":"shape","id":"sh/q18bad4n","slide":8,"name":"Rectangle 38","bbox":[390,484,100,36]}
+{"kind":"textbox","id":"sh/b2hs3il8","slide":8,"name":"TextBox 39","text":"计划","textPreview":"计划","textChars":2,"textLines":1,"bbox":[420.2,492.7,39.6,27.72]}
+{"kind":"shape","id":"sh/3u18fepo","slide":8,"name":"Rectangle 40","bbox":[502,484,100,36]}
+{"kind":"textbox","id":"sh/2ts769o3","slide":8,"name":"TextBox 41","text":"调度","textPreview":"调度","textChars":2,"textLines":1,"bbox":[532.2,492.7,39.6,27.72]}
+{"kind":"shape","id":"sh/pwjqho7u","slide":8,"name":"Rectangle 42","bbox":[614,484,100,36]}
+{"kind":"textbox","id":"sh/4vap8j69","slide":8,"name":"TextBox 43","text":"出题","textPreview":"出题","textChars":2,"textLines":1,"bbox":[644.2,492.7,39.6,27.72]}
+{"kind":"shape","id":"sh/fq1obeps","slide":8,"name":"Rectangle 44","bbox":[726,484,100,36]}
+{"kind":"textbox","id":"sh/up872987","slide":8,"name":"TextBox 45","text":"批改","textPreview":"批改","textChars":2,"textLines":1,"bbox":[756.2,492.7,39.6,27.72]}
+{"kind":"shape","id":"sh/hsjqd47y","slide":8,"name":"Rectangle 46","bbox":[166,528,100,36]}
+{"kind":"textbox","id":"sh/grap4zqd","slide":8,"name":"TextBox 47","text":"掌握度","textPreview":"掌握度","textChars":3,"textLines":1,"bbox":[186.66,536.7,58.68,27.72]}
+{"kind":"shape","id":"sh/72ho7upg","slide":8,"name":"Rectangle 48","bbox":[278,528,100,36]}
+{"kind":"textbox","id":"sh/6187yp8b","slide":8,"name":"TextBox 49","text":"搭子","textPreview":"搭子","textChars":2,"textLines":1,"bbox":[308.2,536.7,39.6,27.72]}
+{"kind":"textbox","id":"sh/cvmdsb2h","slide":8,"name":"TextBox 50","text":"12-Factor Agents 风格编排","textPreview":"12-Factor Agents 风格编排","textChars":21,"textLines":1,"bbox":[409.28,536.7,248.93,27.72]}
+{"kind":"shape","id":"sh/at4vq1kr","slide":8,"name":"Rectangle 52","bbox":[40,584,40,76]}
+{"kind":"textbox","id":"sh/budwj61c","slide":8,"name":"TextBox 53","text":"04","textPreview":"04","textChars":2,"textLines":1,"bbox":[45.65,611.3,28.69,33.88]}
+{"kind":"shape","id":"sh/kjmdwbit","slide":8,"name":"Rectangle 54","bbox":[96,584,920,76]}
+{"kind":"shape","id":"sh/lkvepgje","slide":8,"name":"Freeform 55","bbox":[120.5,627.6,27,9.4]}
+{"kind":"shape","id":"sh/yx4vu10n","slide":8,"name":"Freeform 56","bbox":[120.5,618.6,27,9.4]}
+{"kind":"shape","id":"sh/zidwn618","slide":8,"name":"Freeform 57","bbox":[120.5,607,27,12]}
+{"kind":"textbox","id":"sh/1obudcju","slide":8,"name":"TextBox 59","text":"本地存储 workspace/","textPreview":"本地存储 workspace/","textChars":15,"textLines":1,"bbox":[164.96,595.9,291.46,40.04]}
+{"kind":"textbox","id":"sh/hk3ah8by","slide":8,"name":"TextBox 60","text":"JSON 状态 · JSONL 事件日志(schema v2) · Markdown 报告 —— 全部留在本机","textPreview":"JSON 状态 · JSONL 事件日志(schema v2) · Markdown 报告 —— 全部留在本机","textChars":55,"textLines":1,"bbox":[165.28,630.7,685.97,27.72]}
+{"kind":"shape","id":"sh/filsfyts","slide":8,"name":"Rectangle 62","bbox":[1040,188,176,472]}
+{"kind":"textbox","id":"sh/uhsbmtc7","slide":8,"name":"TextBox 63","text":"质量保障","textPreview":"质量保障","textChars":4,"textLines":1,"bbox":[1085.62,208.7,84.76,27.72]}
+{"kind":"shape","id":"sh/po3ulsbu","slide":8,"name":"Rectangle 64","bbox":[1060,248,136,112]}
+{"kind":"textbox","id":"sh/4nutsnu9","slide":8,"name":"TextBox 65","text":"336","textPreview":"336","textChars":3,"textLines":1,"bbox":[1082.01,259.2,91.99,73.92]}
+{"kind":"textbox","id":"sh/3mlcjit4","slide":8,"name":"TextBox 66","text":"自动化测试","textPreview":"自动化测试","textChars":5,"textLines":1,"bbox":[1079.58,318.7,96.84,27.72]}
+{"kind":"shape","id":"sh/2lcbqdcj","slide":8,"name":"Rectangle 67","bbox":[1060,380,136,112]}
+{"kind":"shape","id":"sh/dcnupsb6","slide":8,"name":"Freeform 68","bbox":[1111.33,406.59,35.05,35.11]}
+{"kind":"textbox","id":"sh/cbetwnul","slide":8,"name":"TextBox 69","text":"核心覆盖","textPreview":"核心覆盖","textChars":4,"textLines":1,"bbox":[1089.12,456.7,77.76,27.72]}
+{"kind":"textbox","id":"sh/axo7qps3","slide":8,"name":"TextBox 70","text":"79-96%","textPreview":"79-96%","textChars":6,"textLines":1,"bbox":[1076.32,423.9,103.36,40.04]}
+{"kind":"shape","id":"sh/vyx8ju9o","slide":8,"name":"Rectangle 71","bbox":[1060,512,136,112]}
+{"kind":"shape","id":"sh/wzq9szat","slide":8,"name":"Freeform 72","bbox":[1110.58,539.33,34.84,33.35]}
+{"kind":"textbox","id":"sh/x0zql4re","slide":8,"name":"TextBox 73","text":"事件全链路","textPreview":"事件全链路","textChars":5,"textLines":1,"bbox":[1079.58,588.7,96.84,27.72]}
+{"kind":"textbox","id":"sh/i18ru9sz","slide":8,"name":"TextBox 74","text":"append-only","textPreview":"append-only","textChars":11,"textLines":1,"bbox":[1069.18,562.7,117.64,27.72]}
+{"kind":"textbox","id":"sh/knq9wza5","slide":8,"name":"TextBox 76","text":"StudyMate Agent · 功能介绍","textPreview":"StudyMate Agent · 功能介绍","textChars":22,"textLines":1,"bbox":[63.36,694.4,230.44,24.64]}
+{"kind":"textbox","id":"sh/5ozqp4rq","slide":8,"name":"TextBox 77","text":"08","textPreview":"08","textChars":2,"textLines":1,"bbox":[1196.7,694.4,19.94,24.64]}
+{"kind":"notes","id":"nt/fu1gfa1s","slide":8,"text":"技术上我们遵循十二要素智能体的风格:大模型只产出结构化 JSON 决策,TypeScript 负责路由和状态。四层架构从界面、API、八个模块化 Agent 到本地存储;批改在服务端原子完成;全链路事件日志可审计。三百二十八项自动化测试保障每一次改动。"}
+{"kind":"slide","id":"sl/udsvah03","slide":9,"title":"08 可复现","textShapes":21}
+{"kind":"shape","id":"sh/1cfmhgne","slide":9,"name":"Rectangle 2","bbox":[0,0,1280,720]}
+{"kind":"shape","id":"sh/0b65obm9","slide":9,"name":"Ellipse 3","bbox":[1090,10,220,220]}
+{"kind":"shape","id":"sh/mdonql4z","slide":9,"name":"Rectangle 5","bbox":[64,52,120,36]}
+{"kind":"textbox","id":"sh/9gzml0nq","slide":9,"name":"TextBox 6","text":"08 可复现","textPreview":"08 可复现","textChars":6,"textLines":1,"bbox":[79.21,61.7,89.59,27.72]}
+{"kind":"textbox","id":"sh/ofq5svm5","slide":9,"name":"TextBox 7","text":"clone 即跑,数据不出本机","textPreview":"clone 即跑,数据不出本机","textChars":15,"textLines":1,"bbox":[62.32,104.3,533.93,64.68]}
+{"kind":"textbox","id":"sh/bih4na5w","slide":9,"name":"TextBox 8","text":"评审无需任何 API Key 即可体验完整闭环 —— 三条命令,从示例数据到 336 项测试。","textPreview":"评审无需任何 API Key 即可体验完整闭环 —— 三条命令,从示例数据到 336 项测试。","textChars":47,"textLines":1,"bbox":[62.96,159.9,1060.64,40.04]}
+{"kind":"shape","id":"sh/oza1gfyh","slide":9,"name":"Rectangle 10","bbox":[64,222,740,330]}
+{"kind":"shape","id":"sh/p0ji9kf2","slide":9,"name":"Ellipse 11","bbox":[91,249,18,18]}
+{"kind":"shape","id":"sh/2xsjepgb","slide":9,"name":"Ellipse 12","bbox":[119,249,18,18]}
+{"kind":"shape","id":"sh/3y107axw","slide":9,"name":"Ellipse 13","bbox":[147,249,18,18]}
+{"kind":"textbox","id":"sh/cnu1kzyd","slide":9,"name":"TextBox 14","text":"studymate-agent — bash","textPreview":"studymate-agent — bash","textChars":22,"textLines":1,"bbox":[333.3,250.4,201.41,24.64]}
+{"kind":"shape","id":"sh/do3id4fy","slide":9,"name":"Line 15","bbox":[64,284,740,1]}
+{"kind":"textbox","id":"sh/qlcjipgn","slide":9,"name":"TextBox 16","text":"$","textPreview":"$","textChars":1,"textLines":1,"bbox":[95.04,309.6,15.91,36.96]}
+{"kind":"textbox","id":"sh/bml0buxs","slide":9,"name":"TextBox 17","text":"npm install && npm run demo","textPreview":"npm install && npm run demo","textChars":27,"textLines":1,"bbox":[127.04,309.6,344.09,36.96]}
+{"kind":"textbox","id":"sh/0ru1ozyp","slide":9,"name":"TextBox 18","text":"# 生成 CPA 会计基础示例考试数据(Mock 全流程)","textPreview":"# 生成 CPA 会计基础示例考试数据(Mock 全流程)","textChars":29,"textLines":1,"bbox":[127.36,346.4,384.72,24.64]}
+{"kind":"textbox","id":"sh/lsn2h4fa","slide":9,"name":"TextBox 19","text":"$","textPreview":"$","textChars":1,"textLines":1,"bbox":[95.04,391.6,15.91,36.96]}
+{"kind":"textbox","id":"sh/98ji147e","slide":9,"name":"TextBox 20","text":"npm run serve","textPreview":"npm run serve","textChars":13,"textLines":1,"bbox":[127.04,391.6,176.18,36.96]}
+{"kind":"textbox","id":"sh/87a18zqt","slide":9,"name":"TextBox 21","text":"# 打开 http://localhost:3456 即是完整 Web 应用","textPreview":"# 打开 http://localhost:3456 即是完整 Web 应用","textChars":38,"textLines":1,"bbox":[127.36,428.4,391.89,24.64]}
+{"kind":"textbox","id":"sh/76h0zup8","slide":9,"name":"TextBox 22","text":"$","textPreview":"$","textChars":1,"textLines":1,"bbox":[95.04,473.6,15.91,36.96]}
+{"kind":"textbox","id":"sh/ml8j6p8n","slide":9,"name":"TextBox 23","text":"npm test","textPreview":"npm test","textChars":8,"textLines":1,"bbox":[127.04,473.6,112.58,36.96]}
+{"kind":"textbox","id":"sh/hcji5o7a","slide":9,"name":"TextBox 24","text":"# 336 项测试全绿(42 个测试文件)","textPreview":"# 336 项测试全绿(42 个测试文件)","textChars":21,"textLines":1,"bbox":[127.36,510.4,260.77,24.64]}
+{"kind":"shape","id":"sh/va103ep4","slide":9,"name":"Freeform 26","bbox":[875.61,244.67,48.78,46.69]}
+{"kind":"textbox","id":"sh/u9sja98z","slide":9,"name":"TextBox 27","text":"本地优先的隐私承诺","textPreview":"本地优先的隐私承诺","textChars":9,"textLines":1,"bbox":[870.72,316.8,323.1,49.28]}
+{"kind":"shape","id":"sh/xgzitk76","slide":9,"name":"Line 28","bbox":[872,368,344,1]}
+{"kind":"textbox","id":"sh/cf6h0fql","slide":9,"name":"TextBox 29","text":"教材、错题、掌握度全部留在","textPreview":"教材、错题、掌握度全部留在","textChars":13,"textLines":1,"bbox":[871.04,389.6,332.64,36.96]}
+{"kind":"textbox","id":"sh/2l4faloj","slide":9,"name":"TextBox 30","text":"本地 workspace/(gitignored),","textPreview":"本地 workspace/(gitignored),","textChars":26,"textLines":1,"bbox":[871.04,423.6,374.62,36.96]}
+{"kind":"textbox","id":"sh/nmdg3q54","slide":9,"name":"TextBox 31","text":"不上传任何云端服务器。","textPreview":"不上传任何云端服务器。","textChars":11,"textLines":1,"bbox":[871.04,457.6,281.76,36.96]}
+{"kind":"textbox","id":"sh/onmxcv69","slide":9,"name":"TextBox 32","text":"公网部署另附 Token 认证 / HTTPS / CORS 清单","textPreview":"公网部署另附 Token 认证 / HTTPS / CORS 清单","textChars":33,"textLines":1,"bbox":[871.28,512.7,420.31,27.72]}
+{"kind":"shape","id":"sh/apofe5of","slide":9,"name":"Rectangle 34","bbox":[64,592,56,6]}
+{"kind":"textbox","id":"sh/bqxg7q50","slide":9,"name":"TextBox 35","text":"Mock 证明工作流执行,真实模型验证输出质量 —— 证据边界诚实标注,不夸大验证状态。","textPreview":"Mock 证明工作流执行,真实模型验证输出质量 —— 证据边界诚实标注,不夸大验证状态。","textChars":44,"textLines":1,"bbox":[62.96,623.9,1090.73,40.04]}
+{"kind":"textbox","id":"sh/xcfy90n6","slide":9,"name":"TextBox 37","text":"StudyMate Agent · 功能介绍","textPreview":"StudyMate Agent · 功能介绍","textChars":22,"textLines":1,"bbox":[63.36,690.4,230.44,24.64]}
+{"kind":"textbox","id":"sh/qtkf21ob","slide":9,"name":"TextBox 38","text":"09","textPreview":"09","textChars":2,"textLines":1,"bbox":[1196.7,690.4,19.94,24.64]}
+{"kind":"notes","id":"nt/udsvah03","slide":9,"text":"复现只需要三条命令,而且不需要任何密钥。安装并生成示例数据,启动服务,跑一遍测试。Mock 模式证明的是工作流执行,配上密钥就切换真实大模型 —— 证据边界我们诚实标注,不夸大。你的教材、错题、掌握度,全部留在本机。"}
+{"kind":"slide","id":"sl/m90b6t0r","slide":10,"title":"自动化测试用例","textShapes":14}
+{"kind":"shape","id":"sh/xc3mho32","slide":10,"name":"Rectangle 2","bbox":[0,0,1280,720]}
+{"kind":"shape","id":"sh/cbu58j2h","slide":10,"name":"Rectangle 3","bbox":[0,0,1280,720]}
+{"kind":"shape","id":"sh/zelojyl8","slide":10,"name":"Ellipse 4","bbox":[1100,20,180,180]}
+{"kind":"shape","id":"sh/l036l83y","slide":10,"name":"Rectangle 6","bbox":[64,64,560,132]}
+{"kind":"shape","id":"sh/kzu5c32t","slide":10,"name":"Rectangle 7","bbox":[88,92,6,76]}
+{"kind":"textbox","id":"sh/725onyl4","slide":10,"name":"TextBox 8","text":"自动化测试用例","textPreview":"自动化测试用例","textChars":7,"textLines":1,"bbox":[115.28,110.7,135,27.72]}
+{"kind":"textbox","id":"sh/m1cnetkj","slide":10,"name":"TextBox 9","text":"336","textPreview":"336","textChars":3,"textLines":1,"bbox":[114.08,131.2,91.99,73.92]}
+{"kind":"textbox","id":"sh/s7yt4b21","slide":10,"name":"TextBox 10","text":"42 个测试文件","textPreview":"42 个测试文件","textChars":8,"textLines":1,"bbox":[229.28,156.7,123.55,27.72]}
+{"kind":"shape","id":"sh/d87uxg3m","slide":10,"name":"Rectangle 11","bbox":[648,64,568,132]}
+{"kind":"shape","id":"sh/q5gb21kb","slide":10,"name":"Rectangle 12","bbox":[672,92,6,76]}
+{"kind":"textbox","id":"sh/r6pcv6lw","slide":10,"name":"TextBox 13","text":"模块化 Agent / 搭子角色","textPreview":"模块化 Agent / 搭子角色","textChars":16,"textLines":1,"bbox":[699.28,110.7,217.56,27.72]}
+{"kind":"textbox","id":"sh/0bit8b2d","slide":10,"name":"TextBox 14","text":"8 + 4","textPreview":"8 + 4","textChars":5,"textLines":1,"bbox":[698.08,131.2,124.04,73.92]}
+{"kind":"textbox","id":"sh/1cru1g3y","slide":10,"name":"TextBox 15","text":"8 Agents · 4 搭子","textPreview":"8 Agents · 4 搭子","textChars":15,"textLines":1,"bbox":[855.28,156.7,158.41,27.72]}
+{"kind":"textbox","id":"sh/fapcz6ls","slide":10,"name":"TextBox 17","text":"让每一次学习","textPreview":"让每一次学习","textChars":6,"textLines":1,"bbox":[424.3,275.6,431.39,98]}
+{"kind":"textbox","id":"sh/ozitcv29","slide":10,"name":"TextBox 18","text":"都被记住","textPreview":"都被记住","textChars":4,"textLines":1,"bbox":[495.54,361.6,288.93,98]}
+{"kind":"shape","id":"sh/p0ru503u","slide":10,"name":"Rectangle 19","bbox":[606,448,68,6]}
+{"kind":"textbox","id":"sh/xwnupgvy","slide":10,"name":"TextBox 20","text":"SM-2 五档间隔 × 掌握度闭环,把「坚持」交给系统","textPreview":"SM-2 五档间隔 × 掌握度闭环,把「坚持」交给系统","textChars":27,"textLines":1,"bbox":[312.82,479.9,654.37,40.04]}
+{"kind":"shape","id":"sh/bu5cnqd8","slide":10,"name":"Freeform 22","bbox":[239.1,600,12.65,8.96]}
+{"kind":"shape","id":"sh/atwbelcn","slide":10,"name":"Freeform 23","bbox":[224.25,600,12.65,8.96]}
+{"kind":"shape","id":"sh/lk7ut0va","slide":10,"name":"Freeform 24","bbox":[235.65,600,4.71,5.83]}
+{"kind":"shape","id":"sh/kjytkvup","slide":10,"name":"Freeform 25","bbox":[222.9,591,9.15,6]}
+{"kind":"shape","id":"sh/jypcrqd4","slide":10,"name":"Freeform 26","bbox":[234.82,591,6.36,6]}
+{"kind":"shape","id":"sh/yxgbilcj","slide":10,"name":"Freeform 27","bbox":[243.95,591,9.15,6]}
+{"kind":"shape","id":"sh/1o3ahwvq","slide":10,"name":"Freeform 28","bbox":[224.25,579.04,12.65,8.96]}
+{"kind":"shape","id":"sh/0nut8rul","slide":10,"name":"Freeform 29","bbox":[235.65,582.17,4.71,5.83]}
+{"kind":"shape","id":"sh/q9srixs3","slide":10,"name":"Freeform 30","bbox":[239.1,579.04,12.65,8.96]}
+{"kind":"textbox","id":"sh/cva9k7a9","slide":10,"name":"TextBox 32","text":"github.com/qrx-joe/studymate-agent","textPreview":"github.com/qrx-joe/studymate-agent","textChars":34,"textLines":1,"bbox":[271.28,580.7,356.33,27.72]}
+{"kind":"shape","id":"sh/dwjqtcbu","slide":10,"name":"Freeform 33","bbox":[582.5,587.4,9,13.24]}
+{"kind":"shape","id":"sh/exsrmhsf","slide":10,"name":"Freeform 34","bbox":[563,583.5,21,21]}
+{"kind":"textbox","id":"sh/0zu9ora5","slide":10,"name":"TextBox 36","text":"B 站 78 秒中文配音演示","textPreview":"B 站 78 秒中文配音演示","textChars":14,"textLines":1,"bbox":[611.28,580.7,214.13,27.72]}
+{"kind":"shape","id":"sh/103qxcbq","slide":10,"name":"Freeform 37","bbox":[886.85,596.97,13.61,11.92]}
+{"kind":"shape","id":"sh/u187adsv","slide":10,"name":"Freeform 38","bbox":[871.52,596.97,13.62,11.9]}
+{"kind":"shape","id":"sh/f2h8jitg","slide":10,"name":"Freeform 39","bbox":[875.5,579,21,21.01]}
+{"kind":"textbox","id":"sh/algfy50n","slide":10,"name":"TextBox 41","text":"Skill 作品链接见报名提交页","textPreview":"Skill 作品链接见报名提交页","textChars":16,"textLines":1,"bbox":[919.28,580.7,219.48,27.72]}
+{"kind":"shape","id":"sh/wnyx0fit","slide":10,"name":"Line 43","bbox":[64,648,1152,1]}
+{"kind":"textbox","id":"sh/jq9gvuh4","slide":10,"name":"TextBox 44","text":"书生国智科探挑战赛 · 自由赛道「科艺融合 × AI4SS」","textPreview":"书生国智科探挑战赛 · 自由赛道「科艺融合 × AI4SS」","textChars":30,"textLines":1,"bbox":[63.36,670.4,427.78,24.64]}
+{"kind":"textbox","id":"sh/ip0f2p0j","slide":10,"name":"TextBox 45","text":"StudyMate Agent · 10","textPreview":"StudyMate Agent · 10","textChars":20,"textLines":1,"bbox":[1035.98,670.4,180.66,24.64]}
+{"kind":"notes","id":"nt/m90b6t0r","slide":10,"text":"三百二十八项测试,八个智能体,四个搭子角色,五档间隔重复。StudyMate 想做的事情可以浓缩成一句话 —— 让每一次学习都被记住。代码在 GitHub,演示在 B 站,参赛 Skill 已经上架科学发现平台。谢谢各位。"}

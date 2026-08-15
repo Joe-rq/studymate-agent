@@ -146,7 +146,7 @@ flowchart TB
 - **Ambient 主题**：4 角色 × 深浅双主题的整页空间氛围
 - **CLI + Web 双界面**、**全链路事件审计**（`workspace/event_log/events.jsonl`，LLM 调用记录 model/promptVersion/duration/tokenUsage）、**本地优先 + 离线可用**
 
-> 🎬 **Demo 视频**：[B 站在线观看](https://www.bilibili.com/video/BV1gduB6QEMD/)（「你的备考搭子」，78 秒，晓伊女声中文旁白）｜[本地文件](screenshots/demo_v2/studymate_demo.mp4)。界面截图见 [`screenshots/`](screenshots/)。
+> 🎬 **Demo 视频**：[B 站 2:45 加长版](https://www.bilibili.com/video/BV1Kob26QEY5/)（最新 UI 重录，中文配音）｜[B 站 78 秒版](https://www.bilibili.com/video/BV1gduB6QEMD/)｜[在线体验](https://studymate-agent-aekmaorln-qrx-joes-projects.vercel.app)。界面截图见 [`screenshots/`](screenshots/)。
 
 ## 当前限制
 
