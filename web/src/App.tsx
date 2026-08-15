@@ -39,7 +39,7 @@ export default function App() {
       {/* Desktop sidebar (also slides in as drawer on mobile) */}
       <nav className={`sidebar${drawerOpen ? ' open' : ''}`}>
         <h1 className="logo">
-          <img className="logo-mark" src="/logo.png" alt="StudyMate" />
+          <img className="logo-mark" src="/logo.png" alt="" />
           <span>StudyMate</span>
         </h1>
         <ul>
