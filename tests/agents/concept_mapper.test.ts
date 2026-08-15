@@ -1,5 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { mapConcepts } from '../../src/agents/concept_mapper.js';
+import { mapConcepts, PROMPT_VERSION } from '../../src/agents/concept_mapper.js';
+import { createMockLLMClient } from '../../src/core/mock_llm.js';
+import { loadEvents } from '../../src/core/event_log.js';
 import fs from 'fs/promises';
 import path from 'path';
 
@@ -30,6 +32,22 @@ describe('concept_mapper', () => {
     const result = await mapConcepts(chunks, mockLLM as any, TEST_LOG, { workspaceRoot: TEST_DIR });
     expect(result.concepts).toHaveLength(3);
     expect(result.learningOrder.length).toBeGreaterThan(0);
+  });
+
+  it('真实 LLM 调用审计元数据落日志（model/promptVersion/schemaVersion=2）', async () => {
+    const chunks = [
+      { id: 'chunk_1', materialId: 'mat_1', title: 'Supply', content: 'Supply is...', chapterPath: '1', concepts: [], sourceLink: '' },
+      { id: 'chunk_2', materialId: 'mat_1', title: 'Demand', content: 'Demand is...', chapterPath: '2', concepts: [], sourceLink: '' },
+    ];
+    // Mock 客户端实现了 completeJSONWithMeta —— 元数据被标记为 mock-llm
+    await mapConcepts(chunks, createMockLLMClient(), TEST_LOG, { workspaceRoot: TEST_DIR });
+    const events = await loadEvents(TEST_LOG);
+    const mapped = events.find((e) => e.action === 'concepts_mapped');
+    expect(mapped).toBeDefined();
+    expect(mapped!.schemaVersion).toBe(2);
+    expect(mapped!.model).toBe('mock-llm');
+    expect(mapped!.promptVersion).toBe(PROMPT_VERSION);
+    expect(typeof mapped!.durationMs).toBe('number');
   });
 
   it('should detect cyclic prerequisites and throw', async () => {

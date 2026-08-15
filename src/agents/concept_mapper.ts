@@ -1,9 +1,10 @@
 import fs from 'fs/promises';
 import path from 'path';
 import type { Chunk } from './chunker.js';
-import type { LLMClient } from '../core/llm.js';
+import type { LLMClient, LLMResult, TokenUsage } from '../core/llm.js';
+import { callJSONWithMeta } from '../core/llm.js';
 import type { Event } from '../core/types.js';
-import { createEventId, appendEvent } from '../core/event_log.js';
+import { createEventId, appendEvent, appendEventWithMeta, type EventLLMMeta } from '../core/event_log.js';
 import { Paths, PROMPTS_SOURCE } from '../core/paths.js';
 import { atomicWriteJSON } from '../core/atomic_file.js';
 import type { SRState } from './spaced_repetition.js';
@@ -64,18 +65,32 @@ async function extractBatch(
   chunks: Chunk[],
   llm: LLMClient,
   system: string
-): Promise<RawConcept[]> {
+): Promise<{ concepts: RawConcept[]; meta?: EventLLMMeta }> {
   const user = chunks.map((c) => `## ${c.title}\n${c.content.slice(0, 800)}`).join('\n\n');
 
-  const raw = await llm.completeJSON<{ concepts: RawConcept[] }>(system, user, {
+  const { data: raw, meta } = await callJSONWithMeta<{ concepts: RawConcept[] }>(llm, system, user, {
     temperature: 0.3,
     retries: 3,
   });
 
-  if (!Array.isArray(raw.concepts)) return [];
-  return raw.concepts.filter(
-    (c) => c.id && typeof c.name === 'string' && typeof c.definition === 'string'
-  );
+  if (!Array.isArray(raw.concepts)) {
+    return { concepts: [], meta: toMeta(meta) };
+  }
+  return {
+    concepts: raw.concepts.filter(
+      (c) => c.id && typeof c.name === 'string' && typeof c.definition === 'string'
+    ),
+    meta: toMeta(meta),
+  };
+}
+
+function toMeta(meta?: LLMResult): EventLLMMeta | undefined {
+  if (!meta) return undefined;
+  return {
+    model: meta.model,
+    durationMs: meta.durationMs,
+    tokenUsage: meta.usage,
+  };
 }
 
 /**
@@ -168,11 +183,27 @@ export async function mapConcepts(
     batches.push(chunks.slice(i, i + batchSize));
   }
 
-  // Extract concepts from each batch
+  // Extract concepts from each batch（聚合每次调用的审计元数据）
   const batchResults: RawConcept[][] = [];
+  let totalDurationMs = 0;
+  let lastModel: string | undefined;
+  let totalUsage: TokenUsage | undefined;
   for (const batch of batches) {
-    const result = await extractBatch(batch, llm, system);
-    batchResults.push(result);
+    const { concepts, meta } = await extractBatch(batch, llm, system);
+    batchResults.push(concepts);
+    if (meta) {
+      totalDurationMs += meta.durationMs ?? 0;
+      lastModel = meta.model;
+      if (meta.tokenUsage) {
+        totalUsage = totalUsage
+          ? {
+              prompt: totalUsage.prompt + meta.tokenUsage.prompt,
+              completion: totalUsage.completion + meta.tokenUsage.completion,
+              total: totalUsage.total + meta.tokenUsage.total,
+            }
+          : meta.tokenUsage;
+      }
+    }
   }
 
   // Merge and deduplicate
@@ -234,7 +265,12 @@ export async function mapConcepts(
       learningOrderCount: order.length,
     },
   };
-  await appendEvent(eventLogFile, event);
+  await appendEventWithMeta(eventLogFile, event, {
+    model: lastModel,
+    promptVersion: PROMPT_VERSION,
+    durationMs: totalDurationMs,
+    tokenUsage: totalUsage,
+  });
 
   return conceptMap;
 }

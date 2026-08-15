@@ -139,7 +139,8 @@ describe('Full workflow e2e', () => {
     expect(typeof metrics.planCompletionRate).toBe('number');
     expect(typeof metrics.postReviewAccuracy).toBe('number');
     expect(typeof metrics.knowledgeRetention).toBe('number');
-    expect(typeof metrics.questionDiscardRate).toBe('number');
+    // 题目弃用率在反馈机制实现前显式为 null（不可用），不是伪造的 0
+    expect(metrics.questionDiscardRate).toBeNull();
     expect(Number.isFinite(metrics.planCompletionRate)).toBe(true);
 
     // 10. Verify buddy state

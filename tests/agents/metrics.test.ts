@@ -16,7 +16,8 @@ describe('computeMetrics', () => {
     expect(metrics.planCompletionRate).toBe(0);
     expect(metrics.postReviewAccuracy).toBe(0);
     expect(metrics.knowledgeRetention).toBe(0);
-    expect(metrics.questionDiscardRate).toBe(0);
+    // 占位指标显式返回 null（不可用），禁止固定返回 0 冒充真实指标
+    expect(metrics.questionDiscardRate).toBeNull();
   });
 
   it('should compute plan completion rate from tasks', async () => {

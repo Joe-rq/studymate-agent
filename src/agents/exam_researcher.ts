@@ -7,8 +7,9 @@
  */
 
 import type { LLMClient } from '../core/llm.js';
+import { callJSONWithMeta } from '../core/llm.js';
 import type { Event } from '../core/types.js';
-import { createEventId, appendEvent } from '../core/event_log.js';
+import { createEventId, appendEvent, appendEventWithMeta, type EventLLMMeta } from '../core/event_log.js';
 import type { SearchProvider, SearchResult } from '../application/ports/search_provider.js';
 import type { ExamProject } from '../domain/exam.js';
 import {
@@ -127,7 +128,7 @@ async function synthesizeResearch(
   examName: string,
   sources: SourceRecord[],
   llm: LLMClient
-): Promise<ResearchSummary> {
+): Promise<{ summary: ResearchSummary; llmMeta?: EventLLMMeta }> {
   const system = `You are an exam research analyst. Given search results about an exam, synthesize them into structured categories. Respond with JSON only. No markdown fences.
 Each factual or advisory section must cite source IDs from the input. Format: {
   "examFacts": "Verified official facts about the exam",
@@ -153,7 +154,7 @@ Each factual or advisory section must cite source IDs from the input. Format: {
   const user = `Exam: ${examName}\n\nDiscovered sources:\n${sourcesText}`;
 
   try {
-    const raw = await llm.completeJSON<ResearchSummary>(system, user, {
+    const { data: raw, meta } = await callJSONWithMeta<ResearchSummary>(llm, system, user, {
       temperature: 0.3,
       retries: 2,
     });
@@ -173,31 +174,38 @@ Each factual or advisory section must cite source IDs from the input. Format: {
       return `[证据不足] ${text}`;
     };
     return {
-      ...raw,
-      examFacts: requireEvidence(raw.examFacts, citations.examFacts),
+      summary: {
+        ...raw,
+        examFacts: requireEvidence(raw.examFacts, citations.examFacts),
       experienceConsensus: requireEvidence(
         raw.experienceConsensus,
         citations.experienceConsensus
       ),
       disputedAdvice: requireEvidence(raw.disputedAdvice, citations.disputedAdvice),
-      materialRecommendations: requireEvidence(
-        raw.materialRecommendations,
-        citations.materialRecommendations
-      ),
-      citations,
+        materialRecommendations: requireEvidence(
+          raw.materialRecommendations,
+          citations.materialRecommendations
+        ),
+        citations,
+      },
+      llmMeta: meta
+        ? { model: meta.model, durationMs: meta.durationMs, tokenUsage: meta.usage }
+        : undefined,
     };
   } catch {
     return {
-      examFacts: 'Unable to synthesize — LLM unavailable',
-      experienceConsensus: '',
-      disputedAdvice: '',
-      materialRecommendations: '',
-      gapsInEvidence: 'All evidence gaps unknown due to synthesis failure',
-      citations: {
-        examFacts: [],
-        experienceConsensus: [],
-        disputedAdvice: [],
-        materialRecommendations: [],
+      summary: {
+        examFacts: 'Unable to synthesize — LLM unavailable',
+        experienceConsensus: '',
+        disputedAdvice: '',
+        materialRecommendations: '',
+        gapsInEvidence: 'All evidence gaps unknown due to synthesis failure',
+        citations: {
+          examFacts: [],
+          experienceConsensus: [],
+          disputedAdvice: [],
+          materialRecommendations: [],
+        },
       },
     };
   }
@@ -251,7 +259,7 @@ export async function researchExam(
   });
 
   // Synthesize with LLM
-  const summary = await synthesizeResearch(exam.name, sources, llm);
+  const { summary, llmMeta } = await synthesizeResearch(exam.name, sources, llm);
 
   // Log event
   const event: Event = {
@@ -271,7 +279,12 @@ export async function researchExam(
     },
     examProjectId: exam.id,
   };
-  await appendEvent(eventLogFile, event);
+  await appendEventWithMeta(eventLogFile, event, {
+    model: llmMeta?.model,
+    promptVersion: 'research_v1',
+    durationMs: llmMeta?.durationMs,
+    tokenUsage: llmMeta?.tokenUsage,
+  });
 
   return { sources, summary, queryCount: queries.length, rawResultCount };
 }

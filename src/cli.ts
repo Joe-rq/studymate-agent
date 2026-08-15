@@ -841,7 +841,7 @@ program
     console.log(`  计划完成率：${(m.planCompletionRate * 100).toFixed(0)}%`);
     console.log(`  复习后正确率：${(m.postReviewAccuracy * 100).toFixed(0)}%`);
     console.log(`  知识保持率：${(m.knowledgeRetention * 100).toFixed(0)}%`);
-    console.log(`  题目废弃率：${(m.questionDiscardRate * 100).toFixed(0)}%`);
+    console.log('  题目弃用率：暂不可用（题目跳过/弃用反馈机制未实现）');
     console.log('');
   });
 

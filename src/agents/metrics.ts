@@ -10,8 +10,11 @@ export interface StrategyMetrics {
   postReviewAccuracy: number;
   /** Avg mastery of concepts tested 2+ times. */
   knowledgeRetention: number;
-  /** Questions skipped / total (future: user feedback). */
-  questionDiscardRate: number;
+  /**
+   * Questions skipped / total. null = 指标不可用（题目跳过/弃用反馈机制尚未实现），
+   * 禁止固定返回 0 冒充真实指标。
+   */
+  questionDiscardRate: number | null;
 }
 
 /**
@@ -92,8 +95,8 @@ export async function computeMetrics(workspaceRoot?: string): Promise<StrategyMe
     }
   } catch { /* no mastery history yet */ }
 
-  // 3. Question discard rate (placeholder - requires user feedback mechanism)
-  const questionDiscardRate = 0;
+  // 3. Question discard rate：题目跳过/弃用反馈机制未实现，显式返回 null（不可用）
+  const questionDiscardRate = null;
 
   return {
     planCompletionRate: Math.round(planCompletionRate * 100) / 100,

@@ -1,8 +1,9 @@
 import fs from 'fs/promises';
 import path from 'path';
 import type { LLMClient } from '../core/llm.js';
+import { callJSONWithMeta } from '../core/llm.js';
 import type { Event } from '../core/types.js';
-import { createEventId, appendEvent } from '../core/event_log.js';
+import { createEventId, appendEvent, appendEventWithMeta } from '../core/event_log.js';
 import { Paths, PROMPTS_SOURCE } from '../core/paths.js';
 import type { Character } from '../core/character.js';
 import type { StudyContext } from '../core/context_reader.js';
@@ -115,7 +116,7 @@ export async function buddyChat(
 
   const user = `${buildPersonaBlock(character, ctx, history)}\n\n【学生的话】\n${userMessage}`;
 
-  const result = await llm.completeJSON<BuddyReply>(system, user, {
+  const { data: result, meta: llmMeta } = await callJSONWithMeta<BuddyReply>(llm, system, user, {
     temperature: 0.8,
     retries: 2,
   });
@@ -138,7 +139,12 @@ export async function buddyChat(
     input: { characterId: character.id, userMessage: userMessage.slice(0, 100) },
     output: { reply: result.reply.slice(0, 100) },
   };
-  await appendEvent(eventLogFile, event);
+  await appendEventWithMeta(eventLogFile, event, {
+    model: llmMeta?.model,
+    promptVersion: PROMPT_VERSION,
+    durationMs: llmMeta?.durationMs,
+    tokenUsage: llmMeta?.usage,
+  });
 
   return result.reply;
 }
@@ -177,7 +183,7 @@ export async function buddyInterject(
     `请用你的语气说一句简短的话（20 字以内），回应这个时刻。`;
 
   try {
-    const result = await llm.completeJSON<BuddyReply>(system, user, {
+    const { data: result, meta: llmMeta } = await callJSONWithMeta<BuddyReply>(llm, system, user, {
       temperature: 0.9,
       retries: 1,
     });
@@ -191,7 +197,12 @@ export async function buddyInterject(
       input: { characterId: character.id, score: extra?.score },
       output: { line: result.reply },
     };
-    await appendEvent(eventLogFile, event2);
+    await appendEventWithMeta(eventLogFile, event2, {
+      model: llmMeta?.model,
+      promptVersion: PROMPT_VERSION,
+      durationMs: llmMeta?.durationMs,
+      tokenUsage: llmMeta?.usage,
+    });
 
     return result.reply;
   } catch {
