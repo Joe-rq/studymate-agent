@@ -37,16 +37,60 @@ export function renderTodoMarkdown(date: string, tasks: TodoTask[]): string {
   const allTags = [...new Set([...tags, ...taskTags])].join(' ');
 
   const typeLabels: Record<string, string> = { learn: '学习', review: '复习', quiz: '测验', sprint: '冲刺', buffer: '缓冲' };
-  return (
-    `---\ndate: ${date}\ntags: ${allTags}\n---\n\n` +
-    `# ${date} 学习任务\n\n` +
-    tasks
-      .map((t) => {
-        const typeLabel = typeLabels[t.type] ?? t.type;
-        return `- [ ] **${typeLabel}** ${t.nodeId}（${t.duration} 分钟）`;
-      })
-      .join('\n')
-  );
+  const lines = [
+    '---',
+    `date: ${date}`,
+    `tags: ${allTags}`,
+    '---',
+    '',
+    '<!-- 本文件由计划与任务进度生成，JSON 数据（plan_daily/*.json）为事实源。 -->',
+    '',
+    `# ${date} 学习任务`,
+    '',
+  ];
+  for (const t of tasks) {
+    const typeLabel = typeLabels[t.type] ?? t.type;
+    const checked = t.status === 'done' || t.status === 'skipped';
+    const name = t.nodeName ?? t.nodeId;
+    lines.push(`- [${checked ? 'x' : ' '}] **${typeLabel}** ${name}（${t.duration} 分钟）`);
+  }
+  return lines.join('\n');
+}
+
+/** 合并完成进度（done/skipped）与概念名，供 Markdown 快照渲染（与 loadTasksForDate 一致）。 */
+async function enrichTaskStatuses(
+  date: string,
+  tasks: TodoTask[],
+  workspaceRoot?: string
+): Promise<TodoTask[]> {
+  const tasksDir = workspaceRoot ? path.join(workspaceRoot, 'tasks') : Paths.tasks;
+  const graphDir = workspaceRoot ? path.join(workspaceRoot, 'graph') : Paths.graph;
+
+  let completionByTask = new Map<string, 'done' | 'skipped'>();
+  try {
+    const progress = JSON.parse(
+      await fs.readFile(path.join(tasksDir, `${date}_progress.json`), 'utf-8')
+    ) as DayProgress;
+    completionByTask = new Map(progress.completions.map((c) => [c.taskId, c.status]));
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
+  }
+
+  let names = new Map<string, string>();
+  try {
+    const conceptMap = JSON.parse(
+      await fs.readFile(path.join(graphDir, 'concepts.json'), 'utf-8')
+    ) as { concepts?: Array<{ id: string; name: string }> };
+    names = new Map((conceptMap.concepts ?? []).map((c) => [c.id, c.name]));
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
+  }
+
+  return tasks.map((t) => ({
+    ...t,
+    nodeName: names.get(t.nodeId) ?? t.nodeId,
+    status: completionByTask.get(t.id) ?? 'pending',
+  }));
 }
 
 export async function dispatchToday(
@@ -62,7 +106,9 @@ export async function dispatchToday(
     status: 'pending',
   }));
 
-  const markdown = renderTodoMarkdown(plan.date, tasks);
+  // 合并完成状态与概念名：Markdown 快照与 Web/CLI 的 loadTasksForDate 一致
+  const enriched = await enrichTaskStatuses(plan.date, tasks, options?.workspaceRoot);
+  const markdown = renderTodoMarkdown(plan.date, enriched);
 
   const tasksDir = options?.workspaceRoot ? path.join(options.workspaceRoot, 'tasks') : Paths.tasks;
   await fs.mkdir(tasksDir, { recursive: true });

@@ -9,6 +9,7 @@ import { Paths } from '../core/paths.js';
 import { atomicWriteJSON } from '../core/atomic_file.js';
 import { addDaysToDateKey, todayDateKey } from '../core/date.js';
 import type { SRState } from './spaced_repetition.js';
+import { dispatchToday } from './task_dispatcher.js';
 
 /**
  * 单次计划调整的最大额外时长（分钟）。
@@ -241,6 +242,15 @@ export async function saveAdjustedPlan(
 
   for (const day of plan.schedule) {
     await atomicWriteJSON(path.join(planDir, 'plan_daily', `${day.date}.json`), day);
+  }
+
+  // 找出实际受影响日期，重建 Markdown 快照（合并 done/skipped，不恢复为 pending）
+  const affectedDates = [...new Set(record.changes.map((c) => c.date))];
+  for (const date of affectedDates) {
+    const day = plan.schedule.find((d) => d.date === date);
+    if (day) {
+      await dispatchToday(day, eventLogFile, { workspaceRoot });
+    }
   }
 
   // Append to adjustment history log
