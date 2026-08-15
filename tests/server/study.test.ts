@@ -32,7 +32,7 @@ async function setupWorkspace(tasks: SetupTask[] = [
   );
   await fs.writeFile(
     path.join(dir, 'plan', 'plan_master.json'),
-    JSON.stringify({ dailyMinutes: 60 })
+    JSON.stringify({ dailyMinutes: 60, schedule: [] })
   );
   await fs.mkdir(path.join(dir, 'graph'), { recursive: true });
   await fs.writeFile(
