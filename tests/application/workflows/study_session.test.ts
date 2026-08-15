@@ -7,11 +7,14 @@ import {
   advanceSession,
   completeSession,
   explainConcept,
+  generateSessionQuiz,
+  gradeStudioSession,
   type StudySession,
 } from '../../../src/application/workflows/study_session.js';
 import { createMockLLMClient } from '../../../src/core/mock_llm.js';
 import { loadEvents } from '../../../src/core/event_log.js';
 import { loadSessionHistory } from '../../../src/application/workflows/session_history.js';
+import type { UserAnswer } from '../../../src/agents/grader.js';
 
 const TODAY = '2026-08-11';
 const TEST_DIR = path.join(process.cwd(), 'workspace_test_study');
@@ -130,18 +133,23 @@ describe('study_session: 会话操作与幂等', () => {
     expect(b.session?.id).toBe(a.session?.id);
   });
 
-  it('focus→recall 完成任务，阶段推进', async () => {
+  it('focus→recall 只记录概念，不标记任务完成', async () => {
     const started = await startSession({ ...opts(TEST_DIR) });
     const agg = await advanceSession({ ...opts(TEST_DIR), fromStage: 'focus' });
     expect(agg.session?.stage).toBe('recall');
     const saved = await loadSavedSession(TEST_DIR);
     expect(saved?.focusNodeIds).toContain('node_1');
-    expect(saved?.completedTaskIds).toContain(started.currentTask!.id);
-    // 任务应已标记 done
-    const progress = JSON.parse(
-      await fs.readFile(path.join(TEST_DIR, 'tasks', `${TODAY}_progress.json`), 'utf-8')
-    );
-    expect(progress.completions.some((c: { taskId: string; status: string }) => c.taskId === started.currentTask!.id && c.status === 'done')).toBe(true);
+    // 阅读完成 ≠ 任务完成：中途退出不应虚增完成率
+    expect(saved?.completedTaskIds).not.toContain(started.currentTask!.id);
+    let progress: { completions?: unknown[] } | null = null;
+    try {
+      progress = JSON.parse(
+        await fs.readFile(path.join(TEST_DIR, 'tasks', `${TODAY}_progress.json`), 'utf-8')
+      );
+    } catch {
+      progress = null;
+    }
+    expect(progress?.completions ?? []).toHaveLength(0);
   });
 
   it('advance 幂等：阶段不匹配时为 no-op', async () => {
@@ -158,56 +166,118 @@ describe('study_session: 会话操作与幂等', () => {
     expect(stageEvents).toHaveLength(1);
   });
 
-  it('quiz→feedback 需要 grade，缺失抛错', async () => {
+  it('quiz 阶段由 /studio/grade 原子推进：advance 拒绝并指向新接口', async () => {
     await startSession({ ...opts(TEST_DIR) });
     await advanceSession({ ...opts(TEST_DIR), fromStage: 'focus' });
     await advanceSession({ ...opts(TEST_DIR), fromStage: 'recall' });
     await expect(
       advanceSession({ ...opts(TEST_DIR), fromStage: 'quiz' })
-    ).rejects.toThrow('grade is required');
-    const agg = await advanceSession({
-      ...opts(TEST_DIR),
-      fromStage: 'quiz',
-      grade: { quizId: 'q1', score: 80, total: 5, correct: 4, correlationId: 'corr_1' },
-      masteryChanges: [{ nodeId: 'node_1', oldMastery: 0, newMastery: 0.4 }],
-    });
-    expect(agg.session?.stage).toBe('feedback');
-    const saved = await loadSavedSession(TEST_DIR);
-    expect(saved?.grade?.score).toBe(80);
-    expect(saved?.masteryChanges).toHaveLength(1);
+    ).rejects.toThrow('studio/grade');
   });
 
-  it('feedback→reflect 附带 Reflect 汇总与明日首项', async () => {
-    await startSession({ ...opts(TEST_DIR) });
+  it('generateSessionQuiz 绑定 sessionId 且包含当前概念，重复生成幂等', async () => {
+    const started = await startSession({ ...opts(TEST_DIR) });
     await advanceSession({ ...opts(TEST_DIR), fromStage: 'focus' });
     await advanceSession({ ...opts(TEST_DIR), fromStage: 'recall' });
-    await advanceSession({
+
+    const quiz = await generateSessionQuiz({ ...opts(TEST_DIR), llm: createMockLLMClient() });
+    expect(quiz.sessionId).toBe(started.session?.id);
+    expect(quiz.questions.length).toBeGreaterThan(0);
+    expect(quiz.questions.every((q) => q.nodeId === 'node_1' || quiz.focusNodeIds?.includes(q.nodeId))).toBe(true);
+
+    const again = await generateSessionQuiz({ ...opts(TEST_DIR), llm: createMockLLMClient() });
+    expect(again.id).toBe(quiz.id);
+  });
+
+  it('gradeStudioSession：服务端批改推进到 feedback，成绩/掌握度来自回执', async () => {
+    const started = await startSession({ ...opts(TEST_DIR) });
+    await advanceSession({ ...opts(TEST_DIR), fromStage: 'focus' });
+    await advanceSession({ ...opts(TEST_DIR), fromStage: 'recall' });
+    const quiz = await generateSessionQuiz({ ...opts(TEST_DIR), llm: createMockLLMClient() });
+
+    const answers: UserAnswer[] = quiz.questions.map((q) => ({
+      questionId: q.id,
+      answer: q.answer,
+    }));
+    const { aggregate, grade } = await gradeStudioSession({
       ...opts(TEST_DIR),
-      fromStage: 'quiz',
-      grade: { quizId: 'q1', score: 80, total: 5, correct: 4, correlationId: 'corr_1' },
-      masteryChanges: [{ nodeId: 'node_1', oldMastery: 0, newMastery: 0.4 }],
+      sessionId: started.session!.id,
+      quizId: quiz.id,
+      answers,
+    });
+    expect(aggregate.session?.stage).toBe('feedback');
+    expect(grade.score).toBe(100);
+
+    const saved = await loadSavedSession(TEST_DIR);
+    expect(saved?.grade?.score).toBe(100);
+    expect(saved?.grade?.quizId).toBe(quiz.id);
+    expect(saved?.masteryChanges.length).toBeGreaterThan(0);
+  });
+
+  it('feedback→reflect 附带 Reflect 汇总（数据来自服务端批改）', async () => {
+    const started = await startSession({ ...opts(TEST_DIR) });
+    await advanceSession({ ...opts(TEST_DIR), fromStage: 'focus' });
+    await advanceSession({ ...opts(TEST_DIR), fromStage: 'recall' });
+    const quiz = await generateSessionQuiz({ ...opts(TEST_DIR), llm: createMockLLMClient() });
+    await gradeStudioSession({
+      ...opts(TEST_DIR),
+      sessionId: started.session!.id,
+      quizId: quiz.id,
+      answers: quiz.questions.map((q) => ({ questionId: q.id, answer: q.answer })),
     });
     const agg = await advanceSession({ ...opts(TEST_DIR), fromStage: 'feedback' });
     expect(agg.session?.stage).toBe('reflect');
-    expect(agg.reflect?.summary.answeredQuestions).toBe(5);
-    expect(agg.reflect?.summary.correct).toBe(4);
-    expect(agg.reflect?.summary.masteryDeltaSum).toBe(0.4);
+    expect(agg.reflect?.summary.answeredQuestions).toBe(quiz.questions.length);
+    expect(agg.reflect?.summary.correct).toBe(quiz.questions.length);
+    expect(agg.reflect?.summary.score).toBe(100);
   });
 
-  it('complete 结束会话且幂等', async () => {
-    await startSession({ ...opts(TEST_DIR) });
+  it('complete 时才写入任务完成，且幂等只写一次', async () => {
+    const started = await startSession({ ...opts(TEST_DIR) });
     const a = await completeSession({ ...opts(TEST_DIR) });
-    expect(a.session?.status).toBe('completed');
-    expect(a.session?.stage).toBe('completed');
+    expect(a.session).toBeNull(); // 完成后无活动会话
+    expect(a.completed?.summary).toBeDefined();
+    expect(a.completed?.nextTask?.nodeId).toBe('node_2'); // 还有下一项
+
+    // 任务完成恰好在 Session 完成时写入
+    const progress = JSON.parse(
+      await fs.readFile(path.join(TEST_DIR, 'tasks', `${TODAY}_progress.json`), 'utf-8')
+    );
+    expect(
+      progress.completions.some(
+        (c: { taskId: string; status: string }) => c.taskId === started.currentTask!.id && c.status === 'done'
+      )
+    ).toBe(true);
+
     const b = await completeSession({ ...opts(TEST_DIR) });
-    expect(b.session?.status).toBe('completed');
+    expect(b.session).toBeNull();
     const events = await loadEvents(path.join(TEST_DIR, 'event_log', 'events.jsonl'));
     expect(events.filter((e) => e.action === 'study_session_completed')).toHaveLength(1);
+    expect(events.filter((e) => e.action === 'task_completed')).toHaveLength(1);
 
     // session_history 应只有一条记录（幂等只写一次）
     const history = await loadSessionHistory(TEST_DIR);
     expect(history).toHaveLength(1);
     expect(history[0].nodeName).toBe('需求曲线');
+  });
+
+  it('completed Session 不阻塞当天新 Session', async () => {
+    await startSession({ ...opts(TEST_DIR) });
+    await completeSession({ ...opts(TEST_DIR) });
+
+    // 已完成的会话不再是 active：聚合返回 null，可开始第二个
+    const agg = await buildAggregate(opts(TEST_DIR));
+    expect(agg.session).toBeNull();
+    expect(agg.candidates).toHaveLength(1);
+
+    const second = await startSession({ ...opts(TEST_DIR) });
+    expect(second.session?.stage).toBe('focus');
+    expect(second.currentTask?.nodeId).toBe('node_2');
+    const saved = await loadSavedSession(TEST_DIR);
+    expect(saved?.id).toBe(second.session?.id);
+
+    const history = await loadSessionHistory(TEST_DIR);
+    expect(history).toHaveLength(1); // 新会话未完成，不重复入历史
   });
 });
 

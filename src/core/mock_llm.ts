@@ -1,4 +1,4 @@
-import type { LLMClient, LLMOptions } from './llm.js';
+import type { LLMClient, LLMOptions, JSONWithMetaResult } from './llm.js';
 
 /** 情境分档：高分 / 中等 / 低分（仅 grade 场景使用，today/quiz 统一用 neutral）。 */
 type ScoreBand = 'high' | 'mid' | 'low' | 'neutral';
@@ -206,6 +206,25 @@ export function createMockLLMClient(): LLMClient {
     async completeJSON<T>(system: string, user: string, options?: LLMOptions): Promise<T> {
       const content = await this.complete(system, user, options);
       return JSON.parse(content) as T;
+    },
+    // Mock 元数据显式标记为 mock —— 审计日志中不与真实模型证据混淆
+    async completeJSONWithMeta<T>(
+      system: string,
+      user: string,
+      options?: LLMOptions
+    ): Promise<JSONWithMetaResult<T>> {
+      const start = Date.now();
+      const content = await this.complete(system, user, options);
+      return {
+        data: JSON.parse(content) as T,
+        meta: {
+          content,
+          model: 'mock-llm',
+          // 至少 1ms，避免快机器上 0 被当作“无元数据”
+          durationMs: Math.max(1, Date.now() - start),
+          usage: { prompt: 0, completion: 0, total: 0 },
+        },
+      };
     },
   };
 }

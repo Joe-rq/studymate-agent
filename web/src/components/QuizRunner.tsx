@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { api, type Quiz, type GradeResult } from '../api';
+import { api, type Quiz, type GradeResult, type StudioResponse } from '../api';
 import QuizCard from './QuizCard';
 import { Loading, EmptyState } from './Feedback';
 
@@ -12,13 +12,18 @@ export interface GradedPayload {
 interface Props {
   /** 提交批改完成后的回调（QuizPage 存 sessionStorage + 跳转；StudioPage 推进阶段）。 */
   onGraded: (payload: GradedPayload) => void;
+  /** Studio 模式：Quiz 由服务端按当前 Session 生成并绑定 sessionId，批改走 /studio/grade。 */
+  studio?: {
+    onAdvanced: (data: StudioResponse) => void;
+  };
 }
 
 /**
  * 测验核心：加载/生成 → 答题 → 提交批改。
- * QuizPage 与 StudioPage 的测验阶段共用。
+ * QuizPage（全局每日测验）与 StudioPage 的测验阶段共用。
+ * Studio 模式下前端只提交 sessionId、quizId 和答案——成绩由服务端批改产生。
  */
-export default function QuizRunner({ onGraded }: Props) {
+export default function QuizRunner({ onGraded, studio }: Props) {
   const [quiz, setQuiz] = useState<Quiz | null>(null);
   const [answers, setAnswers] = useState<Record<string, number[]>>({});
   const [loading, setLoading] = useState(true);
@@ -26,13 +31,23 @@ export default function QuizRunner({ onGraded }: Props) {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    api.get<Quiz | null>('/quiz/today')
-      .then((q) => {
-        setQuiz(q);
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
-  }, []);
+    if (studio) {
+      // Session 绑定出题（幂等：已生成则直接返回）
+      api.post<Quiz>('/studio/quiz', {})
+        .then((q) => {
+          setQuiz(q);
+          setLoading(false);
+        })
+        .catch(() => setLoading(false));
+    } else {
+      api.get<Quiz | null>('/quiz/today')
+        .then((q) => {
+          setQuiz(q);
+          setLoading(false);
+        })
+        .catch(() => setLoading(false));
+    }
+  }, [studio]);
 
   const handleGenerate = async () => {
     setGenerating(true);
@@ -65,8 +80,19 @@ export default function QuizRunner({ onGraded }: Props) {
       answer: answers[q.id] ?? [],
     }));
     try {
-      const result = await api.post<GradeResult>('/grade', { answers: userAnswers });
-      onGraded({ result, quiz, answers });
+      if (studio && quiz.sessionId) {
+        // 服务端原子批改：批改 → 错题 → 掌握度 → 计划调整 → Session 推进
+        const res = await api.post<StudioResponse & { grade: GradeResult }>('/studio/grade', {
+          sessionId: quiz.sessionId,
+          quizId: quiz.id,
+          answers: userAnswers,
+        });
+        onGraded({ result: res.grade, quiz, answers });
+        studio.onAdvanced(res);
+      } else {
+        const result = await api.post<GradeResult>('/grade', { answers: userAnswers });
+        onGraded({ result, quiz, answers });
+      }
     } catch { /* ignore */ }
     setSubmitting(false);
   };
@@ -77,12 +103,14 @@ export default function QuizRunner({ onGraded }: Props) {
     return (
       <EmptyState
         mood="thinking"
-        title="今天还没有测验"
-        hint="点下方按钮，搭子帮你出一份练习。"
+        title="测验生成失败"
+        hint={studio ? '当前概念缺少可用材料，稍后再试或直接跳过测验。' : '点下方按钮，搭子帮你出一份练习。'}
         action={
-          <button className="btn btn-primary" onClick={handleGenerate} disabled={generating}>
-            {generating ? '生成中...' : '生成测验'}
-          </button>
+          !studio ? (
+            <button className="btn btn-primary" onClick={handleGenerate} disabled={generating}>
+              {generating ? '生成中...' : '生成测验'}
+            </button>
+          ) : undefined
         }
       />
     );

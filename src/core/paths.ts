@@ -30,3 +30,38 @@ export const Paths = {
   /** 当前考试项目配置。文件，非目录。 */
   examConfig: path.join(WORKSPACE_ROOT, 'exam.json'),
 } as const;
+
+export type ResolvedPaths = typeof Paths;
+
+/**
+ * 解析实际使用的路径集合。传入 workspaceRoot（隔离测试 / 自定义数据目录）时，
+ * 返回以该目录为根的完整路径副本；否则返回默认 Paths。
+ * API 路由必须经由本函数取路径，避免测试或自定义部署误写默认 workspace。
+ */
+export function resolvePaths(workspaceRoot?: string): ResolvedPaths {
+  if (!workspaceRoot) return Paths;
+  const root = path.isAbsolute(workspaceRoot)
+    ? workspaceRoot
+    : path.join(process.cwd(), workspaceRoot);
+  const shift = (p: string) => path.join(root, path.relative(WORKSPACE_ROOT, p));
+  return {
+    workspace: root,
+    materials: shift(Paths.materials),
+    chunks: shift(Paths.chunks),
+    graph: shift(Paths.graph),
+    plan: shift(Paths.plan),
+    tasks: shift(Paths.tasks),
+    quizzes: shift(Paths.quizzes),
+    results: shift(Paths.results),
+    mistakes: shift(Paths.mistakes),
+    progress: shift(Paths.progress),
+    eventLog: shift(Paths.eventLog),
+    studySession: shift(Paths.studySession),
+    prompts: shift(Paths.prompts),
+    config: shift(Paths.config),
+    buddy: shift(Paths.buddy),
+    buddyChatHistory: shift(Paths.buddyChatHistory),
+    research: shift(Paths.research),
+    examConfig: shift(Paths.examConfig),
+  };
+}

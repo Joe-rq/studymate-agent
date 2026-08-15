@@ -5,23 +5,30 @@ import type { AddressInfo } from 'net';
 import fs from 'fs/promises';
 import path from 'path';
 import { loadEvents } from '../../src/core/event_log.js';
+import { createMockLLMClient } from '../../src/core/mock_llm.js';
+import type { UserAnswer } from '../../src/agents/grader.js';
+import type { Quiz } from '../../src/agents/quiz_generator.js';
+import type { StudioResponse } from '../../application/workflows/study_session.js';
 
 const TODAY = '2026-08-11';
 const TEST_DIR = path.join(process.cwd(), 'workspace_test_study_api');
 
-async function setupWorkspace(): Promise<void> {
+interface SetupTask {
+  type: 'learn' | 'review' | 'quiz';
+  nodeId: string;
+  duration: number;
+}
+
+async function setupWorkspace(tasks: SetupTask[] = [
+  { type: 'learn', nodeId: 'node_1', duration: 30 },
+  { type: 'quiz', nodeId: 'node_2', duration: 10 },
+]): Promise<void> {
   const dir = TEST_DIR;
   await fs.rm(dir, { recursive: true, force: true });
   await fs.mkdir(path.join(dir, 'plan', 'plan_daily'), { recursive: true });
   await fs.writeFile(
     path.join(dir, 'plan', 'plan_daily', `${TODAY}.json`),
-    JSON.stringify({
-      date: TODAY,
-      tasks: [
-        { type: 'learn', nodeId: 'node_1', duration: 30 },
-        { type: 'quiz', nodeId: 'node_2', duration: 10 },
-      ],
-    })
+    JSON.stringify({ date: TODAY, tasks })
   );
   await fs.writeFile(
     path.join(dir, 'plan', 'plan_master.json'),
@@ -40,8 +47,16 @@ async function setupWorkspace(): Promise<void> {
           relatedChunks: ['chk_1'],
           mastery: 0,
         },
+        {
+          id: 'node_2',
+          name: '供给曲线',
+          definition: '价格与供给量的关系曲线',
+          prerequisiteIds: [],
+          relatedChunks: ['chk_1'],
+          mastery: 0,
+        },
       ],
-      learningOrder: ['node_1'],
+      learningOrder: ['node_1', 'node_2'],
     })
   );
   await fs.mkdir(path.join(dir, 'chunks'), { recursive: true });
@@ -60,12 +75,31 @@ async function setupWorkspace(): Promise<void> {
   );
 }
 
+async function correctAnswers(quiz: Quiz): Promise<UserAnswer[]> {
+  return quiz.questions.map((q) => ({
+    questionId: q.id,
+    answer: Array.isArray(q.answer) ? q.answer : q.answer,
+  }));
+}
+
+async function wrongAnswers(quiz: Quiz): Promise<UserAnswer[]> {
+  return quiz.questions.map((q) => ({
+    questionId: q.id,
+    answer: Array.isArray(q.answer) ? [q.answer.length - 1] : (q.answer + 1) % q.options.length,
+  }));
+}
+
 describe('Study Studio API', () => {
   let server: http.Server;
   let baseUrl: string;
 
   beforeAll(async () => {
-    const app = createApp({ workspaceRoot: TEST_DIR, today: () => TODAY });
+    // 注入 Mock LLM：测试不依赖 OPENAI_API_KEY，出题/批改闭环全部走真实工作流
+    const app = createApp({
+      workspaceRoot: TEST_DIR,
+      today: () => TODAY,
+      llm: createMockLLMClient(),
+    });
     await new Promise<void>((resolve) => {
       server = app.listen(0, () => {
         const addr = server.address() as AddressInfo;
@@ -134,57 +168,233 @@ describe('Study Studio API', () => {
     expect(data.refChunkIds).toContain('chk_1');
   });
 
-  it('完整黄金路径：advance 到 reflect，重复提交幂等', async () => {
+  it('focus 完成不等于任务完成：阅读后任务仍为 pending', async () => {
+    await post('/api/studio/start', {});
+    await post('/api/studio/advance', { fromStage: 'focus' });
+
+    const tasks = await (await get('/api/plan/today')).json();
+    expect(tasks.tasks[0].status).toBe('pending');
+  });
+
+  it('完整黄金路径：服务端出题 → 服务端批改 → 复盘，重复提交幂等', async () => {
     await post('/api/studio/start', {});
 
-    // focus → recall
+    // focus → recall → quiz
     let res = await post('/api/studio/advance', { fromStage: 'focus' });
     expect((await res.json()).session?.stage).toBe('recall');
-    // 重复 focus 提交 no-op
-    res = await post('/api/studio/advance', { fromStage: 'focus' });
-    expect((await res.json()).session?.stage).toBe('recall');
-
-    // recall → quiz
     res = await post('/api/studio/advance', { fromStage: 'recall' });
     expect((await res.json()).session?.stage).toBe('quiz');
 
-    // quiz → feedback（带 grade）
-    res = await post('/api/studio/advance', {
-      fromStage: 'quiz',
-      grade: { quizId: 'q1', score: 80, total: 5, correct: 4, correlationId: 'corr_1' },
-    });
-    const feedback = await res.json();
-    expect(feedback.session?.stage).toBe('feedback');
+    // Session 绑定出题（真实调用 quiz 生成工作流）
+    res = await post('/api/studio/quiz', {});
+    expect(res.status).toBe(200);
+    const quiz: Quiz = await res.json();
+    expect(quiz.sessionId).toBeTruthy();
+    expect(quiz.questions.length).toBeGreaterThan(0);
+    // Quiz 必须包含当前 Session 概念
+    expect(quiz.questions.some((q) => q.nodeId === 'node_1')).toBe(true);
 
-    // feedback → reflect
+    // 重复出题幂等：返回同一份 Quiz
+    const res2 = await post('/api/studio/quiz', {});
+    const quiz2: Quiz = await res2.json();
+    expect(quiz2.id).toBe(quiz.id);
+
+    // 服务端批改（全对）
+    res = await post('/api/studio/grade', {
+      sessionId: quiz.sessionId,
+      quizId: quiz.id,
+      answers: await correctAnswers(quiz),
+    });
+    expect(res.status).toBe(200);
+    const graded = await res.json();
+    expect(graded.session?.stage).toBe('feedback');
+    expect(graded.grade.score).toBe(100);
+    expect(graded.grade.total).toBe(quiz.questions.length);
+    expect(graded.grade.masteryChanges.length).toBeGreaterThan(0);
+    // 掌握度变化来自服务端（node_1 全对 → mastery 提升）
+    const n1 = graded.grade.masteryChanges.find((m: { nodeId: string }) => m.nodeId === 'node_1');
+    expect(n1.newMastery).toBeGreaterThan(0);
+
+    // feedback → reflect → complete
     res = await post('/api/studio/advance', { fromStage: 'feedback' });
     const reflect = await res.json();
     expect(reflect.session?.stage).toBe('reflect');
-    expect(reflect.reflect?.summary.answeredQuestions).toBe(5);
+    expect(reflect.reflect?.summary.answeredQuestions).toBe(quiz.questions.length);
+    expect(reflect.reflect?.summary.score).toBe(100);
 
-    // complete
     res = await post('/api/studio/complete', {});
     const done = await res.json();
-    expect(done.session?.status).toBe('completed');
+    expect(done.session).toBeNull(); // 完成后不再有活动会话
+    expect(done.completed?.summary.score).toBe(100);
+    expect(done.completed?.summary.answeredQuestions).toBe(quiz.questions.length);
 
-    // 事件日志包含 3 类 study_session 事件
+    // Session 完成才写入任务完成
+    const tasks = await (await get('/api/plan/today')).json();
+    expect(tasks.tasks[0].status).toBe('done');
+
+    // 事件日志包含关键事件
     const events = await loadEvents(path.join(TEST_DIR, 'event_log', 'events.jsonl'));
     const actions = events.map((e) => e.action);
     expect(actions).toContain('study_session_started');
-    expect(actions).toContain('study_stage_completed');
+    expect(actions).toContain('studio_quiz_graded');
     expect(actions).toContain('study_session_completed');
 
-    // session_history 有 1 条记录，GET /api/sessions 返回
+    // session_history 有 1 条记录
     const sr = await get('/api/sessions');
     const sdata = await sr.json();
     expect(sdata.sessions).toHaveLength(1);
-    expect(sdata.totals.sessionCount).toBe(1);
     expect(sdata.sessions[0].nodeName).toBe('需求曲线');
+    expect(sdata.sessions[0].score).toBe(100);
 
-    // complete 联动 streak：连续 1 天、未到里程碑、companion 档
+    // complete 联动 streak
     expect(done.buddy?.streakDays).toBe(1);
     expect(done.buddy?.milestoneHit).toBe(false);
     expect(done.buddy?.activity).toBe('companion');
+  });
+
+  it('伪造成绩无效：advance 不再接受 grade 字段，分数只能来自服务端', async () => {
+    await post('/api/studio/start', {});
+    await post('/api/studio/advance', { fromStage: 'focus' });
+    await post('/api/studio/advance', { fromStage: 'recall' });
+
+    // 篡改请求体中的分数/mastery 提交 advance —— 应被拒绝
+    const res = await post('/api/studio/advance', {
+      fromStage: 'quiz',
+      grade: { quizId: 'q1', score: 999, total: 5, correct: 5 },
+      masteryChanges: [{ nodeId: 'node_1', oldMastery: 0, newMastery: 1 }],
+    });
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toContain('studio/grade');
+
+    const studio = (await (await get('/api/studio')).json()) as StudioResponse;
+    expect(studio.session?.stage).toBe('quiz');
+  });
+
+  it('批改响应丢失后重试：相同答案返回同一回执，不再重复修改掌握度', async () => {
+    await post('/api/studio/start', {});
+    await post('/api/studio/advance', { fromStage: 'focus' });
+    await post('/api/studio/advance', { fromStage: 'recall' });
+    const quiz: Quiz = await (await post('/api/studio/quiz', {})).json();
+    const answers = await correctAnswers(quiz);
+
+    const first = await post('/api/studio/grade', {
+      sessionId: quiz.sessionId,
+      quizId: quiz.id,
+      answers,
+    });
+    expect(first.status).toBe(200);
+    const firstBody = await first.json();
+
+    // 模拟网络中断后重试（相同答案）
+    const retry = await post('/api/studio/grade', {
+      sessionId: quiz.sessionId,
+      quizId: quiz.id,
+      answers,
+    });
+    expect(retry.status).toBe(200);
+    const retryBody = await retry.json();
+    expect(retryBody.grade.score).toBe(firstBody.grade.score);
+    expect(retryBody.grade.correlationId).toBe(firstBody.grade.correlationId);
+    expect(retryBody.session?.stage).toBe('feedback');
+
+    // 掌握度只更新了一次：mastery_history 中 node_1 快照仅 1 条
+    const history = await fs.readFile(
+      path.join(TEST_DIR, 'progress', 'mastery_history.jsonl'),
+      'utf-8'
+    );
+    const n1Snapshots = history
+      .split('\n')
+      .filter((l) => l.trim())
+      .map((l) => JSON.parse(l))
+      .filter((s: { nodeId: string }) => s.nodeId === 'node_1');
+    expect(n1Snapshots).toHaveLength(1);
+  });
+
+  it('批改后换答案重试返回 409，不再次修改掌握度', async () => {
+    await post('/api/studio/start', {});
+    await post('/api/studio/advance', { fromStage: 'focus' });
+    await post('/api/studio/advance', { fromStage: 'recall' });
+    const quiz: Quiz = await (await post('/api/studio/quiz', {})).json();
+
+    await post('/api/studio/grade', {
+      sessionId: quiz.sessionId,
+      quizId: quiz.id,
+      answers: await correctAnswers(quiz),
+    });
+
+    const res = await post('/api/studio/grade', {
+      sessionId: quiz.sessionId,
+      quizId: quiz.id,
+      answers: await wrongAnswers(quiz),
+    });
+    expect(res.status).toBe(409);
+
+    // 掌握度仍是第一次（全对）的结果
+    const concepts = JSON.parse(
+      await fs.readFile(path.join(TEST_DIR, 'graph', 'concepts.json'), 'utf-8')
+    );
+    const n1 = concepts.concepts.find((c: { id: string }) => c.id === 'node_1');
+    expect(n1.mastery).toBeGreaterThan(0);
+  });
+
+  it('一天多任务：完成第一个 Session 后可立即开始第二个', async () => {
+    await setupWorkspace([
+      { type: 'learn', nodeId: 'node_1', duration: 30 },
+      { type: 'learn', nodeId: 'node_2', duration: 30 },
+    ]);
+
+    // 第一项
+    await post('/api/studio/start', {});
+    await post('/api/studio/advance', { fromStage: 'focus' });
+    await post('/api/studio/advance', { fromStage: 'recall' });
+    const quiz: Quiz = await (await post('/api/studio/quiz', {})).json();
+    await post('/api/studio/grade', {
+      sessionId: quiz.sessionId,
+      quizId: quiz.id,
+      answers: await correctAnswers(quiz),
+    });
+    await post('/api/studio/advance', { fromStage: 'feedback' });
+    const done1 = await (await post('/api/studio/complete', {})).json();
+    expect(done1.completed?.nextTask?.nodeId).toBe('node_2'); // 建议继续下一项
+
+    // 刷新：completed 不再是 active，候选仍有一项
+    const refresh = (await (await get('/api/studio')).json()) as StudioResponse;
+    expect(refresh.session).toBeNull();
+    expect(refresh.candidates).toHaveLength(1);
+    expect(refresh.candidates[0].nodeId).toBe('node_2');
+
+    // 开始第二个 Session（不同任务、不同 Quiz、独立批改）
+    const start2 = await (await post('/api/studio/start', {})).json();
+    expect(start2.session?.stage).toBe('focus');
+    expect(start2.currentTask?.nodeId).toBe('node_2');
+    await post('/api/studio/advance', { fromStage: 'focus' });
+    await post('/api/studio/advance', { fromStage: 'recall' });
+    const quiz2: Quiz = await (await post('/api/studio/quiz', {})).json();
+    expect(quiz2.sessionId).not.toBe(quiz.sessionId);
+    expect(quiz2.questions.some((q) => q.nodeId === 'node_2')).toBe(true);
+    const grade2 = await (
+      await post('/api/studio/grade', {
+        sessionId: quiz2.sessionId,
+        quizId: quiz2.id,
+        answers: await correctAnswers(quiz2),
+      })
+    ).json();
+    expect(grade2.session?.stage).toBe('feedback');
+    await post('/api/studio/advance', { fromStage: 'feedback' });
+    const done2 = await (await post('/api/studio/complete', {})).json();
+
+    // 两个 Session 都进入历史；第二个完成后当天任务全部完成
+    const sdata = await (await get('/api/sessions')).json();
+    expect(sdata.sessions).toHaveLength(2);
+    expect(done2.completed?.nextTask).toBeNull();
+    const final = (await (await get('/api/studio')).json()) as StudioResponse;
+    expect(final.message).toBe('今日任务已完成');
+
+    // 任务完成事件只对两个任务各写一次
+    const events = await loadEvents(path.join(TEST_DIR, 'event_log', 'events.jsonl'));
+    const completions = events.filter((e) => e.action === 'task_completed');
+    expect(completions).toHaveLength(2);
   });
 
   it('无 pending 任务时 start 返回 400', async () => {
@@ -195,8 +405,8 @@ describe('Study Studio API', () => {
       JSON.stringify({
         date: TODAY,
         completions: [
-          { taskId: 'task_2026-08-11_0', status: 'done', completedAt: new Date().toISOString() },
-          { taskId: 'task_2026-08-11_1', status: 'done', completedAt: new Date().toISOString() },
+          { taskId: `task_${TODAY}_0`, status: 'done', completedAt: new Date().toISOString() },
+          { taskId: `task_${TODAY}_1`, status: 'done', completedAt: new Date().toISOString() },
         ],
       })
     );

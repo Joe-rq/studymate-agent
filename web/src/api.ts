@@ -72,8 +72,12 @@ export interface QuizQuestion {
 }
 
 export interface Quiz {
+  id: string;
   date: string;
   questions: QuizQuestion[];
+  /** 非空时 Quiz 绑定到 Study Session。 */
+  sessionId?: string;
+  focusNodeIds?: string[];
 }
 
 export interface GradeResult {
@@ -138,7 +142,8 @@ export interface MetricsResponse {
   planCompletionRate: number;
   postReviewAccuracy: number;
   knowledgeRetention: number;
-  questionDiscardRate: number;
+  /** null = 指标不可用（题目跳过/弃用反馈机制尚未实现）。 */
+  questionDiscardRate: number | null;
 }
 
 export interface ConceptNode {
@@ -168,12 +173,20 @@ export interface ExamProject {
   };
 }
 
+export interface PlanCapacitySummary {
+  requiredMinutes: number;
+  availableMinutes: number;
+  scheduledConceptCount: number;
+  unscheduledConceptIds: string[];
+}
+
 export interface StudyPlan {
   id: string;
   examDate: string;
   dailyMinutes: number;
   schedule: Array<{ date: string; tasks: unknown[]; isRest?: boolean }>;
   version: number;
+  capacity?: PlanCapacitySummary;
 }
 
 export interface SourceRecord {
@@ -187,6 +200,9 @@ export interface SourceRecord {
 }
 
 export interface ResearchResult {
+  skipped?: boolean;
+  reason?: string;
+  message?: string;
   sources: SourceRecord[];
   summary: {
     examFacts: string;
@@ -200,7 +216,7 @@ export interface ResearchResult {
       disputedAdvice: string[];
       materialRecommendations: string[];
     };
-  };
+  } | null;
   sourceCount: number;
   queryCount: number;
 }
@@ -208,6 +224,20 @@ export interface ResearchResult {
 export interface KnowledgeStatus {
   conceptCount: number;
   concepts: Array<{ id: string; name: string; mastery: number }>;
+}
+
+export interface MaterialSummary {
+  id: string;
+  title: string;
+  type: string;
+  wordCount: number;
+  capturedAt: string;
+  version: number;
+}
+
+export interface UploadResult {
+  material: { id: string; title: string; type: string; wordCount: number };
+  chunkCount: number;
 }
 
 // ── Onboarding API calls ──────────────────────────────────────────
@@ -246,6 +276,21 @@ export const onboarding = {
 
   approvePlan: () =>
     api.post<{ ok: true; exam: ExamProject }>('/plan/approve'),
+
+  listMaterials: () => api.get<{ materials: MaterialSummary[] }>('/materials'),
+
+  uploadMaterial: async (file: File): Promise<UploadResult> => {
+    const contentBase64 = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = String(reader.result);
+        resolve(result.slice(result.indexOf(',') + 1)); // strip data:...;base64,
+      };
+      reader.onerror = () => reject(new Error('读取文件失败'));
+      reader.readAsDataURL(file);
+    });
+    return api.post<UploadResult>('/materials/upload', { filename: file.name, contentBase64 });
+  },
 };
 
 // ── Study Studio types ─────────────────────────────────────────
@@ -309,6 +354,12 @@ export interface StudioReflect {
   nextFirstTask: StudioTaskRef | null;
 }
 
+/** completeSession 响应携带：刚完成 Session 的复盘 + 下一个待办（刷新后不保留）。 */
+export interface StudioCompleted {
+  summary: StudioReflect['summary'];
+  nextTask: StudioTaskRef | null;
+}
+
 export interface StudioResponse {
   session: StudioSession | null;
   candidates: StudioTaskRef[];
@@ -319,6 +370,9 @@ export interface StudioResponse {
   reflect: StudioReflect | null;
   message: string;
   buddy?: { streakDays: number; activity: string; milestoneHit: boolean };
+  completed?: StudioCompleted;
+  /** 服务端批改结果（仅 /studio/grade 响应携带），形状与 /api/grade 一致。 */
+  grade?: GradeResult;
 }
 
 export interface ExplainResult {

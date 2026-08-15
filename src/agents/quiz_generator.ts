@@ -1,11 +1,12 @@
 import fs from 'fs/promises';
 import path from 'path';
-import type { LLMClient } from '../core/llm.js';
+import type { LLMClient, LLMResult } from '../core/llm.js';
+import { callJSONWithMeta } from '../core/llm.js';
 import type { Concept, ConceptMap } from './concept_mapper.js';
 import type { DailyPlan } from './planner.js';
 import type { WeaknessProfile } from './mistake_analyzer.js';
 import type { Event } from '../core/types.js';
-import { createEventId, appendEvent } from '../core/event_log.js';
+import { createEventId, appendEvent, appendEventWithMeta } from '../core/event_log.js';
 import { Paths, PROMPTS_SOURCE } from '../core/paths.js';
 import { atomicWriteFile, atomicWriteJSON } from '../core/atomic_file.js';
 
@@ -34,6 +35,10 @@ export interface Quiz {
   id: string;
   date: string;
   questions: Question[];
+  /** 非空时该 Quiz 绑定到 Study Session，不允许被其他 Session 复用。 */
+  sessionId?: string;
+  /** 出题时的核心概念范围（Session 当前任务概念）。 */
+  focusNodeIds?: string[];
 }
 
 // ── Scope & Config ──────────────────────────────────────────────────
@@ -141,6 +146,14 @@ function mergeScopeToConcepts(scope: QuizScope, config: QuizConfig): Concept[] {
 
 // ── Quiz Generation ─────────────────────────────────────────────────
 
+/** generateQuiz 的附加选项（Study Studio 会话绑定出题使用）。 */
+export interface GenerateQuizOptions {
+  /** 绑定到 Study Session：Quiz id 与落盘文件名都会带上 sessionId。 */
+  sessionId?: string;
+  /** 本次出题的核心概念范围。 */
+  focusNodeIds?: string[];
+}
+
 export async function generateQuiz(
   concepts: Concept[],
   llm: LLMClient,
@@ -148,7 +161,8 @@ export async function generateQuiz(
   eventLogFile: string,
   focusNodeIds?: string[],
   config?: QuizConfig,
-  workspaceRoot?: string
+  workspaceRoot?: string,
+  options?: GenerateQuizOptions
 ): Promise<Quiz> {
   const quizConfig = config ?? {};
   const allowMulti = quizConfig.allowMultiChoice ?? true;
@@ -185,7 +199,12 @@ export async function generateQuiz(
 
   const user =
     focusLines.join('\n') + concepts.map((c) => `## ${c.name} [${c.id}]\n${c.definition}`).join('\n\n');
-  const raw = await llm.completeJSON<{ questions: Question[] }>(system, user, { temperature: 0.7, retries: 3 });
+  const { data: raw, meta: llmMeta } = await callJSONWithMeta<{ questions: Question[] }>(
+    llm,
+    system,
+    user,
+    { temperature: 0.7, retries: 3 }
+  );
 
   if (!Array.isArray(raw.questions) || raw.questions.length === 0) {
     throw new Error('Quiz generator returned no questions');
@@ -254,11 +273,20 @@ export async function generateQuiz(
     };
   });
 
-  const quiz: Quiz = { id: `quiz_${date}`, date, questions };
+  const quiz: Quiz = {
+    id: options?.sessionId ? `quiz_${date}_${options.sessionId}` : `quiz_${date}`,
+    date,
+    questions,
+    ...(options?.sessionId ? { sessionId: options.sessionId } : {}),
+    ...(options?.focusNodeIds ? { focusNodeIds: options.focusNodeIds } : {}),
+  };
 
   const quizzesDir = workspaceRoot ? path.join(workspaceRoot, 'quizzes') : Paths.quizzes;
   await fs.mkdir(quizzesDir, { recursive: true });
-  await atomicWriteJSON(path.join(quizzesDir, `${date}_quiz.json`), quiz);
+  const quizFile = options?.sessionId
+    ? `${date}_${options.sessionId}.json`
+    : `${date}_quiz.json`;
+  await atomicWriteJSON(path.join(quizzesDir, quizFile), quiz);
 
   // Markdown output
   const lines: string[] = ['---', `date: ${date}`, 'tags: #studymate #quiz #daily-quiz', '---', '', `# ${date} 每日测验\n`];
@@ -271,7 +299,10 @@ export async function generateQuiz(
     }
   }
   const markdown = lines.join('\n');
-  await atomicWriteFile(path.join(quizzesDir, `${date}_quiz.md`), markdown, 'utf-8');
+  // Markdown 版仅用于全局每日测验（CLI / 阅读用途）；Session 专属 Quiz 不落 Markdown
+  if (!options?.sessionId) {
+    await atomicWriteFile(path.join(quizzesDir, `${date}_quiz.md`), markdown, 'utf-8');
+  }
 
   const event: Event = {
     id: createEventId(),
@@ -285,7 +316,12 @@ export async function generateQuiz(
       multiChoiceCount: quiz.questions.filter((q) => q.type === 'multi_choice').length,
     },
   };
-  await appendEvent(eventLogFile, event);
+  await appendEventWithMeta(eventLogFile, event, {
+    model: llmMeta?.model,
+    promptVersion: PROMPT_VERSION,
+    durationMs: llmMeta?.durationMs,
+    tokenUsage: llmMeta?.usage,
+  });
 
   return quiz;
 }

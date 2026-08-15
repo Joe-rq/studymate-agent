@@ -15,7 +15,8 @@ function formatDuration(seconds: number): string {
 
 /**
  * 学习闭环：学习材料 → Recall → Quiz → Feedback → Reflect。
- * 后端 session 是唯一事实源，每次动作后用响应覆盖本地，刷新可恢复。
+ * 服务端 session 是唯一事实源：出题、批改、掌握度全部来自服务端，
+ * 前端只提交答案；一天可完成多个 Session，刷新只恢复活动会话。
  */
 export default function StudioPage() {
   const navigate = useNavigate();
@@ -70,8 +71,41 @@ export default function StudioPage() {
   if (error) return <ErrorState message={error} onRetry={load} />;
   if (loading || !data) return <Loading />;
 
-  // ── Launcher（无 session）───────────────────────────────────────
+  // ── Launcher（无活动 session）──────────────────────────────────
   if (!data.session) {
+    // 刚完成的 Session：复盘 + 继续下一项/结束今天
+    if (data.completed) {
+      const summary = data.completed.summary;
+      const accuracy = Math.round(summary.accuracy * 100);
+      return (
+        <div>
+          <h2 className="page-title">本次学习完成 🎉</h2>
+          <div className="card fade-in-up">
+            <div className="stats-grid-2">
+              <div><b>{formatDuration(summary.durationSeconds)}</b><span>专注时间</span></div>
+              <div><b>{summary.knowledgePoints}</b><span>知识点</span></div>
+              <div><b>{summary.answeredQuestions}</b><span>答题</span></div>
+              <div><b>{accuracy}%</b><span>正确率</span></div>
+            </div>
+          </div>
+          <div className="action-row" style={{ marginTop: 16 }}>
+            {data.completed.nextTask ? (
+              <button
+                className="btn btn-primary"
+                disabled={busy}
+                onClick={() => act(() => api.post('/studio/start', {}))}
+              >
+                继续下一项：{data.completed.nextTask.nodeName}
+              </button>
+            ) : (
+              <span className="muted">今天安排的任务都完成啦，好好休息。</span>
+            )}
+            <button className="btn btn-outline" onClick={() => navigate('/')}>结束今天</button>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div>
         <h2 className="page-title">学习闭环</h2>
@@ -212,28 +246,22 @@ export default function StudioPage() {
     );
   }
 
-  // ── Quiz（复用测验核心）───────────────────────────────────────
+  // ── Quiz（Session 绑定出题，服务端批改）───────────────────────
   if (current.stage === 'quiz') {
     return (
       <div>
         <h2 className="page-title">测验 · {nodeName}</h2>
         <QuizRunner
-          onGraded={({ result, quiz, answers }) => {
-            const payload: GradedPayload = { result, quiz, answers };
+          studio={{
+            onAdvanced: (res) => {
+              setData(res);
+              setExplanation(null);
+              setRecallRevealed(false);
+            },
+          }}
+          onGraded={(payload) => {
             sessionStorage.setItem(STUDIO_GRADE_KEY, JSON.stringify(payload));
             setGradePayload(payload);
-            act(() =>
-              api.post('/studio/advance', {
-                fromStage: 'quiz',
-                grade: {
-                  score: result.score,
-                  total: result.total,
-                  correct: result.correct,
-                  correlationId: result.correlationId,
-                },
-                masteryChanges: result.masteryChanges,
-              })
-            );
           }}
         />
       </div>

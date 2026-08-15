@@ -1,9 +1,10 @@
 import express from 'express';
 import cors from 'cors';
+import crypto from 'crypto';
 import fs from 'fs/promises';
 import path from 'path';
-import { Paths } from '../core/paths.js';
-import { createLLMClient } from '../core/llm.js';
+import { Paths, resolvePaths } from '../core/paths.js';
+import { createLLMClient, type LLMClient } from '../core/llm.js';
 import { createMockLLMClient } from '../core/mock_llm.js';
 import { gatherStudyContext } from '../core/context_reader.js';
 import { loadCharacter, listCharacters, getSelectedCharacter } from '../core/character.js';
@@ -18,6 +19,8 @@ import { completeTask, prepareTasksForDate } from '../agents/task_dispatcher.js'
 import { bootstrapExam, loadExamProject, saveExamProject } from '../application/workflows/bootstrap_exam.js';
 import { researchExamWorkflow, approveSources } from '../application/workflows/research_exam.js';
 import { buildKnowledge } from '../application/workflows/build_knowledge.js';
+import { uploadLocalMaterial, MAX_UPLOAD_BYTES } from '../application/workflows/upload_material.js';
+import { loadMaterialIndex } from '../agents/material_collector.js';
 import { createSearchProvider } from '../application/ports/search_provider.js';
 import { WebContentFetcher } from '../infrastructure/fetch/web_fetcher.js';
 import { generatePlan, savePlan } from '../agents/planner.js';
@@ -36,9 +39,11 @@ import {
   advanceSession,
   completeSession,
   explainConcept,
+  generateSessionQuiz,
+  gradeStudioSession,
 } from '../application/workflows/study_session.js';
 
-function createLLM() {
+function defaultLLM(): LLMClient {
   if (process.env.OPENAI_API_KEY) {
     return createLLMClient();
   }
@@ -50,23 +55,96 @@ export interface AppOptions {
   workspaceRoot?: string;
   /** Date provider for deterministic daily-route behavior. */
   today?: () => string;
+  /** LLM client override（测试注入 Mock，避免真实 API 调用）。 */
+  llm?: LLMClient;
+  /** 覆盖“搜索可用”判定（默认读 SERP_API_KEY）。测试注入 false 可离线复现降级路径。 */
+  hasSearchApiKey?: boolean;
+  /** 覆盖访问 Token（默认读 STUDYMATE_ACCESS_TOKEN）。测试注入后无需改动环境变量。 */
+  accessToken?: string;
 }
 
 export function createApp(options: AppOptions = {}) {
   const app = express();
   const todayProvider = options.today ?? todayDateKey;
-  const taskEventLog = options.workspaceRoot
-    ? path.join(options.workspaceRoot, 'event_log', 'events.jsonl')
-    : Paths.eventLog;
-  app.use(cors());
-  app.use(express.json());
+  // 所有路由经由 resolvePaths 取路径：传入 workspaceRoot 时不再误写默认 workspace
+  const P = resolvePaths(options.workspaceRoot);
+  const taskEventLog = P.eventLog;
+  const createLLM = (): LLMClient => options.llm ?? defaultLLM();
+
+  // ── 访问控制与基础加固（公网/VPS 部署防护）────────────────────────
+  // CORS：默认同源（不下发 CORS 头）；配置 ALLOWED_ORIGINS（逗号分隔）后仅放行列表内来源
+  const allowedOrigins = (process.env.ALLOWED_ORIGINS ?? '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  if (allowedOrigins.length > 0) {
+    app.use(
+      cors({
+        origin(origin, callback) {
+          if (!origin || allowedOrigins.includes(origin)) callback(null, true);
+          else callback(new Error('Not allowed by CORS'));
+        },
+      })
+    );
+  }
+
+  // 请求体大小限制：全局 1MB；上传接口单独放宽（base64 编码约放大 4/3 倍）
+  app.use('/api/materials/upload', express.json({ limit: '30mb' }));
+  app.use(express.json({ limit: '1mb' }));
+
+  // 应用级访问 Token：设置 STUDYMATE_ACCESS_TOKEN 后，未认证请求无法读写任何 API
+  const accessToken = options.accessToken ?? process.env.STUDYMATE_ACCESS_TOKEN;
+  if (accessToken) {
+    app.use('/api', (req, res, next) => {
+      const header = req.header('authorization');
+      const bearer = header?.startsWith('Bearer ') ? header.slice(7) : undefined;
+      const provided =
+        bearer ?? (req.header('x-access-token') as string | undefined) ??
+        (req.query.access_token as string | undefined) ??
+        (req.headers.cookie ?? '')
+          .split(';')
+          .map((c) => c.trim())
+          .find((c) => c.startsWith('studymate_token='))
+          ?.slice('studymate_token='.length);
+      // 常数时间比较，避免时序侧信道
+      const a = Buffer.from(String(provided ?? ''));
+      const b = Buffer.from(accessToken);
+      const ok = a.length === b.length && crypto.timingSafeEqual(a, b);
+      if (!ok) {
+        return res.status(401).json({ error: 'Unauthorized: access token required' });
+      }
+      next();
+    });
+  }
+
+  // 基础速率限制：每 IP 每分钟 RATE_LIMIT_PER_MINUTE（默认 300）次请求
+  const rateLimitPerMinute = Number(process.env.RATE_LIMIT_PER_MINUTE ?? 300);
+  const rateBuckets = new Map<string, { count: number; resetAt: number }>();
+  if (Number.isFinite(rateLimitPerMinute) && rateLimitPerMinute > 0) {
+    app.use('/api', (req, res, next) => {
+      const key = req.ip ?? 'unknown';
+      const now = Date.now();
+      let bucket = rateBuckets.get(key);
+      if (!bucket || bucket.resetAt <= now) {
+        bucket = { count: 0, resetAt: now + 60_000 };
+        rateBuckets.set(key, bucket);
+      }
+      bucket.count++;
+      res.setHeader('X-RateLimit-Limit', String(rateLimitPerMinute));
+      res.setHeader('X-RateLimit-Remaining', String(Math.max(0, rateLimitPerMinute - bucket.count)));
+      if (bucket.count > rateLimitPerMinute) {
+        return res.status(429).json({ error: 'Too many requests' });
+      }
+      next();
+    });
+  }
 
   // ── Status ──────────────────────────────────────────────────────────
   app.get('/api/status', async (_req, res) => {
     try {
-      const project = await loadExamProject();
-      const ctx = await gatherStudyContext();
-      const buddyState = await loadBuddyState();
+      const project = await loadExamProject(options.workspaceRoot);
+      const ctx = await gatherStudyContext(options.workspaceRoot);
+      const buddyState = await loadBuddyState(options.workspaceRoot);
       res.json({
         exam: project ? { name: project.name, date: project.examDate, status: project.status } : null,
         daysToExam: ctx.daysToExam,
@@ -85,7 +163,7 @@ export function createApp(options: AppOptions = {}) {
   // ── Exam Project ─────────────────────────────────────────────────
   app.get('/api/exam', async (_req, res) => {
     try {
-      const project = await loadExamProject();
+      const project = await loadExamProject(options.workspaceRoot);
       res.json(project);
     } catch (err) {
       res.status(500).json({ error: String(err) });
@@ -114,7 +192,7 @@ export function createApp(options: AppOptions = {}) {
         dailyMinutes: parseInt(dailyMinutes, 10),
         target,
         unavailableDates: Array.isArray(unavailableDates) ? unavailableDates : [],
-      });
+      }, P.eventLog, options.workspaceRoot);
       res.json(project);
     } catch (err) {
       res.status(500).json({ error: String(err) });
@@ -123,14 +201,28 @@ export function createApp(options: AppOptions = {}) {
 
   app.post('/api/exam/research', async (_req, res) => {
     try {
-      const project = await loadExamProject();
+      const project = await loadExamProject(options.workspaceRoot);
       if (!project) return res.status(400).json({ error: 'No exam project. Create one first.' });
       if (project.status !== 'draft') {
         return res.status(400).json({ error: `Current status is ${project.status}. Research requires draft status.` });
       }
+      // 无搜索 Key 时明确降级：不再返回“0 来源但要求选择至少一个”的死路，
+      // 而是引导用户上传本地资料（Exam 状态保持 draft，不推进）。
+      const searchEnabled = options.hasSearchApiKey ?? Boolean(process.env.SERP_API_KEY);
+      if (!searchEnabled) {
+        return res.json({
+          skipped: true,
+          reason: 'search_disabled',
+          message: '未配置 SERP_API_KEY，在线调研不可用。请上传本地 PDF/Markdown 资料继续建档。',
+          sources: [],
+          summary: null,
+          sourceCount: 0,
+          queryCount: 0,
+        });
+      }
       const llm = createLLM();
       const searchProvider = createSearchProvider();
-      const result = await researchExamWorkflow(project, searchProvider, llm, Paths.eventLog);
+      const result = await researchExamWorkflow(project, searchProvider, llm, P.eventLog, options.workspaceRoot);
       res.json({
         sources: result.research.sources,
         summary: result.research.summary,
@@ -144,7 +236,7 @@ export function createApp(options: AppOptions = {}) {
 
   app.get('/api/exam/research', async (_req, res) => {
     try {
-      const sourcesPath = path.join(Paths.research, 'sources.jsonl');
+      const sourcesPath = path.join(P.research, 'sources.jsonl');
       const content = await fs.readFile(sourcesPath, 'utf-8');
       const sources: SourceRecord[] = content
         .split('\n')
@@ -153,7 +245,7 @@ export function createApp(options: AppOptions = {}) {
 
       let profile = null;
       try {
-        profile = JSON.parse(await fs.readFile(path.join(Paths.research, 'exam_profile.json'), 'utf-8'));
+        profile = JSON.parse(await fs.readFile(path.join(P.research, 'exam_profile.json'), 'utf-8'));
       } catch { /* no profile */ }
 
       res.json({ sources, profile });
@@ -168,9 +260,9 @@ export function createApp(options: AppOptions = {}) {
       if (!ids || !Array.isArray(ids)) {
         return res.status(400).json({ error: 'ids array is required' });
       }
-      const project = await loadExamProject();
+      const project = await loadExamProject(options.workspaceRoot);
       if (!project) return res.status(400).json({ error: 'No exam project.' });
-      const sources = await approveSources(project, ids, Paths.eventLog);
+      const sources = await approveSources(project, ids, P.eventLog);
       const approvedCount = sources.filter((s) => s.approved).length;
       res.json({ approvedCount, totalSources: sources.length });
     } catch (err) {
@@ -183,16 +275,17 @@ export function createApp(options: AppOptions = {}) {
     try {
       const llm = createLLM();
       const fetcher = new WebContentFetcher();
-      const result = await buildKnowledge({ fetcher, llm });
+      const result = await buildKnowledge({ fetcher, llm, eventLogFile: P.eventLog, workspaceRoot: options.workspaceRoot });
       res.json(result);
     } catch (err) {
-      res.status(500).json({ error: String(err) });
+      // 零材料/零概念等可操作错误返回 400，Exam 状态未被推进
+      res.status(400).json({ error: err instanceof Error ? err.message : String(err) });
     }
   });
 
   app.get('/api/knowledge/status', async (_req, res) => {
     try {
-      const conceptMap = JSON.parse(await fs.readFile(path.join(Paths.graph, 'concepts.json'), 'utf-8'));
+      const conceptMap = JSON.parse(await fs.readFile(path.join(P.graph, 'concepts.json'), 'utf-8'));
       res.json({
         conceptCount: conceptMap.concepts.length,
         concepts: conceptMap.concepts.slice(0, 20).map((c: { id: string; name: string; mastery: number }) => ({
@@ -204,10 +297,65 @@ export function createApp(options: AppOptions = {}) {
     }
   });
 
+  // ── Local Materials（无搜索 Key 的本地资料闭环）────────────────────
+  app.get('/api/materials', async (_req, res) => {
+    try {
+      const materials = await loadMaterialIndex(
+        options.workspaceRoot ? path.join(options.workspaceRoot, 'materials') : Paths.materials
+      );
+      res.json({
+        materials: materials.map((m) => ({
+          id: m.id,
+          title: m.title,
+          type: m.type,
+          wordCount: m.meta.wordCount,
+          capturedAt: m.meta.capturedAt,
+          version: m.version,
+        })),
+      });
+    } catch {
+      res.json({ materials: [] });
+    }
+  });
+
+  app.post('/api/materials/upload', async (req, res) => {
+    try {
+      const { filename, contentBase64 } = req.body ?? {};
+      if (!filename || typeof filename !== 'string') {
+        return res.status(400).json({ error: 'filename is required' });
+      }
+      if (!contentBase64 || typeof contentBase64 !== 'string') {
+        return res.status(400).json({ error: 'contentBase64 is required' });
+      }
+      const buffer = Buffer.from(contentBase64, 'base64');
+      if (buffer.length > MAX_UPLOAD_BYTES) {
+        return res.status(413).json({ error: `File too large. Limit: 20MB (decoded).` });
+      }
+      const { material, chunks } = await uploadLocalMaterial({
+        filename,
+        buffer,
+        eventLogFile: P.eventLog,
+        workspaceRoot: options.workspaceRoot,
+      });
+      res.json({
+        material: {
+          id: material.id,
+          title: material.title,
+          type: material.type,
+          wordCount: material.meta.wordCount,
+        },
+        chunkCount: chunks.length,
+      });
+    } catch (err) {
+      // 类型不支持 / 空文件等：材料与 Exam 状态均未改变
+      res.status(400).json({ error: err instanceof Error ? err.message : String(err) });
+    }
+  });
+
   // ── SM-2 Spaced Repetition State ──────────────────────────────────
   app.get('/api/concepts/sr-state', async (_req, res) => {
     try {
-      const conceptMap = JSON.parse(await fs.readFile(path.join(Paths.graph, 'concepts.json'), 'utf-8'));
+      const conceptMap = JSON.parse(await fs.readFile(path.join(P.graph, 'concepts.json'), 'utf-8'));
       const srStates = conceptMap.concepts.map((c: { id: string; name: string; mastery: number; srState?: unknown }) => ({
         id: c.id,
         name: c.name,
@@ -223,7 +371,7 @@ export function createApp(options: AppOptions = {}) {
   app.get('/api/concepts/:id/sr-state', async (req, res) => {
     try {
       const { id } = req.params;
-      const conceptMap = JSON.parse(await fs.readFile(path.join(Paths.graph, 'concepts.json'), 'utf-8'));
+      const conceptMap = JSON.parse(await fs.readFile(path.join(P.graph, 'concepts.json'), 'utf-8'));
       const concept = conceptMap.concepts.find((c: { id: string }) => c.id === id);
       if (!concept) {
         return res.status(404).json({ error: `Concept ${id} not found` });
@@ -242,7 +390,7 @@ export function createApp(options: AppOptions = {}) {
   // ── Learner Model ────────────────────────────────────────────────
   app.get('/api/learner/profile', async (_req, res) => {
     try {
-      const model = await loadLearnerModel();
+      const model = await loadLearnerModel(options.workspaceRoot);
       if (!model) {
         return res.json({ exists: false, profile: null });
       }
@@ -254,7 +402,7 @@ export function createApp(options: AppOptions = {}) {
 
   app.get('/api/learner/insights', async (_req, res) => {
     try {
-      const model = await loadLearnerModel();
+      const model = await loadLearnerModel(options.workspaceRoot);
       if (!model) {
         return res.json({ insights: [] });
       }
@@ -266,7 +414,7 @@ export function createApp(options: AppOptions = {}) {
 
   app.get('/api/learner/performance', async (_req, res) => {
     try {
-      const model = await loadLearnerModel();
+      const model = await loadLearnerModel(options.workspaceRoot);
       if (!model) {
         return res.json({ scoreHistory: [], masteryHistory: [] });
       }
@@ -284,14 +432,14 @@ export function createApp(options: AppOptions = {}) {
   app.post('/api/learner/init', async (req, res) => {
     try {
       const { baseline, dailyMinutes } = req.body;
-      const exam = await loadExamProject();
+      const exam = await loadExamProject(options.workspaceRoot);
       const examId = exam?.id ?? 'default';
       const model = await initLearnerModel(
         examId,
         (baseline as LearnerBaseline) ?? 'intermediate',
         parseInt(dailyMinutes ?? '60', 10)
       );
-      await saveLearnerModel(model);
+      await saveLearnerModel(model, options.workspaceRoot);
       res.json({ success: true, profile: model });
     } catch (err) {
       res.status(500).json({ error: String(err) });
@@ -302,11 +450,11 @@ export function createApp(options: AppOptions = {}) {
   app.post('/api/plan/generate', async (req, res) => {
     try {
       const { examDate, dailyMinutes, unavailableDates } = req.body;
-      const conceptMap = JSON.parse(await fs.readFile(path.join(Paths.graph, 'concepts.json'), 'utf-8'));
+      const conceptMap = JSON.parse(await fs.readFile(path.join(P.graph, 'concepts.json'), 'utf-8'));
       if (!conceptMap.concepts.length) {
         return res.status(400).json({ error: 'No concepts found. Build knowledge first.' });
       }
-      const exam = await loadExamProject();
+      const exam = await loadExamProject(options.workspaceRoot);
       const plan = generatePlan(conceptMap, {
         examDate: examDate ?? exam?.examDate ?? addDaysToDateKey(todayProvider(), 30),
         dailyMinutes: parseInt(dailyMinutes ?? String(exam?.learnerProfile.dailyMinutes ?? 60), 10),
@@ -314,13 +462,13 @@ export function createApp(options: AppOptions = {}) {
           ? unavailableDates
           : exam?.learnerProfile.unavailableDates,
       });
-      await savePlan(plan, Paths.eventLog);
+      await savePlan(plan, P.eventLog);
 
       // Update exam status to 'planned' if applicable
       if (exam?.status === 'materials_ready') {
         const { transitionStatus } = await import('../domain/exam.js');
         const updated = transitionStatus(exam, 'planned');
-        await saveExamProject(updated);
+        await saveExamProject(updated, options.workspaceRoot);
       }
 
       res.json(plan);
@@ -331,7 +479,7 @@ export function createApp(options: AppOptions = {}) {
 
   app.post('/api/plan/approve', async (_req, res) => {
     try {
-      const exam = await approvePlan(Paths.eventLog);
+      const exam = await approvePlan(P.eventLog);
       res.json({ ok: true, exam });
     } catch (err) {
       res.status(400).json({ error: err instanceof Error ? err.message : String(err) });
@@ -350,7 +498,7 @@ export function createApp(options: AppOptions = {}) {
 
   app.get('/api/plan/master', async (_req, res) => {
     try {
-      const plan = JSON.parse(await fs.readFile(path.join(Paths.plan, 'plan_master.json'), 'utf-8'));
+      const plan = JSON.parse(await fs.readFile(path.join(P.plan, 'plan_master.json'), 'utf-8'));
       res.json(plan);
     } catch {
       res.json(null);
@@ -360,7 +508,7 @@ export function createApp(options: AppOptions = {}) {
   // ── Concepts ────────────────────────────────────────────────────────
   app.get('/api/concepts', async (_req, res) => {
     try {
-      const conceptMap = JSON.parse(await fs.readFile(path.join(Paths.graph, 'concepts.json'), 'utf-8'));
+      const conceptMap = JSON.parse(await fs.readFile(path.join(P.graph, 'concepts.json'), 'utf-8'));
       res.json(conceptMap);
     } catch {
       res.json({ concepts: [], learningOrder: [] });
@@ -371,7 +519,7 @@ export function createApp(options: AppOptions = {}) {
   app.get('/api/quiz/today', async (_req, res) => {
     try {
       const today = todayProvider();
-      const quiz = JSON.parse(await fs.readFile(path.join(Paths.quizzes, `${today}_quiz.json`), 'utf-8'));
+      const quiz = JSON.parse(await fs.readFile(path.join(P.quizzes, `${today}_quiz.json`), 'utf-8'));
       res.json(quiz);
     } catch {
       res.json(null);
@@ -383,22 +531,22 @@ export function createApp(options: AppOptions = {}) {
       const { count = 5, allowMulti = true } = req.body ?? {};
       const llm = createLLM();
       const today = todayProvider();
-      const conceptMap = JSON.parse(await fs.readFile(path.join(Paths.graph, 'concepts.json'), 'utf-8'));
+      const conceptMap = JSON.parse(await fs.readFile(path.join(P.graph, 'concepts.json'), 'utf-8'));
 
       const config: QuizConfig = { questionCount: count, allowMultiChoice: allowMulti };
 
       let todayPlan;
       try {
-        todayPlan = JSON.parse(await fs.readFile(path.join(Paths.plan, 'plan_daily', `${today}.json`), 'utf-8'));
+        todayPlan = JSON.parse(await fs.readFile(path.join(P.plan, 'plan_daily', `${today}.json`), 'utf-8'));
       } catch { /* no plan */ }
 
       let weaknessProfile;
       try {
-        weaknessProfile = JSON.parse(await fs.readFile(path.join(Paths.mistakes, 'weakness_profile.json'), 'utf-8'));
+        weaknessProfile = JSON.parse(await fs.readFile(path.join(P.mistakes, 'weakness_profile.json'), 'utf-8'));
       } catch { /* no profile */ }
 
       const scope = selectQuizScope(todayPlan, conceptMap, weaknessProfile);
-      const quiz = await generateScopedQuiz(scope, config, llm, today, Paths.eventLog);
+      const quiz = await generateScopedQuiz(scope, config, llm, today, P.eventLog);
       res.json(quiz);
     } catch (err) {
       res.status(500).json({ error: String(err) });
@@ -410,14 +558,14 @@ export function createApp(options: AppOptions = {}) {
     try {
       const { answers } = req.body as { answers: UserAnswer[] };
       const today = todayProvider();
-      const quiz = JSON.parse(await fs.readFile(path.join(Paths.quizzes, `${today}_quiz.json`), 'utf-8'));
+      const quiz = JSON.parse(await fs.readFile(path.join(P.quizzes, `${today}_quiz.json`), 'utf-8'));
 
       const result = await gradeAndAdapt({
         quiz,
         answers,
-        conceptsPath: path.join(Paths.graph, 'concepts.json'),
-        planPath: path.join(Paths.plan, 'plan_master.json'),
-        eventLogFile: Paths.eventLog,
+        conceptsPath: path.join(P.graph, 'concepts.json'),
+        planPath: path.join(P.plan, 'plan_master.json'),
+        eventLogFile: P.eventLog,
       });
       res.json({
         ...result,
@@ -441,7 +589,7 @@ export function createApp(options: AppOptions = {}) {
   // ── Metrics ─────────────────────────────────────────────────────────
   app.get('/api/metrics', async (_req, res) => {
     try {
-      const metrics = await computeMetrics();
+      const metrics = await computeMetrics(options.workspaceRoot);
       res.json(metrics);
     } catch (err) {
       res.status(500).json({ error: String(err) });
@@ -451,7 +599,7 @@ export function createApp(options: AppOptions = {}) {
   // ── Weakness ────────────────────────────────────────────────────────
   app.get('/api/weakness', async (_req, res) => {
     try {
-      const profile = await loadWeaknessProfilePublic();
+      const profile = await loadWeaknessProfilePublic(options.workspaceRoot);
       const explanations: Record<string, string> = {};
       for (const nodeId of Object.keys(profile.nodes)) {
         explanations[nodeId] = explainWeakness(nodeId, profile);
@@ -532,18 +680,57 @@ export function createApp(options: AppOptions = {}) {
 
   app.post('/api/studio/advance', async (req, res) => {
     try {
-      const { fromStage, grade, masteryChanges } = req.body ?? {};
+      const { fromStage } = req.body ?? {};
+      // grade 阶段推进已迁移到 /api/studio/grade：advance 不再接受成绩/掌握度，
+      // 服务端是唯一事实源，前端无法伪造分数。
       const aggregate = await advanceSession({
         today: todayProvider(),
         taskEventLog,
         workspaceRoot: options.workspaceRoot,
         fromStage,
-        grade,
-        masteryChanges,
       });
       res.json(aggregate);
     } catch (err) {
       res.status(400).json({ error: err instanceof Error ? err.message : String(err) });
+    }
+  });
+
+  // Session 绑定出题：Quiz 范围 = 当前任务概念 + 历史薄弱点补充，绑定 sessionId
+  app.post('/api/studio/quiz', async (_req, res) => {
+    try {
+      const quiz = await generateSessionQuiz({
+        today: todayProvider(),
+        taskEventLog,
+        workspaceRoot: options.workspaceRoot,
+        llm: createLLM(),
+      });
+      res.json(quiz);
+    } catch (err) {
+      res.status(400).json({ error: err instanceof Error ? err.message : String(err) });
+    }
+  });
+
+  // 服务端原子批改：批改 → 错题 → 掌握度 → 计划调整 → Session 推进
+  app.post('/api/studio/grade', async (req, res) => {
+    try {
+      const { sessionId, quizId, answers } = req.body ?? {};
+      if (!sessionId || !quizId || !Array.isArray(answers)) {
+        return res.status(400).json({ error: 'sessionId, quizId, answers are required' });
+      }
+      const result = await gradeStudioSession({
+        today: todayProvider(),
+        taskEventLog,
+        workspaceRoot: options.workspaceRoot,
+        sessionId,
+        quizId,
+        answers,
+      });
+      res.json({ ...result.aggregate, grade: result.grade });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      // 同一 Quiz 不同答案重试 → 409，不再修改掌握度
+      const status = message.includes('already been graded') ? 409 : 400;
+      res.status(status).json({ error: message });
     }
   });
 
@@ -555,7 +742,7 @@ export function createApp(options: AppOptions = {}) {
         workspaceRoot: options.workspaceRoot,
       });
       // 完成学习 → 更新连续学习与关系（updateStreak 同天 no-op，幂等）
-      const buddyState = await loadBuddyState();
+      const buddyState = await loadBuddyState(options.workspaceRoot);
       let updated = updateStreak(buddyState, todayProvider());
       updated = increaseRelationship(updated, 2);
       await saveBuddyState(updated, options.workspaceRoot);
@@ -589,9 +776,9 @@ export function createApp(options: AppOptions = {}) {
   // ── Buddy ───────────────────────────────────────────────────────────
   app.get('/api/buddy/state', async (_req, res) => {
     try {
-      const state = await loadBuddyState();
+      const state = await loadBuddyState(options.workspaceRoot);
       const character = await loadCharacter(state.characterId).catch(() => getSelectedCharacter());
-      const history = await loadChatHistory();
+      const history = await loadChatHistory(P.buddyChatHistory);
       res.json({
       state,
       character,
@@ -609,18 +796,18 @@ export function createApp(options: AppOptions = {}) {
       if (!message || typeof message !== 'string') {
         return res.status(400).json({ error: 'message is required' });
       }
-      const state = await loadBuddyState();
+      const state = await loadBuddyState(options.workspaceRoot);
       const character = await loadCharacter(state.characterId).catch(() => getSelectedCharacter());
-      const ctx = await gatherStudyContext();
+      const ctx = await gatherStudyContext(options.workspaceRoot);
       const llm = createLLM();
 
-      const reply = await buddyChat(message, character, ctx, llm, Paths.eventLog);
+      const reply = await buddyChat(message, character, ctx, llm, P.eventLog, P.buddyChatHistory);
 
       // Update streak and relationship on chat
       const today = todayProvider();
       let updated = updateStreak(state, today);
       updated = increaseRelationship(updated, 1);
-      await saveBuddyState(updated);
+      await saveBuddyState(updated, options.workspaceRoot);
 
       res.json({ reply });
     } catch (err) {
@@ -631,9 +818,9 @@ export function createApp(options: AppOptions = {}) {
   app.get('/api/buddy/intervene/:moment', async (req, res) => {
     try {
       const moment = req.params.moment as InterventionMoment;
-      const state = await loadBuddyState();
+      const state = await loadBuddyState(options.workspaceRoot);
       const character = await loadCharacter(state.characterId).catch(() => getSelectedCharacter());
-      const ctx = await gatherStudyContext();
+      const ctx = await gatherStudyContext(options.workspaceRoot);
       const llm = createLLM();
 
       const extra = {
@@ -656,7 +843,7 @@ export function createApp(options: AppOptions = {}) {
   app.get('/api/characters', async (_req, res) => {
     try {
       const characters = await listCharacters();
-      const state = await loadBuddyState();
+      const state = await loadBuddyState(options.workspaceRoot);
       res.json({ characters, selectedId: state.characterId });
     } catch (err) {
       res.status(500).json({ error: String(err) });
@@ -667,9 +854,9 @@ export function createApp(options: AppOptions = {}) {
     try {
       const { characterId } = req.body as { characterId: string };
       await loadCharacter(characterId); // validate exists
-      const state = await loadBuddyState();
+      const state = await loadBuddyState(options.workspaceRoot);
       state.characterId = characterId;
-      await saveBuddyState(state);
+      await saveBuddyState(state, options.workspaceRoot);
       res.json({ ok: true, characterId });
     } catch (err) {
       res.status(400).json({ error: `Character not found: ${req.body?.characterId}` });
@@ -679,12 +866,12 @@ export function createApp(options: AppOptions = {}) {
   app.post('/api/buddy/preferences', async (req, res) => {
     try {
       const { reminderIntensity, emotionalStyle, formOfAddress, companionMode } = req.body;
-      const state = await loadBuddyState();
+      const state = await loadBuddyState(options.workspaceRoot);
       if (reminderIntensity) state.preferences.reminderIntensity = reminderIntensity;
       if (emotionalStyle) state.preferences.emotionalStyle = emotionalStyle;
       if (formOfAddress !== undefined) state.preferences.formOfAddress = formOfAddress;
       if (companionMode) state.preferences.companionMode = companionMode;
-      await saveBuddyState(state);
+      await saveBuddyState(state, options.workspaceRoot);
       res.json({ ok: true, preferences: state.preferences });
     } catch (err) {
       res.status(500).json({ error: String(err) });

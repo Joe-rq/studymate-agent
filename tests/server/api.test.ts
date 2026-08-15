@@ -188,3 +188,75 @@ describe('API daily task contract', () => {
     expect(refreshedBody.tasks[0].status).toBe('done');
   });
 });
+
+describe('API plan generation contract', () => {
+  const testRoot = path.join(process.cwd(), 'workspace_test_api_plan');
+  let server: http.Server;
+  let baseUrl: string;
+  const today = new Date().toISOString().split('T')[0];
+
+  function futureDate(days: number): string {
+    const d = new Date();
+    d.setDate(d.getDate() + days);
+    return d.toISOString().split('T')[0];
+  }
+
+  beforeAll(async () => {
+    await fs.rm(testRoot, { recursive: true, force: true });
+    await fs.mkdir(path.join(testRoot, 'graph'), { recursive: true });
+    // 40 个概念、每天 60 分钟、14 天 —— 容量必然不足，缺口必须被结构化返回
+    const concepts = Array.from({ length: 40 }, (_, i) => ({
+      id: `node_${i + 1}`,
+      name: `概念 ${i + 1}`,
+      definition: '',
+      prerequisiteIds: [],
+      relatedChunks: ['chunk_001'],
+      mastery: 0,
+    }));
+    await fs.writeFile(
+      path.join(testRoot, 'graph', 'concepts.json'),
+      JSON.stringify({ concepts, learningOrder: concepts.map((c) => c.id) }),
+      'utf-8'
+    );
+
+    const app = createApp({ workspaceRoot: testRoot, today: () => today });
+    await new Promise<void>((resolve) => {
+      server = app.listen(0, () => {
+        const addr = server.address() as AddressInfo;
+        baseUrl = `http://localhost:${addr.port}`;
+        resolve();
+      });
+    });
+  });
+
+  afterAll(async () => {
+    if (server) {
+      await new Promise<void>((resolve, reject) => {
+        server.close((err) => (err ? reject(err) : resolve()));
+      });
+    }
+    await fs.rm(testRoot, { recursive: true, force: true });
+  });
+
+  it('POST /api/plan/generate 返回 capacity 缺口报告', async () => {
+    const res = await fetch(`${baseUrl}/api/plan/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ examDate: futureDate(14), dailyMinutes: 60 }),
+    });
+    expect(res.status).toBe(200);
+    const plan = await res.json();
+
+    expect(plan.capacity).toBeDefined();
+    expect(plan.capacity.scheduledConceptCount).toBeGreaterThan(0);
+    expect(plan.capacity.unscheduledConceptIds.length).toBeGreaterThan(0);
+
+    // 排入的概念 + 未排入的概念 = 全部 40 个，无静默丢失
+    const learnIds = new Set(
+      plan.schedule.flatMap((d: { tasks: Array<{ type: string; nodeId: string }> }) =>
+        d.tasks.filter((t) => t.type === 'learn').map((t) => t.nodeId)
+      )
+    );
+    expect(learnIds.size + plan.capacity.unscheduledConceptIds.length).toBe(40);
+  });
+});

@@ -23,6 +23,34 @@ export interface LLMClient {
   completeJSON<T>(system: string, user: string, options?: LLMOptions): Promise<T>;
   /** Optional: complete with metadata (model, usage, duration). */
   completeWithMeta?(system: string, user: string, options?: LLMOptions): Promise<LLMResult>;
+  /** Optional: JSON completion that also returns call metadata for audit logging. */
+  completeJSONWithMeta?<T>(
+    system: string,
+    user: string,
+    options?: LLMOptions
+  ): Promise<JSONWithMetaResult<T>>;
+}
+
+export interface JSONWithMetaResult<T> {
+  data: T;
+  /** 调用元数据；客户端不支持时缺省（事件日志不携带虚假元数据）。 */
+  meta?: LLMResult;
+}
+
+/**
+ * JSON 调用 + 审计元数据。客户端未实现 completeJSONWithMeta（如测试桩）时
+ * 退回 completeJSON，meta 为空。
+ */
+export async function callJSONWithMeta<T>(
+  llm: LLMClient,
+  system: string,
+  user: string,
+  options?: LLMOptions
+): Promise<JSONWithMetaResult<T>> {
+  if (llm.completeJSONWithMeta) {
+    return llm.completeJSONWithMeta<T>(system, user, options);
+  }
+  return { data: await llm.completeJSON<T>(system, user, options) };
 }
 
 function sleep(ms: number): Promise<void> {
@@ -129,6 +157,31 @@ export function createLLMClient(): LLMClient {
   return {
     complete,
     completeWithMeta,
+    async completeJSONWithMeta<T>(
+      system: string,
+      user: string,
+      options: LLMOptions = {}
+    ): Promise<JSONWithMetaResult<T>> {
+      const maxRetries = options.retries ?? 3;
+      let lastError: Error | undefined;
+      for (let attempt = 0; attempt < maxRetries; attempt++) {
+        try {
+          const meta = await completeWithMeta(
+            `${system}\n\nYou must respond with valid JSON only. No markdown, no explanation outside the JSON.`,
+            user,
+            options
+          );
+          const cleaned = cleanJSON(meta.content);
+          return { data: JSON.parse(cleaned) as T, meta };
+        } catch (err) {
+          lastError = err instanceof Error ? err : new Error(String(err));
+          if (attempt < maxRetries - 1) {
+            await sleep(1000 * 2 ** attempt);
+          }
+        }
+      }
+      throw lastError ?? new Error('LLM JSON completion failed after retries');
+    },
     async completeJSON<T>(system: string, user: string, options: LLMOptions = {}) {
       const maxRetries = options.retries ?? 3;
       let lastError: Error | undefined;

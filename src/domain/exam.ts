@@ -37,7 +37,8 @@ export interface ExamProject {
 
 /** Valid status transitions. */
 const VALID_TRANSITIONS: Record<ExamProjectStatus, ExamProjectStatus[]> = {
-  draft: ['researched'],
+  // draft → materials_ready：本地资料直连路径（无搜索 Key 时跳过调研与来源审批）
+  draft: ['researched', 'materials_ready'],
   researched: ['sources_approved'],
   sources_approved: ['materials_ready'],
   materials_ready: ['planned'],

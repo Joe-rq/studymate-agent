@@ -177,7 +177,7 @@ describe('build_knowledge workflow', () => {
     expect(result.fetchErrors[0]).toContain('accounting');
   });
 
-  it('should throw when no approved sources exist', async () => {
+  it('没有已批准来源且无本地材料时抛出可操作错误（保持原状态）', async () => {
     await expect(
       buildKnowledge({
         fetcher: new MockContentFetcher({}),
@@ -185,6 +185,54 @@ describe('build_knowledge workflow', () => {
         eventLogFile: TEST_LOG,
         workspaceRoot: TEST_DIR,
       })
-    ).rejects.toThrow(/approved sources/);
+    ).rejects.toThrow(/没有可用的学习材料/);
+  });
+
+  it('零概念时不推进状态并抛错', async () => {
+    // 有来源可抓取，但 LLM 提取不到任何概念
+    const sources = makeApprovedSources();
+    await fs.writeFile(
+      path.join(TEST_DIR, 'research', 'approved_sources.json'),
+      JSON.stringify(sources),
+      'utf-8'
+    );
+    const exam = createExamProject({
+      name: 'Test Exam',
+      examDate: '2026-12-31',
+      subjects: ['tax'],
+      baseline: 'beginner',
+      dailyMinutes: 60,
+    });
+    const approved = transitionStatus(transitionStatus(exam, 'researched'), 'sources_approved');
+    await fs.writeFile(path.join(TEST_DIR, 'exam.json'), JSON.stringify(approved), 'utf-8');
+
+    const emptyLLM = { complete: async () => '', completeJSON: async () => ({ concepts: [] }) };
+    await expect(
+      buildKnowledge({
+        fetcher: new MockContentFetcher({
+          'https://example.com/tax-law': {
+            url: 'https://example.com/tax-law',
+            title: 'Tax Law Overview',
+            body: 'Some content',
+            contentHash: 'abc12345',
+            fetchedAt: new Date().toISOString(),
+          },
+          'https://example.com/accounting': {
+            url: 'https://example.com/accounting',
+            title: 'Accounting Basics',
+            body: 'Some content 2',
+            contentHash: 'abc12346',
+            fetchedAt: new Date().toISOString(),
+          },
+        }),
+        llm: emptyLLM as any,
+        eventLogFile: TEST_LOG,
+        workspaceRoot: TEST_DIR,
+      })
+    ).rejects.toThrow(/概念提取结果为空|no concepts/);
+
+    // 状态保持 sources_approved，未被推进
+    const after = JSON.parse(await fs.readFile(path.join(TEST_DIR, 'exam.json'), 'utf-8'));
+    expect(after.status).toBe('sources_approved');
   });
 });

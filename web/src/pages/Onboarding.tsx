@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   onboarding,
@@ -6,6 +6,7 @@ import {
   type ResearchResult,
   type KnowledgeStatus,
   type StudyPlan,
+  type MaterialSummary,
 } from '../api';
 import Mascot from '../components/Mascot';
 
@@ -25,8 +26,12 @@ export default function Onboarding() {
   const [baseline, setBaseline] = useState('beginner');
   const [unavailableDates, setUnavailableDates] = useState('');
 
-  // Step 2: Research
+  // Step 2: Research / 本地资料
   const [research, setResearch] = useState<ResearchResult | null>(null);
+  const [researchSkipped, setResearchSkipped] = useState(false);
+  const [materials, setMaterials] = useState<MaterialSummary[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Step 3: Approve sources
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -69,15 +74,46 @@ export default function Onboarding() {
     setError('');
     try {
       const result = await onboarding.runResearch();
-      setResearch(result);
-      // Pre-select all sources
-      setSelectedIds(new Set(result.sources.map((s) => s.id)));
-      setStep(3);
+      if (result.skipped) {
+        // 无搜索 Key：明确降级为本地资料路径，不再走进“0 来源”死路
+        setResearchSkipped(true);
+        setResearch(result);
+      } else {
+        setResearch(result);
+        // Pre-select all sources
+        setSelectedIds(new Set(result.sources.map((s) => s.id)));
+        setStep(3);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleUploadFiles = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    setUploading(true);
+    setError('');
+    const uploaded: MaterialSummary[] = [];
+    for (const file of Array.from(files)) {
+      try {
+        const result = await onboarding.uploadMaterial(file);
+        uploaded.push({
+          id: result.material.id,
+          title: result.material.title,
+          type: result.material.type,
+          wordCount: result.material.wordCount,
+          capturedAt: new Date().toISOString(),
+          version: 1,
+        });
+      } catch (e) {
+        setError(`${file.name}：${e instanceof Error ? e.message : String(e)}`);
+      }
+    }
+    if (uploaded.length > 0) setMaterials((prev) => [...uploaded, ...prev]);
+    setUploading(false);
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const handleApproveSources = async () => {
@@ -230,17 +266,58 @@ export default function Onboarding() {
         </div>
       )}
 
-      {/* Step 2: Research */}
+      {/* Step 2: Research / 本地资料上传 */}
       {step === 2 && (
         <div className="form-stack">
           <h3 className="section-title">搜索调研</h3>
           <p className="muted">系统将根据「{name}」搜索官方大纲、备考经验和推荐资料。</p>
-          {research ? (
+
+          {researchSkipped ? (
+            <>
+              <div className="alert alert-info">
+                <strong>未配置搜索 Key，已跳过在线调研。</strong>
+                <p style={{ margin: '6px 0 0' }}>
+                  可直接上传本地 PDF / Markdown 资料继续建档：上传 → 构建知识 → 生成计划。
+                </p>
+              </div>
+              <div className="card">
+                <p className="card-title">上传本地资料</p>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".pdf,.md,.markdown"
+                  multiple
+                  style={{ marginBottom: 12 }}
+                  onChange={(e) => handleUploadFiles(e.target.files)}
+                />
+                {uploading && <p className="muted">上传并切片中...</p>}
+                {materials.length > 0 && (
+                  <div className="concept-chips">
+                    {materials.map((m) => (
+                      <span key={m.id} className="badge badge-new" title={`${m.wordCount} 字`}>
+                        {m.title}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                <p className="muted" style={{ marginTop: 8, marginBottom: 0 }}>
+                  支持 .pdf / .md / .markdown，单个文件 ≤ 20MB。
+                </p>
+              </div>
+              <button
+                className="btn btn-primary"
+                disabled={materials.length === 0 || loading}
+                onClick={() => setStep(4)}
+              >
+                {materials.length > 0 ? `完成上传（${materials.length} 份），下一步` : '请先上传至少一份资料'}
+              </button>
+            </>
+          ) : research ? (
             <>
               <div className="alert alert-success">
                 发现 <strong>{research.sourceCount}</strong> 个来源，使用了 <strong>{research.queryCount}</strong> 个搜索查询。
               </div>
-              {research.summary.examFacts && (
+              {research.summary?.examFacts && (
                 <div className="card">
                   <strong>考试事实：</strong>
                   <p style={{ margin: '4px 0 0' }}>{research.summary.examFacts}</p>
@@ -254,11 +331,20 @@ export default function Onboarding() {
               )}
             </>
           ) : (
-            <button className="btn btn-primary" onClick={handleResearch} disabled={loading}>
-              {loading ? '调研中（可能需要 10-30 秒）...' : '开始调研'}
-            </button>
+            <>
+              <button className="btn btn-primary" onClick={handleResearch} disabled={loading}>
+                {loading ? '调研中（可能需要 10-30 秒）...' : '开始调研'}
+              </button>
+              <button
+                className="btn btn-outline"
+                onClick={() => setResearchSkipped(true)}
+                disabled={loading}
+              >
+                跳过调研，直接上传本地资料
+              </button>
+            </>
           )}
-          {research && (
+          {research && !researchSkipped && (
             <button className="btn btn-primary" onClick={() => setStep(3)}>
               下一步：确认来源
             </button>
@@ -299,6 +385,17 @@ export default function Onboarding() {
           </div>
           <div className="action-row">
             <button className="btn btn-outline" onClick={() => setStep(2)}>上一步</button>
+            {research.sources.length === 0 && (
+              <button
+                className="btn btn-outline"
+                onClick={() => {
+                  setResearchSkipped(true);
+                  setStep(2);
+                }}
+              >
+                无可用来源？改用本地资料上传
+              </button>
+            )}
             <button className="btn btn-primary" onClick={handleApproveSources} disabled={loading}>
               {loading ? '确认中...' : `确认选中来源 (${selectedIds.size})`}
             </button>
@@ -335,6 +432,15 @@ export default function Onboarding() {
                   休息/不可用日期 {planProposal.schedule.filter((day) => day.isRest).length} 天。
                 </p>
               </div>
+              {planProposal.capacity && planProposal.capacity.unscheduledConceptIds.length > 0 && (
+                <div className="alert alert-error">
+                  <strong>⚠️ 容量不足：{planProposal.capacity.unscheduledConceptIds.length} 个概念无法在考试前排入计划</strong>
+                  <p style={{ margin: '6px 0 0' }}>
+                    共需约 {planProposal.capacity.requiredMinutes} 分钟学习时间，计划期内容量约 {planProposal.capacity.availableMinutes} 分钟。
+                    建议：增加每日学习时长、延后考试日期，或确认接受这些概念不进入本轮计划。
+                  </p>
+                </div>
+              )}
               <button className="btn btn-primary" onClick={handleApprovePlan} disabled={loading}>
                 {loading ? '确认中...' : '确认计划并开始学习'}
               </button>

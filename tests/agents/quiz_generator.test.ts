@@ -179,8 +179,8 @@ describe('multi-choice validation', () => {
     await fs.mkdir(TEST_DIR, { recursive: true });
 
     const llm = createMockLLMClient();
-    // Override completeJSON to return invalid multi-choice
-    llm.completeJSON = async () => ({
+    // Override completeJSONWithMeta to return invalid multi-choice（生产代码优先走该路径）
+    const stub = async () => ({
       questions: [{
         id: 'q_1',
         type: 'multi_choice',
@@ -192,6 +192,8 @@ describe('multi-choice validation', () => {
         difficulty: 'medium',
       }],
     });
+    llm.completeJSON = stub;
+    llm.completeJSONWithMeta = async () => ({ data: await stub(), meta: undefined });
 
     const scope: QuizScope = {
       todayConcepts: [makeConcept('c1')],
@@ -209,7 +211,7 @@ describe('multi-choice validation', () => {
     await fs.mkdir(TEST_DIR, { recursive: true });
 
     const llm = createMockLLMClient();
-    llm.completeJSON = async () => ({
+    const stub = async () => ({
       questions: [{
         id: 'q_1',
         type: 'multi_choice',
@@ -221,6 +223,8 @@ describe('multi-choice validation', () => {
         difficulty: 'medium',
       }],
     });
+    llm.completeJSON = stub;
+    llm.completeJSONWithMeta = async () => ({ data: await stub(), meta: undefined });
 
     const scope: QuizScope = {
       todayConcepts: [makeConcept('c1')],
@@ -238,7 +242,7 @@ describe('multi-choice validation', () => {
     await fs.mkdir(TEST_DIR, { recursive: true });
 
     const llm = createMockLLMClient();
-    llm.completeJSON = async () => ({
+    const stub = async () => ({
       questions: [{
         id: 'q_1',
         type: 'multi_choice',
@@ -250,6 +254,8 @@ describe('multi-choice validation', () => {
         difficulty: 'medium',
       }],
     });
+    llm.completeJSON = stub;
+    llm.completeJSONWithMeta = async () => ({ data: await stub(), meta: undefined });
 
     const scope: QuizScope = {
       todayConcepts: [makeConcept('c1')],
