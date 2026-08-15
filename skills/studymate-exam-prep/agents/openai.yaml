@@ -1,0 +1,4 @@
+interface:
+  display_name: "StudyMate 自适应备考"
+  short_description: "基于个人教材生成备考计划、每日测验并根据错题动态调整复习"
+  default_prompt: "Use $studymate-exam-prep to turn my study materials and exam date into an adaptive study plan and quiz loop."
