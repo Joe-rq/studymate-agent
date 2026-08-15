@@ -164,12 +164,22 @@ body {
 }
 
 .logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   font-size: 1.25rem;
   font-weight: 700;
   color: var(--primary);
   margin-bottom: 32px;
   padding-left: 12px;
   letter-spacing: 0.3px;
+}
+
+.logo-mark {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  flex-shrink: 0;
 }
 
 .sidebar li {

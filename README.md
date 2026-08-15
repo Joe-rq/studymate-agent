@@ -1,6 +1,10 @@
-# StudyMate Agent
+<p align="center">
+  <img src="docs/logo.png" width="120" alt="StudyMate logo" />
+</p>
 
-> 一个"教材进、成绩出"的本地优先个人备考 Agent：上传你的教材，AI 帮你出题、批改、追错题、排复习计划。
+<h1 align="center">StudyMate Agent</h1>
+
+<p align="center">一个"教材进、成绩出"的本地优先个人备考 Agent：上传你的教材，AI 帮你出题、批改、追错题、排复习计划。</p>
 
 StudyMate Agent 是面向考证党、考研党、在职学习者的 **AI 备考闭环**。它不是又一个题库 App——它围绕**你自己的资料**构建知识图，跑通「学习 → 测验 → 批改 → 错题回流 → 动态复习」的完整闭环，并有一个会陪你说话的拟人化搭子。
 

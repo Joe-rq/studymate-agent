@@ -41,6 +41,7 @@ Thumbs.db
 # Agent tooling
 .zcode/
 .qoder/
+.baoyu-skills/
 
 # Test coverage
 coverage/

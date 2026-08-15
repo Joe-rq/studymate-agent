@@ -38,7 +38,10 @@ export default function App() {
     <div className="app-layout">
       {/* Desktop sidebar (also slides in as drawer on mobile) */}
       <nav className={`sidebar${drawerOpen ? ' open' : ''}`}>
-        <h1 className="logo">StudyMate</h1>
+        <h1 className="logo">
+          <img className="logo-mark" src="/logo.png" alt="StudyMate" />
+          <span>StudyMate</span>
+        </h1>
         <ul>
           {navItems.map((item) => (
             <li key={item.to}>
