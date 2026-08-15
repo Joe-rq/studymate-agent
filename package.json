@@ -15,7 +15,8 @@
     "smoke": "npm run build && node dist/cli.js --help",
     "demo": "node scripts/seed-demo.mjs",
     "serve": "npm run build && node dist/server/index.js",
-    "web": "cd web && npm run dev"
+    "web": "cd web && npm run dev",
+    "build:web": "npm --prefix web install --no-fund --no-audit && npm --prefix web run build"
   },
   "dependencies": {
     "commander": "^12.1.0",

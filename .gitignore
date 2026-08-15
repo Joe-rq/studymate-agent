@@ -43,6 +43,9 @@ Thumbs.db
 .qoder/
 .baoyu-skills/
 
+# Vercel local project state
+.vercel/
+
 # Test coverage
 coverage/
 .nyc_output/
@@ -60,3 +63,12 @@ coverage/
 /screenshots/demo_v2/merged_v2.mp4
 /screenshots/demo_v2/studymate_demo_full.mp4
 /screenshots/demo_v2/seg/
+
+.vercel
+
+# AI4S submission temp staging
+.tmp_ai4s_submission/
+
+# demo_v3 production intermediates
+/screenshots/demo_v3/seg/
+/screenshots/demo_v3/merged_v3.mp4
