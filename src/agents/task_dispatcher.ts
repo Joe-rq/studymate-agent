@@ -5,6 +5,7 @@ import type { Event } from '../core/types.js';
 import { createEventId, appendEvent } from '../core/event_log.js';
 import { Paths } from '../core/paths.js';
 import { atomicWriteFile, atomicWriteJSON } from '../core/atomic_file.js';
+import { createInitialSRState } from './spaced_repetition.js';
 
 export interface TodoTask {
   id: string;
@@ -29,6 +30,25 @@ interface DayProgress {
 /** Overflow cap for rollover: today's total <= dailyMinutes * 1.2 */
 const ROLLOVER_OVERFLOW = 1.2;
 
+/** 渲染当日 todo Markdown（计划事实源的快照）。 */
+export function renderTodoMarkdown(date: string, tasks: TodoTask[]): string {
+  const tags = ['#studymate', '#daily-task'];
+  const taskTags = tasks.map((t) => (t.type === 'learn' ? '#learn' : t.type === 'quiz' ? '#quiz' : '#review'));
+  const allTags = [...new Set([...tags, ...taskTags])].join(' ');
+
+  const typeLabels: Record<string, string> = { learn: '学习', review: '复习', quiz: '测验', sprint: '冲刺', buffer: '缓冲' };
+  return (
+    `---\ndate: ${date}\ntags: ${allTags}\n---\n\n` +
+    `# ${date} 学习任务\n\n` +
+    tasks
+      .map((t) => {
+        const typeLabel = typeLabels[t.type] ?? t.type;
+        return `- [ ] **${typeLabel}** ${t.nodeId}（${t.duration} 分钟）`;
+      })
+      .join('\n')
+  );
+}
+
 export async function dispatchToday(
   plan: DailyPlan,
   eventLogFile: string,
@@ -42,34 +62,32 @@ export async function dispatchToday(
     status: 'pending',
   }));
 
-  const tags = ['#studymate', '#daily-task'];
-  const taskTags = tasks.map((t) => (t.type === 'learn' ? '#learn' : t.type === 'quiz' ? '#quiz' : '#review'));
-  const allTags = [...new Set([...tags, ...taskTags])].join(' ');
-
-  const typeLabels: Record<string, string> = { learn: '学习', review: '复习', quiz: '测验', sprint: '冲刺', buffer: '缓冲' };
-  const markdown =
-    `---\ndate: ${plan.date}\ntags: ${allTags}\n---\n\n` +
-    `# ${plan.date} 学习任务\n\n` +
-    tasks
-      .map((t) => {
-        const typeLabel = typeLabels[t.type] ?? t.type;
-        return `- [ ] **${typeLabel}** ${t.nodeId}（${t.duration} 分钟）`;
-      })
-      .join('\n');
+  const markdown = renderTodoMarkdown(plan.date, tasks);
 
   const tasksDir = options?.workspaceRoot ? path.join(options.workspaceRoot, 'tasks') : Paths.tasks;
   await fs.mkdir(tasksDir, { recursive: true });
-  await atomicWriteFile(path.join(tasksDir, `${plan.date}_todo.md`), markdown, 'utf-8');
+  const todoPath = path.join(tasksDir, `${plan.date}_todo.md`);
 
-  const event: Event = {
-    id: createEventId(),
-    timestamp: new Date().toISOString(),
-    agent: 'task_dispatcher',
-    action: 'tasks_dispatched',
-    input: { date: plan.date },
-    output: { taskCount: tasks.length, rolloverCount: options?.rolloverTasks?.length ?? 0 },
-  };
-  await appendEvent(eventLogFile, event);
+  // 内容比对写入：计划被调整后 Markdown 快照随之重建；未变化时不重复写、不刷事件。
+  // 这保证 plan_daily/*.json（事实源）与 tasks/*.md（快照）始终一致。
+  let existing: string | null = null;
+  try {
+    existing = await fs.readFile(todoPath, 'utf-8');
+  } catch {
+    // 尚未生成
+  }
+  if (existing !== markdown) {
+    await atomicWriteFile(todoPath, markdown, 'utf-8');
+    const event: Event = {
+      id: createEventId(),
+      timestamp: new Date().toISOString(),
+      agent: 'task_dispatcher',
+      action: 'tasks_dispatched',
+      input: { date: plan.date },
+      output: { taskCount: tasks.length, rolloverCount: options?.rolloverTasks?.length ?? 0 },
+    };
+    await appendEvent(eventLogFile, event);
+  }
 
   return tasks;
 }
@@ -109,16 +127,55 @@ export async function completeTask(
 
   await atomicWriteJSON(progressPath, progress);
 
+  // 首次真实完成 learn 任务 → 创建初始 SM-2 状态（下次复习 = 明天）。
+  // srState 只在真实学习/复习后写入，静态计划生成不再触碰它。
+  let srBootstrapped = false;
+  if (status === 'done') {
+    srBootstrapped = await bootstrapSRStateForLearnTask(date, taskId, workspaceRoot);
+  }
+
   const event: Event = {
     id: createEventId(),
     timestamp: new Date().toISOString(),
     agent: 'task_dispatcher',
     action: 'task_completed',
     input: { date, taskId, status },
-    output: {},
+    output: srBootstrapped ? { srStateBootstrapped: true } : {},
   };
   await appendEvent(eventLogFile, event);
   return true;
+}
+
+/** 查找当天计划中的 learn 任务并为其概念创建初始 SR 状态（已存在则跳过）。 */
+async function bootstrapSRStateForLearnTask(
+  date: string,
+  taskId: string,
+  workspaceRoot?: string
+): Promise<boolean> {
+  const planRoot = workspaceRoot ? path.join(workspaceRoot, 'plan') : Paths.plan;
+  const graphDir = workspaceRoot ? path.join(workspaceRoot, 'graph') : Paths.graph;
+  try {
+    const idxMatch = taskId.match(/^task_\d{4}-\d{2}-\d{2}_(\d+)$/);
+    if (!idxMatch) return false;
+    const plan: DailyPlan = JSON.parse(
+      await fs.readFile(path.join(planRoot, 'plan_daily', `${date}.json`), 'utf-8')
+    );
+    const task = plan.tasks[Number(idxMatch[1])];
+    if (!task || task.type !== 'learn') return false;
+
+    const conceptMap = JSON.parse(
+      await fs.readFile(path.join(graphDir, 'concepts.json'), 'utf-8')
+    ) as { concepts?: Array<{ id: string; srState?: unknown }> };
+    const concept = (conceptMap.concepts ?? []).find((c) => c.id === task.nodeId);
+    if (!concept || concept.srState) return false;
+
+    concept.srState = createInitialSRState(date);
+    await atomicWriteJSON(path.join(graphDir, 'concepts.json'), conceptMap);
+    return true;
+  } catch {
+    // 计划或概念图缺失时静默降级：srState 会在真实批改时懒初始化
+    return false;
+  }
 }
 
 /**
@@ -354,16 +411,7 @@ export async function prepareTasksForDate(
   }
 
   const migrated = await migrateIncompleteTasks(plan, dailyMinutes, eventLogFile, workspaceRoot);
-  const tasksDir = workspaceRoot ? path.join(workspaceRoot, 'tasks') : Paths.tasks;
-  const todoPath = path.join(tasksDir, `${date}_todo.md`);
-  let shouldDispatch = migrated.tasks.length !== plan.tasks.length;
-  try {
-    await fs.access(todoPath);
-  } catch {
-    shouldDispatch = true;
-  }
-  if (shouldDispatch) {
-    await dispatchToday(migrated, eventLogFile, { workspaceRoot });
-  }
+  // dispatchToday 幂等（内容不变不重写），每次读取都校准 Markdown 快照与计划事实源一致
+  await dispatchToday(migrated, eventLogFile, { workspaceRoot });
   return loadTasksForDate(date, workspaceRoot);
 }

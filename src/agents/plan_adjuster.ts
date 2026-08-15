@@ -7,7 +7,8 @@ import type { Event } from '../core/types.js';
 import { createEventId, appendEvent } from '../core/event_log.js';
 import { Paths } from '../core/paths.js';
 import { atomicWriteJSON } from '../core/atomic_file.js';
-import { todayDateKey } from '../core/date.js';
+import { addDaysToDateKey, todayDateKey } from '../core/date.js';
+import type { SRState } from './spaced_repetition.js';
 
 /**
  * 单次计划调整的最大额外时长（分钟）。
@@ -53,7 +54,7 @@ export interface AdjustPlanResult {
 }
 
 export interface AdjustPlanOptions {
-  /** 只调整该日期（含）之后的计划，默认从“明天”开始。 */
+  /** 只调整该日期（含）之后的计划，默认从“明天”开始（今天可能已在执行，不干预）。 */
   fromDate?: string;
   /** 每日时长溢出上限倍数，默认 1.2。 */
   maxOverflow?: number;
@@ -64,11 +65,15 @@ export interface AdjustPlanOptions {
 }
 
 /**
- * 根据掌握度调整计划：
+ * 根据掌握度与 SM-2 运行时状态调整计划：
  * 1. 为现有 review 任务加时（mastery < 1）
- * 2. 为 mastery < 0.3 的概念插入新的 review 任务
- * 3. 为 quizNodeIds 中的概念插入 quiz 任务
- * 4. 每次调整保留原因和调整前后差异
+ * 2. 为有 srState 的概念在其 dueDate 当天插入一条 review（每概念每天最多一条，幂等）
+ * 3. 为 mastery < 0.3 且尚无 srState 的概念在首个可调整日插入一条 review
+ * 4. 为 quizNodeIds 中的概念在首个可调整日插入一条 quiz
+ * 5. 每次调整保留原因和调整前后差异
+ *
+ * 默认从明天开始调整（fromDate 缺省 = today + 1），
+ * 晚间批改不会向当天插入新的待办任务。
  */
 export function adjustPlan(
   plan: StudyPlan,
@@ -79,7 +84,7 @@ export function adjustPlan(
 
   // 默认从明天开始调整：今天可能已在执行，不干预
   const today = todayDateKey();
-  const threshold = fromDate ?? today;
+  const threshold = fromDate ?? addDaysToDateKey(today, 1);
 
   // 建立 nodeId → concept 的查找表
   const conceptById = new Map(conceptMap.concepts.map((c) => [c.id, c]));
@@ -89,14 +94,19 @@ export function adjustPlan(
   const adjustments: PlanAdjustment[] = [];
   const dailyCap = plan.dailyMinutes * maxOverflow;
 
-  // Track which nodes already have tasks on each day (for insert logic)
-  const quizSet = new Set(quizNodeIds);
+  // 首个可调整的非休息日：单次插入类调整（弱概念复习、重测）都落在这里
+  const firstAdjustableDay = adjusted.schedule.find(
+    (day) => day.date >= threshold && !day.isRest
+  );
+  const firstAdjustableDate = firstAdjustableDay?.date ?? null;
 
   for (const day of adjusted.schedule) {
     if (day.date < threshold) continue;
     if (day.isRest) continue;
 
+    const isFirstAdjustable = day.date === firstAdjustableDate;
     const currentTotal = () => day.tasks.reduce((sum, t) => sum + t.duration, 0);
+    const todayNodeIds = new Set(day.tasks.map((t) => t.nodeId));
 
     // 1. Extend existing review tasks
     const reviewTasks = day.tasks.filter((t) => t.type === 'review');
@@ -125,12 +135,17 @@ export function adjustPlan(
       });
     }
 
-    // 2. Insert NEW review tasks for very weak concepts not already scheduled today
-    const todayNodeIds = new Set(day.tasks.map((t) => t.nodeId));
+    // 2. Insert review at SM-2 dueDate（每个概念只在到期日插入一次；逾期概念落到首个可调整日）
     for (const concept of conceptMap.concepts) {
-      if (concept.mastery >= INSERT_REVIEW_THRESHOLD) continue;
-      if (todayNodeIds.has(concept.id)) continue;
+      const srState = concept.srState as SRState | undefined;
+      if (!srState?.dueDate) continue;
       if (concept.unverified) continue;
+
+      const dueOnThisDay = srState.dueDate === day.date;
+      const overdueBeforeThreshold =
+        srState.dueDate < threshold && day.date === firstAdjustableDate;
+      if (!dueOnThisDay && !overdueBeforeThreshold) continue;
+      if (todayNodeIds.has(concept.id)) continue;
 
       const duration = estimateDuration(concept, 'review');
       if (currentTotal() + duration > dailyCap) continue;
@@ -143,29 +158,53 @@ export function adjustPlan(
         type: 'insert_review',
         addedMinutes: duration,
         mastery: concept.mastery,
-        reason: `mastery ${concept.mastery.toFixed(2)} < ${INSERT_REVIEW_THRESHOLD}`,
+        reason: `SM-2 due ${srState.dueDate}`,
       });
     }
 
-    // 3. Insert quiz tasks for concepts that need re-testing
-    for (const nodeId of quizNodeIds) {
-      if (todayNodeIds.has(nodeId)) continue;
-      const concept = conceptById.get(nodeId);
-      if (!concept) continue;
+    // 3. Insert ONE review for very weak concepts (no SR state yet) on the first adjustable day only
+    if (isFirstAdjustable) {
+      for (const concept of conceptMap.concepts) {
+        if (concept.mastery >= INSERT_REVIEW_THRESHOLD) continue;
+        if (concept.srState) continue; // 已由 SM-2 dueDate 插入逻辑覆盖
+        if (concept.unverified) continue;
+        if (todayNodeIds.has(concept.id)) continue;
 
-      const duration = estimateDuration(concept, 'quiz');
-      if (currentTotal() + duration > dailyCap) continue;
+        const duration = estimateDuration(concept, 'review');
+        if (currentTotal() + duration > dailyCap) continue;
 
-      day.tasks.push({ type: 'quiz', nodeId, duration });
-      todayNodeIds.add(nodeId);
-      adjustments.push({
-        date: day.date,
-        nodeId,
-        type: 'insert_quiz',
-        addedMinutes: duration,
-        mastery: concept.mastery,
-        reason: 're-test after repeated failures',
-      });
+        day.tasks.push({ type: 'review', nodeId: concept.id, duration });
+        todayNodeIds.add(concept.id);
+        adjustments.push({
+          date: day.date,
+          nodeId: concept.id,
+          type: 'insert_review',
+          addedMinutes: duration,
+          mastery: concept.mastery,
+          reason: `mastery ${concept.mastery.toFixed(2)} < ${INSERT_REVIEW_THRESHOLD}`,
+        });
+      }
+
+      // 4. Insert quiz tasks for concepts that need re-testing (once, first adjustable day)
+      for (const nodeId of quizNodeIds) {
+        if (todayNodeIds.has(nodeId)) continue;
+        const concept = conceptById.get(nodeId);
+        if (!concept) continue;
+
+        const duration = estimateDuration(concept, 'quiz');
+        if (currentTotal() + duration > dailyCap) continue;
+
+        day.tasks.push({ type: 'quiz', nodeId, duration });
+        todayNodeIds.add(nodeId);
+        adjustments.push({
+          date: day.date,
+          nodeId,
+          type: 'insert_quiz',
+          addedMinutes: duration,
+          mastery: concept.mastery,
+          reason: 're-test after repeated failures',
+        });
+      }
     }
   }
 

@@ -5,11 +5,6 @@ import type { Event } from '../core/types.js';
 import { createEventId, appendEvent } from '../core/event_log.js';
 import { Paths } from '../core/paths.js';
 import {
-  createInitialSRState,
-  isDue,
-  type SRState,
-} from './spaced_repetition.js';
-import {
   addDaysToDateKey,
   daysBetweenDateKeys,
   isDateKey,
@@ -17,7 +12,7 @@ import {
 } from '../core/date.js';
 import { atomicWriteJSON } from '../core/atomic_file.js';
 
-export const PROMPT_VERSION = 'plan_v1';
+export const PROMPT_VERSION = 'plan_v2';
 
 export interface PlanConfig {
   examDate: string;
@@ -49,6 +44,18 @@ export interface PlanPhase {
   endDay: number;
 }
 
+/** 容量缺口结构化报告：计划不再静默丢失概念。 */
+export interface PlanCapacitySummary {
+  /** 全部待学概念所需的学习时长（分钟）。 */
+  requiredMinutes: number;
+  /** 计划期内可用于学习新概念的总时长（分钟）。 */
+  availableMinutes: number;
+  /** 已成功排入 learn 任务的概念数。 */
+  scheduledConceptCount: number;
+  /** 容量不足、未能排入计划的概念 ID。 */
+  unscheduledConceptIds: string[];
+}
+
 export interface StudyPlan {
   id: string;
   examDate: string;
@@ -56,6 +63,8 @@ export interface StudyPlan {
   schedule: DailyPlan[];
   phases: PlanPhase[];
   version: number;
+  /** 容量缺口报告。旧版本计划文件可能缺失此字段。 */
+  capacity?: PlanCapacitySummary;
 }
 
 // ── Capacity Estimation ─────────────────────────────────────────────
@@ -109,7 +118,7 @@ function validateConfig(config: PlanConfig): void {
 
 // ── Plan Generation ─────────────────────────────────────────────────
 
-/** Spaced-repetition review intervals (days after learn day). */
+/** 初始计划的固定复习间隔（学习日之后第 N 天）。运行时复习由 SM-2（srState）接管。 */
 const REVIEW_INTERVALS = [1, 3, 7, 15, 30];
 
 /** Insert a quiz day after every N learn days. */
@@ -118,6 +127,17 @@ const QUIZ_EVERY_N_DAYS = 4;
 /** Insert a buffer/rest day after every N active days. */
 const BUFFER_EVERY_N_DAYS = 7;
 
+/** 日分类：决定主循环如何生成任务，保证容量打包与排程一致。 */
+type DayKind = 'rest' | 'learn' | 'quizday' | 'consolidation' | 'sprint';
+
+/**
+ * Generate a study plan.
+ *
+ * 保证：learningOrder 中每个概念要么被排入一次 learn 任务，要么出现在
+ * capacity.unscheduledConceptIds（容量缺口被显式报告，绝不静默丢弃）。
+ * 计划生成不修改 Concept.srState；初始复习使用固定间隔，
+ * 真实作答后的下一次复习日期由 mastery_tracker 通过 SM-2 更新。
+ */
 export function generatePlan(conceptMap: ConceptMap, config: PlanConfig): StudyPlan {
   validateConfig(config);
 
@@ -133,101 +153,124 @@ export function generatePlan(conceptMap: ConceptMap, config: PlanConfig): StudyP
   const learnPhaseDays = Math.max(1, Math.floor((totalDays - sprintDays) * 0.65));
   const consolidationPhaseDays = totalDays - sprintDays - learnPhaseDays;
 
-  // Distribute concepts across learn phase (accounting for quiz/buffer days)
-  const activeLearnDays: number[] = [];
-  let activeCount = 0;
-  for (let d = 0; d < learnPhaseDays; d++) {
-    const dateStr = getDateStr(today, d);
-    if (unavailableSet.has(dateStr)) continue;
-    // Skip quiz days and buffer days within learn phase
-    if (activeCount > 0 && activeCount % QUIZ_EVERY_N_DAYS === 0) { activeCount++; continue; }
-    if (activeCount > 0 && activeCount % BUFFER_EVERY_N_DAYS === 0) { activeCount++; continue; }
-    activeLearnDays.push(d);
-    activeCount++;
+  // 1) 预先分类每一天（休息/学习/测验/巩固/冲刺）。
+  //    一次性分类保证后续容量打包与主循环对“哪些天可学”的判断一致。
+  const dayKinds: DayKind[] = [];
+  {
+    let activeRun = 0;
+    for (let d = 0; d < totalDays; d++) {
+      const dateStr = getDateStr(today, d);
+      const isSprint = d >= totalDays - sprintDays;
+      if (unavailableSet.has(dateStr)) {
+        dayKinds.push('rest');
+        activeRun = 0;
+        continue;
+      }
+      if (!isSprint && activeRun > 0 && activeRun % BUFFER_EVERY_N_DAYS === 0) {
+        dayKinds.push('rest');
+        activeRun = 0;
+        continue;
+      }
+      if (isSprint) {
+        dayKinds.push('sprint');
+      } else if (d < learnPhaseDays) {
+        dayKinds.push(
+          activeRun > 0 && (activeRun + 1) % QUIZ_EVERY_N_DAYS === 0 ? 'quizday' : 'learn'
+        );
+      } else {
+        dayKinds.push('consolidation');
+      }
+      activeRun++;
+    }
   }
 
-  const conceptsPerDay = Math.max(1, Math.ceil(learningOrder.length / Math.max(1, activeLearnDays.length)));
+  // 2) 按容量把 learn 任务贪心打包进可学习日（learn + consolidation，不含冲刺）。
+  //    装不下时顺延到下一天；仍装不下的概念进入 unscheduledConceptIds。
+  const learnableDays: number[] = [];
+  for (let d = 0; d < totalDays; d++) {
+    if (dayKinds[d] === 'learn' || dayKinds[d] === 'consolidation') learnableDays.push(d);
+  }
+
   const learnDayMap = new Map<string, number>();
-  for (let i = 0; i < learningOrder.length; i++) {
-    const slotIdx = Math.min(Math.floor(i / conceptsPerDay), activeLearnDays.length - 1);
-    learnDayMap.set(learningOrder[i], activeLearnDays[slotIdx]);
+  const unscheduledConceptIds: string[] = [];
+  {
+    let dayPtr = 0;
+    let used = 0;
+    for (const nodeId of learningOrder) {
+      const concept = conceptById.get(nodeId);
+      if (!concept) continue;
+      const duration = estimateDuration(concept, 'learn');
+      while (dayPtr < learnableDays.length && used + duration > config.dailyMinutes) {
+        dayPtr++;
+        used = 0;
+      }
+      if (dayPtr >= learnableDays.length) {
+        unscheduledConceptIds.push(nodeId);
+        continue;
+      }
+      learnDayMap.set(nodeId, learnableDays[dayPtr]);
+      used += duration;
+    }
   }
 
-  // Build schedule
+  // 3) Build schedule from the precomputed day classification.
   const schedule: DailyPlan[] = [];
-  const phases: PlanPhase[] = [];
-  let consecutiveActive = 0;
+  const learnPhaseLearnDays = dayKinds.filter((k) => k === 'learn').length;
+  const scheduledCount = learnDayMap.size;
+  const avgPerDay = learnPhaseLearnDays > 0 ? Math.ceil(scheduledCount / learnPhaseLearnDays) : scheduledCount;
 
   for (let d = 0; d < totalDays; d++) {
     const dateStr = getDateStr(today, d);
-    const isSprint = d >= totalDays - sprintDays;
-    const isConsolidation = !isSprint && d >= learnPhaseDays;
-
-    // Unavailable → rest
-    if (unavailableSet.has(dateStr)) {
-      schedule.push({ date: dateStr, tasks: [], isRest: true });
-      consecutiveActive = 0;
-      continue;
-    }
-
-    // Buffer day: every BUFFER_EVERY_N_DAYS active days (not in sprint)
-    if (!isSprint && consecutiveActive > 0 && consecutiveActive % BUFFER_EVERY_N_DAYS === 0) {
-      schedule.push({ date: dateStr, tasks: [], isRest: true });
-      consecutiveActive = 0;
-      continue;
-    }
-
+    const kind = dayKinds[d];
     const tasks: DailyTask[] = [];
 
-    if (isSprint) {
+    if (kind === 'rest') {
+      schedule.push({ date: dateStr, tasks: [], isRest: true });
+      continue;
+    }
+
+    if (kind === 'sprint') {
       // Sprint: review all concepts with low mastery
       for (const nodeId of learningOrder) {
         const concept = conceptById.get(nodeId);
         if (!concept) continue;
         tasks.push({ type: 'sprint', nodeId, duration: estimateDuration(concept, 'sprint') });
       }
-    } else if (isConsolidation) {
-      // Consolidation: quiz on recently learned + review
-      const quizNodes = learningOrder.slice(0, Math.min(learningOrder.length, conceptsPerDay * 5));
-      for (const nodeId of quizNodes) {
+    } else if (kind === 'quizday') {
+      const recentNodes = learningOrder.filter((id) => {
+        const ld = learnDayMap.get(id);
+        return ld !== undefined && d - ld <= QUIZ_EVERY_N_DAYS && d - ld >= 0;
+      });
+      for (const nodeId of recentNodes) {
         const concept = conceptById.get(nodeId);
         if (!concept) continue;
         tasks.push({ type: 'quiz', nodeId, duration: estimateDuration(concept, 'quiz') });
       }
-      // Add review tasks using SR-based scheduling
-      scheduleSRReviewTasks(tasks, dateStr, conceptById, learningOrder, learnDayMap, d, 'review');
+      appendFixedIntervalReviews(tasks, dayKinds, d, learnDayMap, conceptById, learningOrder);
     } else {
-      // Learn phase
-      // Quiz day?
-      if (consecutiveActive > 0 && (consecutiveActive + 1) % QUIZ_EVERY_N_DAYS === 0) {
-        const recentNodes = learningOrder.filter((id) => {
-          const ld = learnDayMap.get(id);
-          return ld !== undefined && d - ld <= QUIZ_EVERY_N_DAYS && d - ld >= 0;
-        });
-        for (const nodeId of recentNodes) {
+      // learn / consolidation：新学任务 + 固定间隔复习（巩固期 quiz 复习近期概念）
+      for (const nodeId of learningOrder) {
+        if (learnDayMap.get(nodeId) === d) {
+          const concept = conceptById.get(nodeId);
+          if (!concept) continue;
+          tasks.push({ type: 'learn', nodeId, duration: estimateDuration(concept, 'learn') });
+        }
+      }
+      if (kind === 'consolidation' && tasks.length === 0) {
+        const quizNodes = learningOrder
+          .filter((id) => learnDayMap.has(id))
+          .slice(-Math.min(learningOrder.length, avgPerDay * 5));
+        for (const nodeId of quizNodes) {
           const concept = conceptById.get(nodeId);
           if (!concept) continue;
           tasks.push({ type: 'quiz', nodeId, duration: estimateDuration(concept, 'quiz') });
         }
-      } else {
-        // New learn tasks
-        for (const nodeId of learningOrder) {
-          if (learnDayMap.get(nodeId) === d) {
-            const concept = conceptById.get(nodeId);
-            if (!concept) continue;
-            tasks.push({ type: 'learn', nodeId, duration: estimateDuration(concept, 'learn') });
-            // Initialize SRState for newly learned concepts
-            if (!concept.srState) {
-              concept.srState = createInitialSRState(dateStr);
-            }
-          }
-        }
       }
-      // Review tasks: use SR-based scheduling (falls back to fixed intervals)
-      scheduleSRReviewTasks(tasks, dateStr, conceptById, learningOrder, learnDayMap, d, 'review');
+      appendFixedIntervalReviews(tasks, dayKinds, d, learnDayMap, conceptById, learningOrder);
     }
 
-    // Capacity limit: prioritize learn/sprint > quiz > review
+    // Capacity limit: prioritize learn/sprint > quiz > review。
+    // learn 任务在打包阶段已保证当天装得下，这里只会裁剪 quiz/review/sprint 溢出。
     tasks.sort((a, b) => taskPriority(a.type) - taskPriority(b.type));
     let used = 0;
     const limitedTasks: DailyTask[] = [];
@@ -239,15 +282,27 @@ export function generatePlan(conceptMap: ConceptMap, config: PlanConfig): StudyP
     }
 
     schedule.push({ date: dateStr, tasks: limitedTasks });
-    consecutiveActive++;
   }
 
   // Compute phase boundaries
+  const phases: PlanPhase[] = [];
   phases.push({ name: 'learn', startDay: 0, endDay: learnPhaseDays - 1 });
   if (consolidationPhaseDays > 0) {
     phases.push({ name: 'consolidation', startDay: learnPhaseDays, endDay: totalDays - sprintDays - 1 });
   }
   phases.push({ name: 'sprint', startDay: totalDays - sprintDays, endDay: totalDays - 1 });
+
+  // 4) 容量报告
+  const requiredMinutes = learningOrder.reduce((sum, id) => {
+    const c = conceptById.get(id);
+    return c ? sum + estimateDuration(c, 'learn') : sum;
+  }, 0);
+  const capacity: PlanCapacitySummary = {
+    requiredMinutes,
+    availableMinutes: config.dailyMinutes * learnableDays.length,
+    scheduledConceptCount: learnDayMap.size,
+    unscheduledConceptIds,
+  };
 
   return {
     id: `plan_${Date.now()}`,
@@ -256,6 +311,7 @@ export function generatePlan(conceptMap: ConceptMap, config: PlanConfig): StudyP
     schedule,
     phases,
     version: 1,
+    capacity,
   };
 }
 
@@ -275,59 +331,37 @@ function taskPriority(type: TaskType): number {
   }
 }
 
-function addReviewTasks(
-  tasks: DailyTask[],
-  currentDay: number,
-  learnDayMap: Map<string, number>,
-  conceptById: Map<string, Concept>,
-  learningOrder: string[],
-  type: 'review' | 'sprint'
-): void {
-  for (const interval of REVIEW_INTERVALS) {
-    const reviewDay = currentDay - interval;
-    if (reviewDay < 0) continue;
-    for (const nodeId of learningOrder) {
-      if (learnDayMap.get(nodeId) === reviewDay) {
-        const concept = conceptById.get(nodeId);
-        if (!concept) continue;
-        tasks.push({ type, nodeId, duration: estimateDuration(concept, type) });
-      }
-    }
-  }
-}
-
 /**
- * Schedule review tasks based on SM-2 due dates.
- * Falls back to fixed intervals for concepts without SRState.
+ * 初始计划的固定间隔复习：概念在学习日后第 1/3/7/15/30 天复习一次。
+ * 目标日是休息日时顺延到下一个非休息日；每天每概念最多一条 review。
+ * 刻意不读取 srState —— 静态未来计划不得用运行时 SM-2 状态判定到期。
  */
-function scheduleSRReviewTasks(
+function appendFixedIntervalReviews(
   tasks: DailyTask[],
-  currentDate: string,
-  conceptById: Map<string, Concept>,
-  learningOrder: string[],
-  learnDayMap: Map<string, number>,
+  dayKinds: DayKind[],
   currentDay: number,
-  type: 'review' | 'sprint' = 'review'
+  learnDayMap: Map<string, number>,
+  conceptById: Map<string, Concept>,
+  learningOrder: string[]
 ): void {
+  const scheduled = new Set(tasks.map((t) => `${t.nodeId}:${t.type}`));
   for (const nodeId of learningOrder) {
+    const learnDay = learnDayMap.get(nodeId);
+    if (learnDay === undefined) continue;
     const concept = conceptById.get(nodeId);
     if (!concept) continue;
-
-    // Check if this concept has SR state with a due date
-    if (concept.srState) {
-      if (isDue(concept.srState, currentDate)) {
-        tasks.push({ type, nodeId, duration: estimateDuration(concept, type) });
+    for (const interval of REVIEW_INTERVALS) {
+      let target = learnDay + interval;
+      while (target < dayKinds.length && dayKinds[target] === 'rest') target++;
+      if (target > currentDay) break; // 该间隔及后续间隔都在未来
+      if (target < currentDay) continue; // 该间隔已落在更早的日期
+      // target === currentDay
+      const key = `${nodeId}:review`;
+      if (!scheduled.has(key)) {
+        tasks.push({ type: 'review', nodeId, duration: estimateDuration(concept, 'review') });
+        scheduled.add(key);
       }
-    } else {
-      // Fallback: use fixed intervals for concepts without SR state
-      const learnDay = learnDayMap.get(nodeId);
-      if (learnDay === undefined) continue;
-      for (const interval of REVIEW_INTERVALS) {
-        if (currentDay - interval === learnDay) {
-          tasks.push({ type, nodeId, duration: estimateDuration(concept, type) });
-          break;
-        }
-      }
+      break;
     }
   }
 }
@@ -372,6 +406,20 @@ export function formatPlanSummary(plan: StudyPlan, conceptMap: ConceptMap): stri
   lines.push(`  休息/缓冲: ${restDays} 天`);
   lines.push(`  总学习时长: ${totalMinutes} 分钟 (${(totalMinutes / 60).toFixed(1)} 小时)`);
   lines.push('');
+
+  // 容量缺口报告：有概念未被排入时必须显式提示，不得静默丢失
+  if (plan.capacity && plan.capacity.unscheduledConceptIds.length > 0) {
+    const cap = plan.capacity;
+    lines.push('⚠️ 容量不足警告:');
+    lines.push(
+      `  共需 ${cap.requiredMinutes} 分钟学习时间，计划期内容量约 ${cap.availableMinutes} 分钟。`
+    );
+    lines.push(
+      `  ${cap.unscheduledConceptIds.length} 个概念无法在考试前排入：${cap.unscheduledConceptIds.join(', ')}`
+    );
+    lines.push('  建议：增加每日学习时长、延后考试日期，或确认后接受部分概念不进入本轮计划。');
+    lines.push('');
+  }
 
   // Concepts per day
   const activeDays = plan.schedule.filter((d) => !d.isRest && d.tasks.length > 0).length;

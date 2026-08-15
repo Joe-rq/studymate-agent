@@ -177,4 +177,85 @@ describe('plan_adjuster', () => {
     const { adjustments } = adjustPlan(plan, map, { fromDate: '2026-07-12', reason: TEST_REASON });
     expect(adjustments).toHaveLength(0);
   });
+
+  // ── 默认从次日调整 + SM-2 dueDate 幂等插入 ──────────────────────────
+
+  it('未传 fromDate 时默认从明天开始调整，今天不被插入新任务', () => {
+    // 计划含“今天”（测试运行日）与之后两天
+    const today = new Date().toISOString().split('T')[0];
+    const d = (offset: number) => {
+      const dt = new Date();
+      dt.setDate(dt.getDate() + offset);
+      return dt.toISOString().split('T')[0];
+    };
+    const plan = makePlan(120, [
+      makeDay(today, [{ type: 'learn', nodeId: 'a', duration: 30 }]),
+      makeDay(d(1), [{ type: 'learn', nodeId: 'b', duration: 30 }]),
+      makeDay(d(2), [{ type: 'learn', nodeId: 'c', duration: 30 }]),
+    ]);
+    const map = makeConceptMap({ a: 0.8, b: 0.8, very_weak: 0.1 });
+    const { adjustments, plan: adjusted } = adjustPlan(plan, map, { reason: TEST_REASON });
+
+    // 今天（第一个日程日）不应有任何插入
+    const todayAdj = adjustments.filter((a) => a.date === today);
+    expect(todayAdj).toHaveLength(0);
+    expect(adjusted.schedule[0].tasks).toHaveLength(1);
+    // 明天插入弱概念复习一次
+    const insertAdj = adjustments.find((a) => a.type === 'insert_review' && a.nodeId === 'very_weak');
+    expect(insertAdj?.date).toBe(d(1));
+  });
+
+  it('SM-2 dueDate 当天插入一条 review，且只插入一次', () => {
+    const plan = makePlan(120, [
+      makeDay('2026-07-12', [{ type: 'learn', nodeId: 'a', duration: 30 }]),
+      makeDay('2026-07-13', [{ type: 'learn', nodeId: 'b', duration: 30 }]),
+      makeDay('2026-07-14', [{ type: 'learn', nodeId: 'c', duration: 30 }]),
+      makeDay('2026-07-15', [{ type: 'learn', nodeId: 'd', duration: 30 }]),
+    ]);
+    const map = makeConceptMap({ a: 0.8, b: 0.8, c: 0.8, d: 0.8, reviewed: 0.5 });
+    map.concepts.find((x) => x.id === 'reviewed')!.srState = {
+      interval: 3,
+      easeFactor: 2.5,
+      repetitions: 2,
+      dueDate: '2026-07-14',
+    };
+    const { adjustments, plan: adjusted } = adjustPlan(plan, map, { fromDate: '2026-07-12', reason: TEST_REASON });
+
+    const inserts = adjustments.filter((a) => a.type === 'insert_review' && a.nodeId === 'reviewed');
+    expect(inserts).toHaveLength(1);
+    expect(inserts[0].date).toBe('2026-07-14'); // 正好落在 dueDate 当天
+    expect(adjusted.schedule[2].tasks.some((t) => t.nodeId === 'reviewed' && t.type === 'review')).toBe(true);
+    expect(adjusted.schedule[0].tasks.some((t) => t.nodeId === 'reviewed')).toBe(false);
+    expect(adjusted.schedule[1].tasks.some((t) => t.nodeId === 'reviewed')).toBe(false);
+  });
+
+  it('重复调整不会重复插入同一概念同一日期的复习任务', () => {
+    const plan = makePlan(120, [
+      makeDay('2026-07-12', [{ type: 'learn', nodeId: 'a', duration: 30 }]),
+      makeDay('2026-07-13', [{ type: 'learn', nodeId: 'b', duration: 30 }]),
+    ]);
+    const map = makeConceptMap({ a: 0.8, b: 0.8, very_weak: 0.1 });
+    const first = adjustPlan(plan, map, { fromDate: '2026-07-12', reason: 'pass 1' });
+    const second = adjustPlan(first.plan, map, { fromDate: '2026-07-12', reason: 'pass 2' });
+
+    const secondInserts = second.adjustments.filter((a) => a.type === 'insert_review' && a.nodeId === 'very_weak');
+    expect(secondInserts).toHaveLength(0); // 已存在于计划中 → 幂等跳过
+    const day = second.plan.schedule.find((d) => d.date === '2026-07-12')!;
+    expect(day.tasks.filter((t) => t.nodeId === 'very_weak' && t.type === 'review')).toHaveLength(1);
+  });
+
+  it('弱概念插入只发生在首个可调整日，不会每天铺满', () => {
+    const plan = makePlan(120, [
+      makeDay('2026-07-12', [{ type: 'learn', nodeId: 'a', duration: 30 }]),
+      makeDay('2026-07-13', [{ type: 'learn', nodeId: 'b', duration: 30 }]),
+      makeDay('2026-07-14', [{ type: 'learn', nodeId: 'c', duration: 30 }]),
+      makeDay('2026-07-15', [{ type: 'learn', nodeId: 'd', duration: 30 }]),
+    ]);
+    const map = makeConceptMap({ a: 0.8, b: 0.8, c: 0.8, d: 0.8, very_weak: 0.1 });
+    const { adjustments } = adjustPlan(plan, map, { fromDate: '2026-07-12', reason: TEST_REASON });
+
+    const weakInserts = adjustments.filter((a) => a.type === 'insert_review' && a.nodeId === 'very_weak');
+    expect(weakInserts).toHaveLength(1);
+    expect(weakInserts[0].date).toBe('2026-07-12');
+  });
 });
