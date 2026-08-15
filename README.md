@@ -75,7 +75,7 @@ studymate chat           # 和搭子多轮对话
 ## 测试与覆盖率
 
 ```bash
-npm test                 # Vitest 全量测试（328 用例 / 42 文件）
+npm test                 # Vitest 全量测试（336 用例 / 42 文件）
 npx vitest run --coverage  # 覆盖率报告（输出到 coverage/）
 ```
 
@@ -163,9 +163,13 @@ flowchart TB
 
 | 层级 | 状态 |
 |---|---|
-| 代码实现 | 计划容量完整性、SM-2 分离、Studio 服务端批改（回执幂等）、本地资料上传、访问控制等均有对应单元/集成测试（328 用例） |
-| Mock 验证 | 无任何外部 Key 时：Web 本地上传 → 构建 → 计划 → Studio 两个学习任务 → 服务端批改 → 复盘 全流程离线可跑（见 `tests/server/onboarding.test.ts`、`tests/server/study.test.ts`） |
-| 真实 API 验证 | 配置 `OPENAI_API_KEY` / `SERP_API_KEY` 后同一流程走真实模型；LLM 调用的 model/promptVersion/duration/tokenUsage 记录在事件日志（schema v2）可事后审计 |
+| 代码实现 | 计划容量完整性、SM-2 分离、Studio 服务端批改（回执幂等）、本地资料上传、访问控制、Workspace 隔离、批改幂等与失败恢复等均有对应单元/集成测试 |
+| 自动化测试 | 42 个测试文件 / 336 用例全绿（`npm test`） |
+| Mock 黄金路径 | 无任何外部 Key 时：Web 本地上传 → 构建 → 计划 → Studio 两个学习任务 → 服务端批改 → 复盘 全流程离线可跑（见 `tests/server/onboarding.test.ts`、`tests/server/study.test.ts`） |
+| 真实搜索 | 未验证（需配置 `SERP_API_KEY` 后人工验收） |
+| 真实 LLM | 未验证（需配置 `OPENAI_API_KEY` 后人工验收；Mock 模式已完整覆盖离线闭环） |
+| 连续三日验收 | 未验证 |
+| 浏览器人工验收 | 未验证（窄屏布局、刷新恢复、批改中断重试等人工项） |
 
 ## 开发
 
