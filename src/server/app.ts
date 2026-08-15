@@ -262,7 +262,7 @@ export function createApp(options: AppOptions = {}) {
       }
       const project = await loadExamProject(options.workspaceRoot);
       if (!project) return res.status(400).json({ error: 'No exam project.' });
-      const sources = await approveSources(project, ids, P.eventLog);
+      const sources = await approveSources(project, ids, P.eventLog, options.workspaceRoot);
       const approvedCount = sources.filter((s) => s.approved).length;
       res.json({ approvedCount, totalSources: sources.length });
     } catch (err) {
@@ -462,7 +462,7 @@ export function createApp(options: AppOptions = {}) {
           ? unavailableDates
           : exam?.learnerProfile.unavailableDates,
       });
-      await savePlan(plan, P.eventLog);
+      await savePlan(plan, P.eventLog, options.workspaceRoot);
 
       // Update exam status to 'planned' if applicable
       if (exam?.status === 'materials_ready') {
@@ -479,7 +479,7 @@ export function createApp(options: AppOptions = {}) {
 
   app.post('/api/plan/approve', async (_req, res) => {
     try {
-      const exam = await approvePlan(P.eventLog);
+      const exam = await approvePlan(P.eventLog, options.workspaceRoot);
       res.json({ ok: true, exam });
     } catch (err) {
       res.status(400).json({ error: err instanceof Error ? err.message : String(err) });
@@ -546,7 +546,7 @@ export function createApp(options: AppOptions = {}) {
       } catch { /* no profile */ }
 
       const scope = selectQuizScope(todayPlan, conceptMap, weaknessProfile);
-      const quiz = await generateScopedQuiz(scope, config, llm, today, P.eventLog);
+      const quiz = await generateScopedQuiz(scope, config, llm, today, P.eventLog, options.workspaceRoot);
       res.json(quiz);
     } catch (err) {
       res.status(500).json({ error: String(err) });
@@ -566,6 +566,7 @@ export function createApp(options: AppOptions = {}) {
         conceptsPath: path.join(P.graph, 'concepts.json'),
         planPath: path.join(P.plan, 'plan_master.json'),
         eventLogFile: P.eventLog,
+        workspaceRoot: options.workspaceRoot,
       });
       res.json({
         ...result,
