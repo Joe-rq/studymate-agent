@@ -3,14 +3,23 @@ services:
     build: .
     image: studymate-agent:latest
     ports:
-      - "3456:3456"
+      # 默认只映射到宿主机回环地址。公网/VPS 部署请改为你需要的绑定，
+      # 并务必配置 STUDYMATE_ACCESS_TOKEN + HTTPS 反向代理（见 docs/DEPLOYMENT.md）。
+      - "127.0.0.1:3456:3456"
     volumes:
       # workspace 持久化（你的考试项目、资料、学习记录都在这里）
       - ./workspace:/app/workspace
     environment:
+      # 容器内必须绑定 0.0.0.0 才能被端口映射转发；暴露面由上面的宿主机端口绑定控制
+      - HOST=0.0.0.0
       # 可选：配置后走真实 LLM；不配置则 Mock 模式
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - OPENAI_BASE_URL=${OPENAI_BASE_URL:-https://api.openai.com/v1}
       - LLM_MODEL=${LLM_MODEL:-gpt-4o-mini}
       - SERP_API_KEY=${SERP_API_KEY:-}
+      # 访问控制：设置后所有 /api/* 需要 Token（强烈建议公网部署必配）
+      - STUDYMATE_ACCESS_TOKEN=${STUDYMATE_ACCESS_TOKEN:-}
+      # 可选：CORS 白名单（逗号分隔）与速率限制
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-}
+      - RATE_LIMIT_PER_MINUTE=${RATE_LIMIT_PER_MINUTE:-300}
     restart: unless-stopped

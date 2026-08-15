@@ -247,6 +247,11 @@ today / quiz / grade → buddy interjects a one-liner    # automatic, at command
 | `OPENAI_API_KEY`    | Required for real LLM calls                        | —                              |
 | `OPENAI_BASE_URL`   | OpenAI-compatible API base URL                     | `https://api.openai.com/v1`    |
 | `LLM_MODEL`         | Model name passed to the completions endpoint      | `gpt-4o-mini`                  |
+| `SERP_API_KEY`      | Exam research search; when unset, `/api/exam/research` returns a `skipped` response and the onboarding UI guides local upload | — |
+| `HOST`              | Server bind address                                | `127.0.0.1`                    |
+| `STUDYMATE_ACCESS_TOKEN` | When set, all `/api/*` routes require this token (Bearer / `X-Access-Token` / query / cookie) | — |
+| `ALLOWED_ORIGINS`   | CORS allowlist (comma-separated); unset = same-origin, no CORS headers | — |
+| `RATE_LIMIT_PER_MINUTE` | Per-IP request limit per minute                | `300`                          |
 
 No `.env` file is loaded automatically. Set environment variables before running the CLI, or the code falls back to the mock LLM.
 
@@ -256,8 +261,10 @@ No `.env` file is loaded automatically. Set environment variables before running
 
 - **API keys:** `OPENAI_API_KEY` is read from the environment only. Never commit keys; `.gitignore` excludes `.env` and `.env.*.local`.
 - **Local data:** The `workspace/` directory contains personal study materials and is gitignored. Do not add real user data to the repository.
-- **User data boundaries:** The CLI reads files from paths supplied by the user (`ingest`, `grade --answers`). Keep file I/O scoped to the provided paths and the workspace directory.
+- **User data boundaries:** The CLI reads files from paths supplied by the user (`ingest`, `grade --answers`). Keep file I/O scoped to the provided paths and the workspace directory. Web uploads go through `uploadLocalMaterial()` (extension allowlist, 20MB cap, server-sanitized filenames, temp file deleted after import).
 - **LLM output parsing:** `completeJSON()` strips Markdown fences before `JSON.parse()`, but any new agent that parses LLM output should validate the shape defensively.
+- **Server routes must resolve paths via `resolvePaths(options.workspaceRoot)`** — never use the default `Paths.*` directly inside `createApp`, or isolated tests will write to the real workspace.
+- **Studio grading is server-authoritative:** the web client only submits `sessionId`, `quizId`, and answers to `/api/studio/grade`; scores and mastery changes are produced by the server-side `gradeAndAdapt` workflow and grade receipts.
 
 ---
 
@@ -281,9 +288,12 @@ No `.env` file is loaded automatically. Set environment variables before running
 
 ## Notes for AI Agents
 
-- This is a hackathon MVP. The complete user loop includes: exam create, ingest, plan, today, quiz, grade, metrics, knowledge, and buddy chat.
+- This is a hackathon MVP. The complete user loop includes: exam create, ingest (or web upload), plan, today, quiz, grade, metrics, knowledge, and buddy chat.
 - Avoid speculative abstractions. Prefer small, focused changes that match the existing agent pattern.
 - Keep LLM prompts as plain text files under `src/prompts/` when they need to be editable; otherwise use a hard-coded fallback inside the agent.
 - When modifying event logging, maintain the existing `Event` schema so downstream event consumers remain compatible. Event schema version 2 adds optional `model`, `promptVersion`, `durationMs`, and `tokenUsage` fields.
 - Each agent file that builds prompts exports a `PROMPT_VERSION` constant for tracking.
 - All e2e tests use `workspaceRoot?` pattern for isolation — never pollute the real workspace.
+- **Planner invariants:** every concept in `learningOrder` must be scheduled as a `learn` task or reported in `StudyPlan.capacity.unscheduledConceptIds`; the planner must not touch `Concept.srState` (initial reviews use fixed intervals `1/3/7/15/30`; runtime SM-2 takes over after real grading). `adjustPlan()` defaults to tomorrow and inserts SM-2 due-date reviews idempotently.
+- **Study Studio invariants:** multiple sessions per day are allowed (completed sessions go to history); task `done` is written only at session completion; quizzes are bound to `sessionId` and scoped to the session's concept; grading runs atomically server-side with receipt-based idempotency (different answers → 409).
+- **Status guard:** `buildKnowledge()` must not advance an exam to `materials_ready` with zero materials or zero concepts — it throws and leaves status unchanged.

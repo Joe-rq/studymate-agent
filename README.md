@@ -44,9 +44,9 @@ npm run demo     # 生成示例数据到 workspace/（原有数据自动备份�
 npm run serve    # 启动后端 3456（含 Web 前端）
 ```
 
-打开 http://localhost:3456 —— 首页 →「学习」/studio 走「材料 → 回忆 → 测验 → 反馈 → 复盘」，再到「成长」页看 Session 趋势。
+打开 http://localhost:3456 —— 首页 →「学习」/studio 走「材料 → 回忆 → 测验 → 反馈 → 复盘」，再到「成长」页看 Session 趋势。服务默认只监听 `127.0.0.1`，个人学习数据不会暴露到局域网。
 
-> 配置 `OPENAI_API_KEY` 后使用真实大模型；未配置则走 Mock LLM，演示完整可用。
+> 配置 `OPENAI_API_KEY` 后使用真实大模型；未配置则走 Mock LLM，演示完整可用。无 `SERP_API_KEY` 时建档向导会跳过搜索调研，直接上传本地 PDF/Markdown 即可继续。
 
 ## 两种界面
 
@@ -75,7 +75,7 @@ studymate chat           # 和搭子多轮对话
 ## 测试与覆盖率
 
 ```bash
-npm test                 # Vitest 全量测试（297+ 用例）
+npm test                 # Vitest 全量测试（328 用例 / 42 文件）
 npx vitest run --coverage  # 覆盖率报告（输出到 coverage/）
 ```
 
@@ -133,18 +133,18 @@ flowchart TB
 
 - **考试项目建档**：从考试名称、日期、科目开始生成完整备考项目
 - **备考调研**：搜索官方/经验/资料来源，保留引用，用户确认后入库
-- **任意资料导入**：PDF 与 Markdown，按标题层级语义切片，稳定 ID 防覆盖
+- **任意资料导入**：PDF 与 Markdown，按标题层级语义切片，稳定 ID 防覆盖；Web 端支持本地文件直接上传（无需搜索 Key）
 - **概念抽取**：LLM 提取核心概念与前置依赖，三色 DFS 检测循环，生成学习顺序
-- **动态复习计划**：学习/巩固/冲刺三阶段，SM-2 间隔重复
-- **每日任务推送**：Markdown 今日任务，未完成自动顺延（幂等）
-- **自动出题**：基于当日知识点与到期薄弱点生成单选/多选题，附解析与回链
-- **即时批改**：客观题自动判分，错误分类与薄弱点定位
-- **错题回流**：累积式错题画像、掌握度历史、自动插入复习任务
-- **学习闭环 /studio**：材料 → 主动回忆 → 测验 → 反馈 → 复盘，Session 持久化、刷新可恢复
+- **动态复习计划**：学习/巩固/冲刺三阶段；初始计划用固定间隔（1/3/7/15/30 天），真实作答后由 SM-2 接管；容量不足时显式报告未排入概念，绝不静默丢弃
+- **每日任务推送**：Markdown 今日任务，未完成自动顺延（幂等）；计划调整默认从次日生效并同步重建 Markdown 快照
+- **自动出题**：基于当日知识点与到期薄弱点生成单选/多选题，附解析与回链；Studio 内测验绑定当前学习任务
+- **即时批改**：客观题自动判分，错误分类与薄弱点定位；Studio 的成绩/掌握度变化全部由服务端原子工作流产生，前端只提交答案
+- **错题回流**：累积式错题画像、掌握度历史、按 SM-2 到期日幂等插入复习任务
+- **学习闭环 /studio**：材料 → 主动回忆 → 测验 → 反馈 → 复盘；一天可连续完成多个 Session，刷新恢复活动会话，中断重试幂等（换答案重试返回 409）
 - **拟人化备考搭子**：4 角色、跨会话记忆、关键时刻介入、活跃度分级
 - **成长数据 /growth**：Session 历史 + 正确率/时长趋势（recharts）
 - **Ambient 主题**：4 角色 × 深浅双主题的整页空间氛围
-- **CLI + Web 双界面**、**全链路事件审计**（`workspace/event_log/events.jsonl`）、**本地优先 + 离线可用**
+- **CLI + Web 双界面**、**全链路事件审计**（`workspace/event_log/events.jsonl`，LLM 调用记录 model/promptVersion/duration/tokenUsage）、**本地优先 + 离线可用**
 
 > 🎬 **Demo 视频**：[B 站在线观看](https://www.bilibili.com/video/BV1gduB6QEMD/)（「你的备考搭子」，78 秒，晓伊女声中文旁白）｜[本地文件](screenshots/demo_v2/studymate_demo.mp4)。界面截图见 [`screenshots/`](screenshots/)。
 
@@ -152,8 +152,20 @@ flowchart TB
 
 - **单用户 / 单考试项目**：workspace 同时支持一个活跃考试项目
 - **纯文本交互**：无语音 / 动画（角色用精灵图静态帧 + CSS 微动）
-- **Mock 降级**：无 API key 用 Mock LLM/Mock 搜索，返回固定演示内容
+- **Mock 降级**：无 `OPENAI_API_KEY` 时使用 Mock LLM（固定演示内容，事件日志中 model 标记为 `mock-llm`）；无 `SERP_API_KEY` 时**跳过在线调研**，Web 建档引导直接上传本地 PDF/Markdown（CLI 的 Mock 搜索同样返回空结果，请用 `ingest` 导入本地资料）
+- **事件日志是审计日志**：`events.jsonl` 为 append-only 审计记录，**不支持从事件重放恢复全部状态**——状态事实源是 `workspace/` 下的各 JSON/JSONL/Markdown 文件
+- **指标边界**：题目弃用率在「跳过/弃用题目」反馈机制实现前显式返回 `null`（不可用），不伪造 0
 - **前端暂无单测**：以 `tsc -b && vite build` + 手动验收为主，后端有完整 vitest 套件
+
+## 证据边界
+
+为避免夸大声明，当前能力按验证层级区分：
+
+| 层级 | 状态 |
+|---|---|
+| 代码实现 | 计划容量完整性、SM-2 分离、Studio 服务端原子批改、本地资料上传、访问控制等均有对应单元/集成测试（328 用例） |
+| Mock 验证 | 无任何外部 Key 时：Web 本地上传 → 构建 → 计划 → Studio 两个学习任务 → 服务端批改 → 复盘 全流程离线可跑（见 `tests/server/onboarding.test.ts`、`tests/server/study.test.ts`） |
+| 真实 API 验证 | 配置 `OPENAI_API_KEY` / `SERP_API_KEY` 后同一流程走真实模型；LLM 调用的 model/promptVersion/duration/tokenUsage 记录在事件日志（schema v2）可事后审计 |
 
 ## 开发
 
@@ -174,9 +186,14 @@ npm run web        # 前端开发服务器 5173（Vite proxy /api → 3456）
 | `OPENAI_API_KEY` | 真实 LLM 调用 | —（无则 Mock） |
 | `OPENAI_BASE_URL` | OpenAI 兼容 API 地址 | `https://api.openai.com/v1` |
 | `LLM_MODEL` | 模型名 | `gpt-4o-mini` |
-| `SERP_API_KEY` | 备考调研搜索 | —（无则 Mock） |
+| `SERP_API_KEY` | 备考调研搜索 | —（无则跳过调研，引导本地资料） |
+| `HOST` | 服务监听地址 | `127.0.0.1`（仅本机；设 `0.0.0.0` 开放局域网/容器外，务必配合访问控制） |
+| `PORT` | 服务端口 | `3456` |
+| `STUDYMATE_ACCESS_TOKEN` | API 访问 Token（设置后所有 `/api/*` 需认证） | —（未设置=本机免认证） |
+| `ALLOWED_ORIGINS` | CORS 白名单（逗号分隔） | —（默认同源，不下发 CORS 头） |
+| `RATE_LIMIT_PER_MINUTE` | 每 IP 每分钟请求上限 | `300` |
 
-无 API key 时从 `.env.local` 加载（见 `.env.example`）。
+无 API key 时从 `.env.local` 加载（见 `.env.example`）。部署到 VPS/公网前必读 [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) 的安全要求。
 
 ## 文档
 
