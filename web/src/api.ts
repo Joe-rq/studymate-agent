@@ -1,14 +1,41 @@
 import { beginRequest, endRequest } from './lib/requestState';
 
 const BASE = '/api';
+const TOKEN_KEY = 'studymate_access_token';
+/** 服务端返回 401 时触发（App 层监听后弹出令牌输入门禁）。 */
+export const AUTH_REQUIRED_EVENT = 'studymate:auth-required';
+
+/** 访问令牌只存 sessionStorage：关闭标签页即失效，不写入 localStorage/URL/Cookie。 */
+export function getAccessToken(): string | null {
+  return sessionStorage.getItem(TOKEN_KEY);
+}
+
+export function setAccessToken(token: string): void {
+  sessionStorage.setItem(TOKEN_KEY, token);
+}
+
+export function clearAccessToken(): void {
+  sessionStorage.removeItem(TOKEN_KEY);
+}
+
+export class UnauthorizedError extends Error {
+  constructor() {
+    super('访问未授权：需要访问令牌');
+    this.name = 'UnauthorizedError';
+  }
+}
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   beginRequest();
   try {
-    const res = await fetch(`${BASE}${path}`, {
-      headers: { 'Content-Type': 'application/json' },
-      ...options,
-    });
+    const headers = new Headers({ 'Content-Type': 'application/json' });
+    const token = getAccessToken();
+    if (token) headers.set('Authorization', `Bearer ${token}`);
+    const res = await fetch(`${BASE}${path}`, { ...options, headers });
+    if (res.status === 401) {
+      window.dispatchEvent(new Event(AUTH_REQUIRED_EVENT));
+      throw new UnauthorizedError();
+    }
     if (!res.ok) {
       const body = await res.json().catch(() => ({ error: res.statusText }));
       throw new Error(body.error ?? `HTTP ${res.status}`);

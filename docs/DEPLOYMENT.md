@@ -30,7 +30,7 @@ StudyMate 默认不含多用户体系，个人数据防护依赖以下配置：
    STUDYMATE_ACCESS_TOKEN=<长随机字符串>
    ```
 
-   设置后所有 `/api/*` 请求需要认证（`Authorization: Bearer <token>`、`X-Access-Token` 头、`?access_token=` 或 `studymate_token` Cookie 任一方式）。未认证请求一律 `401`，无法读取考试数据、薄弱点、搭子历史或修改计划。
+   设置后所有 `/api/*` 请求需要认证（`Authorization: Bearer <token>`、`X-Access-Token` 头或 `studymate_token` Cookie 任一方式，**不支持 URL 查询参数**——Token 不应进入 URL/访问日志）。未认证请求一律 `401`，无法读取考试数据、薄弱点、搭子历史或修改计划。Web 前端收到 401 时会弹出令牌输入门禁，令牌仅存浏览器会话（sessionStorage），关闭标签页即失效。
 
 2. **HTTPS 反向代理**：用 Caddy / Nginx + Let's Encrypt 终结 TLS，仅将 `127.0.0.1:3456` 反代到公网 443。Token 走明文 HTTP 会被中间人截获。
 

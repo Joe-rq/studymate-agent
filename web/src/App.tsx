@@ -13,6 +13,7 @@ import GrowthPage from './pages/GrowthPage';
 import PetLayer from './components/PetLayer';
 import Topbar from './components/Topbar';
 import { ToastHost } from './components/Toast';
+import { AUTH_REQUIRED_EVENT, setAccessToken } from './api';
 
 const navItems = [
   { to: '/', label: '首页' },
@@ -27,12 +28,20 @@ const navItems = [
 
 export default function App() {
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [needsToken, setNeedsToken] = useState(false);
   const location = useLocation();
 
   // Close drawer on navigation
   useEffect(() => {
     setDrawerOpen(false);
   }, [location.pathname]);
+
+  // 任一 API 返回 401 时弹出令牌输入门禁
+  useEffect(() => {
+    const handler = () => setNeedsToken(true);
+    window.addEventListener(AUTH_REQUIRED_EVENT, handler);
+    return () => window.removeEventListener(AUTH_REQUIRED_EVENT, handler);
+  }, []);
 
   return (
     <div className="app-layout">
@@ -83,6 +92,55 @@ export default function App() {
       <PetLayer />
 
       <ToastHost />
+
+      {needsToken && (
+        <TokenGate
+          onDone={() => {
+            setNeedsToken(false);
+            window.location.reload();
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function TokenGate({ onDone }: { onDone: () => void }) {
+  const [value, setValue] = useState('');
+  const submit = () => {
+    if (!value.trim()) return;
+    setAccessToken(value.trim());
+    onDone();
+  };
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        background: 'rgba(0,0,0,0.5)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 1000,
+      }}
+    >
+      <div className="card" style={{ maxWidth: 360, width: '90%' }}>
+        <h3>需要访问令牌</h3>
+        <p className="muted" style={{ marginBottom: 12 }}>
+          服务已启用访问认证。请输入访问令牌以继续（仅本次会话有效）。
+        </p>
+        <input
+          type="password"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          placeholder="访问令牌"
+          autoFocus
+          style={{ width: '100%', marginBottom: 12 }}
+        />
+        <button className="btn btn-primary" onClick={submit} style={{ width: '100%' }}>
+          确认
+        </button>
+      </div>
     </div>
   );
 }

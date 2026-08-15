@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { api, type CharacterInfo, type BuddyStateResponse } from '../api';
+import { api, getAccessToken, setAccessToken, clearAccessToken, type CharacterInfo, type BuddyStateResponse } from '../api';
 import Mascot from '../components/Mascot';
 import { Loading } from '../components/Feedback';
 import { toast } from '../components/Toast';
@@ -20,8 +20,11 @@ export default function Settings() {
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [token, setToken] = useState('');
+  const [hasToken, setHasToken] = useState(false);
 
   useEffect(() => {
+    setHasToken(Boolean(getAccessToken()));
     Promise.all([
       api.get<CharactersResponse>('/characters'),
       api.get<BuddyStateResponse>('/buddy/state'),
@@ -55,6 +58,20 @@ export default function Settings() {
       toast.push('保存失败，请重试', 'info');
     }
     setSaving(false);
+  };
+
+  const handleSaveToken = () => {
+    if (!token.trim()) return;
+    setAccessToken(token.trim());
+    setToken('');
+    setHasToken(true);
+    toast.push('访问令牌已保存（仅本次会话有效）', 'success');
+  };
+
+  const handleClearToken = () => {
+    clearAccessToken();
+    setHasToken(false);
+    toast.push('已清除访问令牌', 'info');
   };
 
   if (loading) return <Loading />;
@@ -148,6 +165,31 @@ export default function Settings() {
         <p className="muted" style={{ marginBottom: 8 }}>
           主题切换位于页面顶部，支持浅色 / 深色 / 跟随系统三种模式，选择会自动记住。
         </p>
+      </div>
+
+      <h3 className="section-title">访问令牌</h3>
+      <div className="card">
+        <p className="muted" style={{ marginBottom: 8 }}>
+          服务端启用 STUDYMATE_ACCESS_TOKEN 后需在此输入令牌才能访问数据。令牌保存在浏览器会话（sessionStorage），关闭标签页后失效，不写入 URL 或 Cookie。
+        </p>
+        {hasToken ? (
+          <button className="btn" onClick={handleClearToken}>
+            清除已保存的令牌
+          </button>
+        ) : (
+          <div style={{ display: 'flex', gap: 8 }}>
+            <input
+              type="password"
+              value={token}
+              onChange={(e) => setToken(e.target.value)}
+              placeholder="输入访问令牌"
+              style={{ flex: 1 }}
+            />
+            <button className="btn btn-primary" onClick={handleSaveToken}>
+              保存
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

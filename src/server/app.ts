@@ -98,9 +98,9 @@ export function createApp(options: AppOptions = {}) {
     app.use('/api', (req, res, next) => {
       const header = req.header('authorization');
       const bearer = header?.startsWith('Bearer ') ? header.slice(7) : undefined;
+      // 不支持 URL 查询参数传递 Token：query 会进入访问日志/浏览器历史/反向代理日志，有泄漏风险
       const provided =
         bearer ?? (req.header('x-access-token') as string | undefined) ??
-        (req.query.access_token as string | undefined) ??
         (req.headers.cookie ?? '')
           .split(';')
           .map((c) => c.trim())
