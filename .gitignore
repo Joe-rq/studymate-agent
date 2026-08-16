@@ -72,3 +72,6 @@ coverage/
 # demo_v3 production intermediates
 /screenshots/demo_v3/seg/
 /screenshots/demo_v3/merged_v3.mp4
+
+# 临时 e2e 测试目录
+.run-e2e-test/
